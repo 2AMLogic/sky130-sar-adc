@@ -1114,3 +1114,476 @@ class TestCornersDecoupleRecordPortSections(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# Fixed-text interpretation sentences made data-derived (issue #894, #891)
+# ---------------------------------------------------------------------------
+# Seven string literals across the two record writers each asserted a
+# finding no value of the data could withhold: a spread clause that said
+# "not corner-invariant" directly after printing 1.0x, a pair of sentences
+# claiming this run reproduced f589273's per-corner shape while printing one
+# uniform fallback value at 9 of 9 corners, and four claiming other
+# campaigns "stay single-corner-only" when full-grid records for every
+# window x sweep combination already sat in the same directory. The first
+# three are now rendered by pure helpers; the last four are deleted.
+
+
+class TestBareBudgetSpreadNote(unittest.TestCase):
+    """`bare_budget_spread_note()` -- issue #894, filed as #891.
+
+    The regression: `records/20260908-100413-f3e2914.md` and its three
+    siblings print "Worst-to-best spread across the ratified grid: 1.0x --
+    the bare R_source budget is **not** corner-invariant", i.e. the
+    sentence states the opposite of the number immediately before it. A
+    1.0x spread over nine corners, every one right-censored at the top of
+    the sweep list, is evidence the list cannot separate them -- not
+    evidence of corner sensitivity."""
+
+    LARGEST = 100e3
+
+    def _note(self, best, binding, count=9, censored=False, partial=False):
+        return rt.bare_budget_spread_note(best, binding, count, censored,
+                                          self.LARGEST, partial)
+
+    # -- branch 1: a real spread -> the original wording is kept ---------
+    def test_a_real_spread_still_says_not_corner_invariant(self):
+        note = self._note(30e3, 1e3)
+        self.assertIn("30.0x", note)
+        self.assertIn("is **not** corner-invariant", note)
+
+    def test_the_spread_ratio_is_best_over_binding(self):
+        self.assertIn("10.0x", self._note(10e3, 1e3))
+        self.assertIn("3.0x", self._note(30e3, 10e3))
+
+    # -- branch 2: a tie with every scored corner right-censored ---------
+    def test_an_all_censored_tie_does_not_say_not_corner_invariant(self):
+        """The exact committed-record shape: nine corners, all tied at the
+        largest swept value."""
+        note = self._note(self.LARGEST, self.LARGEST, count=9, censored=True)
+        self.assertNotIn("**not** corner-invariant", note)
+        self.assertIn("1.0x", note)
+        self.assertIn("right-censored", note)
+        self.assertIn("not established either way", note)
+
+    def test_the_censored_tie_names_the_sweep_lists_top_value(self):
+        note = self._note(self.LARGEST, self.LARGEST, count=9, censored=True)
+        self.assertIn("100000 ohm", note)
+        self.assertIn("where the sweep list stops", note)
+
+    # -- branch 3: a tie with no censoring -------------------------------
+    def test_an_uncensored_tie_reads_as_evidence_for_invariance(self):
+        note = self._note(10e3, 10e3, count=9, censored=False)
+        self.assertNotIn("**not** corner-invariant", note)
+        self.assertIn("1.0x", note)
+        self.assertIn("equal across all 9 scored corner(s)", note)
+        self.assertIn("evidence FOR corner-", note)
+
+    # -- branch 4: a single scored corner has no spread at all -----------
+    def test_a_single_scored_corner_reports_no_spread_at_all(self):
+        """`len(points) == 1`, where a worst-to-best ratio is meaningless:
+        reporting "1.0x" would dress up an absent comparison as a tie."""
+        note = self._note(10e3, 10e3, count=1)
+        self.assertNotIn("**not** corner-invariant", note)
+        self.assertNotIn("1.0x", note)
+        self.assertIn("no worst-to-best spread at all", note)
+
+    def test_a_single_censored_scored_corner_says_it_is_censored(self):
+        note = self._note(self.LARGEST, self.LARGEST, count=1, censored=True)
+        self.assertIn("right-censored", note)
+        self.assertNotIn("**not** corner-invariant", note)
+
+    # -- population wording ----------------------------------------------
+    def test_a_partial_grid_scopes_the_spread_to_the_scored_corners(self):
+        self.assertIn("among the corner(s) that have one",
+                      self._note(30e3, 1e3, partial=True))
+        self.assertIn("across the ratified grid",
+                      self._note(30e3, 1e3, partial=False))
+
+    # -- the invariant the issue is about ---------------------------------
+    def test_not_corner_invariant_appears_only_when_the_spread_exceeds_one(self):
+        spread = [(30e3, 1e3), (10e3, 1e3), (self.LARGEST, 10e3)]
+        tied = [(10e3, 10e3), (self.LARGEST, self.LARGEST)]
+        for best, binding in spread:
+            self.assertIn("**not** corner-invariant",
+                          self._note(best, binding), (best, binding))
+        for best, binding in tied:
+            for censored in (True, False):
+                self.assertNotIn(
+                    "**not** corner-invariant",
+                    self._note(best, binding, censored=censored),
+                    (best, binding, censored))
+
+
+class TestMarginalRSourceShapeNote(unittest.TestCase):
+    """`marginal_r_source_shape_note()` -- issue #894 sites S1 and S3.
+
+    The regression: both the Claim and the Result asserted that this run's
+    per-corner marginal R_source values "reproduce the bare R_source
+    full-grid campaign's own per-corner shape", unconditionally -- while
+    every committed record prints the SAME fallback value at 9 of 9
+    corners. The Result's own sibling `else` branch already said every
+    corner ran against a fallback resistance, so the record contradicted
+    itself one bullet later."""
+
+    FALLBACK = 100e3
+
+    @staticmethod
+    def _pt(cid: str, *, fallback: bool, marginal: float) -> dict:
+        return {"corner_id": cid, "marginal_is_fallback": fallback,
+                "marginal_r_source_ohm": marginal,
+                "budget_1lsb_f": 10e-12}
+
+    def _note(self, points, window="worst", **kw):
+        return rt.marginal_r_source_shape_note(points, window,
+                                               self.FALLBACK, **kw)
+
+    def _all_fallback(self, n=9):
+        return [self._pt(f"c{i}", fallback=True, marginal=self.FALLBACK)
+                for i in range(n)]
+
+    # -- branch 1: every corner is the fallback (the live case) ----------
+    def test_an_all_fallback_grid_does_not_claim_the_shape_was_reproduced(self):
+        note = self._note(self._all_fallback())
+        self.assertNotIn("reproduces", note)
+        self.assertIn("does NOT reproduce", note)
+        self.assertIn("measures NO per-corner shape", note)
+        self.assertIn("100000 ohm", note)
+
+    def test_the_all_fallback_branch_does_not_assert_the_span_for_this_run(self):
+        """S1's defect: the order-of-magnitude span was asserted as settled
+        for this run. It may be cited, but only as the OTHER record's
+        figure, and only alongside the fact that this run does not show
+        it."""
+        note = self._note(self._all_fallback())
+        self.assertIn("a variation this run does not show", note)
+        self.assertIn(rt.PER_CORNER_SHAPE_REFERENCE["worst"][0], note)
+
+    # -- branch 2: values vary and none is a fallback --------------------
+    def test_varying_values_report_this_runs_own_spread(self):
+        points = [
+            self._pt("a", fallback=False, marginal=1e3),
+            self._pt("b", fallback=False, marginal=10e3),
+            self._pt("c", fallback=False, marginal=30e3),
+        ]
+        note = self._note(points)
+        self.assertIn("1000-30000 ohm", note)
+        self.assertIn("30.0x", note)
+        self.assertIn("IS corner-dependent here", note)
+
+    def test_reproduces_is_used_when_the_figures_match_one_for_one(self):
+        """The only case the word is earned: this run's distinct marginal
+        values are exactly the reference record's distinct figures."""
+        ref = rt.PER_CORNER_SHAPE_REFERENCE["worst"][1]
+        points = [self._pt(f"c{i}", fallback=False, marginal=v)
+                  for i, v in enumerate(ref)]
+        note = self._note(points)
+        self.assertIn("reproduces that campaign's own per-corner shape", note)
+        self.assertIn("figure for figure", note)
+
+    def test_varying_values_that_differ_do_not_say_reproduces(self):
+        points = [
+            self._pt("a", fallback=False, marginal=300.0),
+            self._pt("b", fallback=False, marginal=3e3),
+        ]
+        note = self._note(points)
+        self.assertNotIn("reproduces", note)
+        self.assertIn("do not match one for one", note)
+
+    def test_measured_but_uniform_values_claim_no_shape(self):
+        """Not fallbacks, but all equal: a genuine measurement that still
+        shows no per-corner variation."""
+        points = [self._pt(f"c{i}", fallback=False, marginal=10e3)
+                  for i in range(9)]
+        note = self._note(points)
+        self.assertNotIn("reproduces", note)
+        self.assertIn("no per-corner spread of its own", note)
+        self.assertIn("All 9 share the same marginal R_source", note)
+
+    # -- branch 3: mixed -------------------------------------------------
+    def test_a_mixed_grid_names_the_fallbacks_and_scopes_the_claim(self):
+        points = [
+            self._pt("fb1", fallback=True, marginal=self.FALLBACK),
+            self._pt("fb2", fallback=True, marginal=self.FALLBACK),
+            self._pt("m1", fallback=False, marginal=1e3),
+            self._pt("m2", fallback=False, marginal=30e3),
+        ]
+        note = self._note(points)
+        self.assertIn("`fb1`", note)
+        self.assertIn("`fb2`", note)
+        self.assertIn("2 of 4 corner(s)", note)
+        self.assertIn("scoped to the remaining 2 corner(s)", note)
+        self.assertIn("30.0x", note)
+
+    def test_a_mixed_grid_with_one_measured_corner_reads_singular(self):
+        points = [
+            self._pt("fb1", fallback=True, marginal=self.FALLBACK),
+            self._pt("m1", fallback=False, marginal=1e3),
+        ]
+        note = self._note(points)
+        self.assertIn("That single corner's marginal R_source is 1000 ohm",
+                      note)
+        self.assertNotIn("reproduces", note)
+
+    # -- branch 4: nothing completed -------------------------------------
+    def test_an_empty_grid_claims_nothing(self):
+        note = self._note([])
+        self.assertNotIn("reproduces", note)
+        self.assertIn("No corner in this run produced a usable bare sweep",
+                      note)
+
+    # -- the quantity caveat and the window key --------------------------
+    def test_the_note_says_the_two_columns_are_different_quantities(self):
+        """A budget is the largest swept R_source that PASSED; a marginal
+        R_source the smallest that FAILED. Comparing them as if they were
+        the same column is what made "reproduces" sound checkable."""
+        note = self._note(self._all_fallback())
+        self.assertIn("different quantities on the same sweep list", note)
+
+    def test_each_window_is_compared_against_its_own_reference_record(self):
+        """The pre-#894 literal cited the WORST-window record from both
+        windows' records -- an uncontrolled cross-window comparison."""
+        for window in rt.WINDOW_CONFIG:
+            self.assertIn(window, rt.PER_CORNER_SHAPE_REFERENCE)
+            ref_id, ref_values = rt.PER_CORNER_SHAPE_REFERENCE[window]
+            note = self._note(self._all_fallback(), window=window)
+            self.assertIn(ref_id, note, window)
+            self.assertTrue(len(ref_values) >= 2, window)
+        self.assertNotIn(rt.PER_CORNER_SHAPE_REFERENCE["legacy"][0],
+                         self._note(self._all_fallback(), window="worst"))
+
+    def test_the_reference_records_exist_in_the_records_directory(self):
+        """The map transcribes figures out of real records; a typo'd id
+        would make the note cite a record that does not exist."""
+        for window, (ref_id, _) in rt.PER_CORNER_SHAPE_REFERENCE.items():
+            self.assertTrue(
+                (rt.EXPERIMENT_DIR / "records" / f"{ref_id}.md").is_file(),
+                f"{window}: {ref_id}")
+
+    # -- brief mode (the Claim bullet's form) -----------------------------
+    def test_brief_mode_drops_the_cross_record_comparison(self):
+        full = self._note(self._all_fallback())
+        brief = self._note(self._all_fallback(), brief=True)
+        self.assertIn("measures NO per-corner shape", brief)
+        self.assertNotIn(rt.PER_CORNER_SHAPE_REFERENCE["worst"][0], brief)
+        self.assertNotIn("reproduce", brief)
+        self.assertLess(len(brief), len(full))
+
+    def test_brief_mode_never_claims_reproduction_in_any_branch(self):
+        ref = rt.PER_CORNER_SHAPE_REFERENCE["worst"][1]
+        grids = [
+            self._all_fallback(),
+            [self._pt(f"c{i}", fallback=False, marginal=v)
+             for i, v in enumerate(ref)],
+            [self._pt("a", fallback=True, marginal=self.FALLBACK),
+             self._pt("b", fallback=False, marginal=1e3)],
+            [],
+        ]
+        for grid in grids:
+            self.assertNotIn("reproduce", self._note(grid, brief=True),
+                             len(grid))
+
+
+class TestSpreadNoteWiring(TestCornersRecordTtNoteWiring):
+    """The call site for the spread clause, not just the helper (#894).
+
+    Inherits `_record_text()` / `_corner_point()` from the #882 wiring
+    harness above -- same stubbed provenance, same temp dir, same
+    guarantee that nothing under sim/vcm-drive-budget/ is written. A
+    correct helper wired to the wrong arguments reproduces the original
+    defect, which is why the helper's own tests are not enough."""
+
+    @staticmethod
+    def _scored(cid: str, budget_ohm: float, *, censored: bool) -> dict:
+        process, temp_c, supply_v = rt.corners_mod.parse_corner_id(cid)
+        return {
+            "corner": process, "temp_c": temp_c, "supply_v": supply_v,
+            "corner_id": cid,
+            "budget_1lsb_ohm": budget_ohm,
+            "budget_1lsb_censored": censored,
+            "budget_p1lsb_ohm": None,
+        }
+
+    def _nine_tied_censored(self):
+        """The exact committed-record shape: every ratified corner
+        right-censored at the largest swept R_source, so the spread is
+        1.0x."""
+        largest = rt.WINDOW_CONFIG["worst"][1][-1]
+        return [self._scored(cid, largest, censored=True)
+                for cid in rt.corner_ids()]
+
+    def test_a_nine_corner_all_tied_censored_grid_is_not_called_variant(self):
+        """The #891 regression, driven end to end through the real
+        writer."""
+        text = self._record_text(None, points=self._nine_tied_censored())
+        self.assertNotIn("not** corner-invariant", text)
+        self.assertIn("1.0x", text)
+        self.assertIn("right-censored at the largest swept R_source", text)
+
+    def test_the_spread_clause_lands_in_the_result_section(self):
+        result = self._record_text(
+            None, points=self._nine_tied_censored()).split("## Result", 1)[1]
+        self.assertIn("Worst-to-best spread", result)
+        self.assertIn("not established either way", result)
+
+    def test_a_genuinely_varying_grid_still_reports_the_spread(self):
+        points = [
+            self._scored("tt_27c_1.80v", 1e3, censored=False),
+            self._scored("ss_27c_1.80v", 30e3, censored=False),
+        ]
+        result = self._record_text(None, points=points).split("## Result", 1)[1]
+        self.assertIn("30.0x", result)
+        self.assertIn("is **not** corner-invariant", result)
+
+    def test_the_writer_passes_the_windows_own_largest_swept_value(self):
+        """A helper handed the wrong sweep list would name the wrong
+        censoring value -- the legacy window's list ends at the same
+        100000 ohm but has three entries, so the count must come from the
+        window too."""
+        for window in rt.WINDOW_CONFIG:
+            largest = rt.WINDOW_CONFIG[window][1][-1]
+            points = [self._scored(cid, largest, censored=True)
+                      for cid in rt.corner_ids()]
+            text = self._record_text(None, window=window, points=points)
+            self.assertIn(f"{largest:.0f} ohm", text, window)
+            self.assertNotIn("not** corner-invariant", text, window)
+
+    def test_no_path_under_the_real_experiment_dir_is_written_by_this_case(self):
+        before = sorted(
+            p.name for p in (rt.EXPERIMENT_DIR / "records").iterdir())
+        self._record_text(None, points=self._nine_tied_censored())
+        after = sorted(
+            p.name for p in (rt.EXPERIMENT_DIR / "records").iterdir())
+        self.assertEqual(before, after)
+
+
+class TestShapeNoteWiring(TestCornersDecoupleRecordPortSections):
+    """The call site for the per-corner-shape note (#894 S1/S3).
+
+    Inherits the C_decouple writer's stubbed-provenance harness above."""
+
+    def _nine_all_fallback(self, window: str = "worst"):
+        """The committed-record shape: `marginal_r_source()` fell back at
+        every corner, so the marginal column is one uniform value.
+
+        A fallback corner's marginal R_source IS the largest swept value
+        (`marginal_r_source()` returns `r_source_list[-1]`), so the fixture
+        sets it rather than leaving the harness default -- otherwise the
+        note and the table it sits under would disagree in the fixture in
+        a way they cannot in a real run."""
+        largest = rt.WINDOW_CONFIG[window][1][-1]
+        points = [self._point(cid, fallback=True) for cid in rt.corner_ids()]
+        for pt in points:
+            pt["marginal_r_source_ohm"] = largest
+        return points
+
+    def test_an_all_fallback_grid_does_not_claim_the_shape_was_reproduced(self):
+        text = self._record_text(self._nine_all_fallback())
+        self.assertNotIn("reproduce the bare R_source full-grid", text)
+        self.assertNotIn("campaign's own per-corner shape\n", text)
+        self.assertIn("does NOT reproduce one", text)
+
+    def test_the_shape_note_lands_in_both_the_claim_and_the_result(self):
+        text = self._record_text(self._nine_all_fallback())
+        claim = [l for l in text.splitlines() if l.startswith("- **Claim**")][0]
+        result = text.split("## Result", 1)[1]
+        self.assertIn("measures NO per-corner shape of its own", claim)
+        self.assertIn("measures NO per-corner shape of its own", result)
+        # The Claim carries the brief form: no cross-record comparison.
+        self.assertNotIn(rt.PER_CORNER_SHAPE_REFERENCE["worst"][0], claim)
+        self.assertIn(rt.PER_CORNER_SHAPE_REFERENCE["worst"][0], result)
+
+    def test_the_record_no_longer_contradicts_its_own_rescue_verdict(self):
+        """The sibling-sentence defect: the Result's `else` branch says
+        every corner ran against a fallback resistance, and the very next
+        note used to claim the per-corner shape was reproduced."""
+        result = self._record_text(
+            self._nine_all_fallback()).split("## Result", 1)[1]
+        self.assertIn("No ratified corner's bare R_source sweep failed at "
+                      "all", result)
+        self.assertIn("measures NO per-corner shape of its own", result)
+        self.assertNotIn("reproduces that campaign", result)
+
+    def test_a_varying_grid_reaches_the_record_with_its_own_spread(self):
+        points = [
+            self._point("tt_27c_1.80v", fallback=False),
+            self._point("ss_27c_1.80v", fallback=False),
+        ]
+        points[0]["marginal_r_source_ohm"] = 1e3
+        points[1]["marginal_r_source_ohm"] = 30e3
+        result = self._record_text(points).split("## Result", 1)[1]
+        self.assertIn("30.0x", result)
+        self.assertIn("IS corner-dependent here", result)
+
+    def test_the_writer_passes_the_windows_own_reference_record(self):
+        for window in rt.WINDOW_CONFIG:
+            text = self._record_text(self._nine_all_fallback(window),
+                                     window=window)
+            result = text.split("## Result", 1)[1]
+            self.assertIn(rt.PER_CORNER_SHAPE_REFERENCE[window][0], result,
+                          window)
+
+    def test_the_note_reports_the_same_value_the_table_above_it_shows(self):
+        """The note must not print the sweep list's top value while the
+        table prints something else -- it is a note ABOUT that table."""
+        for window in rt.WINDOW_CONFIG:
+            largest = rt.WINDOW_CONFIG[window][1][-1]
+            text = self._record_text(self._nine_all_fallback(window),
+                                     window=window)
+            self.assertIn(f"| {largest:.0f} (fallback) |", text, window)
+            self.assertIn(f"resolve to the SAME marginal R_source "
+                          f"({largest:.0f} ohm)", text, window)
+
+    def test_the_deleted_single_corner_only_clauses_are_gone(self):
+        """S2 and S4: the record used to assert what OTHER campaigns
+        exist, which a text writer cannot observe."""
+        text = self._record_text(self._nine_all_fallback())
+        self.assertNotIn("deferred to a future pass", text)
+        self.assertNotIn("natural next step", text)
+        # The durable caveat that followed S4 is retained.
+        self.assertIn("no such buffer exists in this design yet", text)
+
+    def test_no_path_under_the_real_experiment_dir_is_written_by_this_case(self):
+        before = sorted(
+            p.name for p in (rt.EXPERIMENT_DIR / "records").iterdir())
+        self._record_text(self._nine_all_fallback())
+        after = sorted(
+            p.name for p in (rt.EXPERIMENT_DIR / "records").iterdir())
+        self.assertEqual(before, after)
+
+
+class TestDeletedScopeClauses(TestCornersRecordTtNoteWiring):
+    """S5 and S6 on the bare writer: the same "other campaigns stay
+    single-corner-only" assertions, deleted rather than made conditional.
+
+    A text writer cannot observe what else is in `records/` without a
+    directory scan, and such a scan would make committed record wording
+    change as unrelated records land. Full-grid records for every window x
+    sweep combination already existed when these sentences were written."""
+
+    def test_the_bare_record_no_longer_claims_other_campaigns_are_pending(self):
+        text = self._record_text(100e3)
+        self.assertNotIn("deferred to a future pass", text)
+        self.assertNotIn("natural next step", text)
+        self.assertNotIn("stay single-corner-only", text)
+        self.assertNotIn("remain single-corner", text)
+
+    def test_the_scope_and_buffer_caveat_survive_the_deletion(self):
+        """Deleting the claim must not take the record's own factual
+        scope statement or the durable on-chip-buffer caveat with it."""
+        text = self._record_text(100e3)
+        self.assertIn("Scope, narrower than the single-corner default run",
+                      text)
+        self.assertIn("is repeated per corner", text.replace("\n", " "))
+        result = text.split("## Result", 1)[1]
+        self.assertIn("This campaign repeats ONLY the bare (undecoupled) "
+                      "R_source sweep", result)
+        self.assertIn("no such buffer exists in this design yet", result)
+
+    def test_neither_writer_mentions_the_other_window_at_all(self):
+        """The deleted clauses were the only place either writer named the
+        window it was NOT covering."""
+        for window, other in (("worst", "legacy"), ("legacy", "worst")):
+            text = self._record_text(100e3, window=window)
+            self.assertNotIn(rt.WINDOW_DESCRIPTION[other], text,
+                             f"{window} record names the {other} window")
