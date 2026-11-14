@@ -141,6 +141,18 @@ class TestSubmit(unittest.TestCase):
             with self.assertRaises(klt_sim.SubmitError):
                 self._submit(Path(td), backend="batch", runner=_runner(out=envelope))
 
+    def test_a_non_envelope_dict_on_stderr_is_refused_not_cached(self):
+        """Issue #898: a stderr dict with no `error` key is neither a report
+        nor an envelope -- refused as "no JSON report", never cached."""
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(klt_sim.SubmitError) as ctx:
+                self._submit(Path(td), backend="batch",
+                             runner=_runner(rc=1, out="",
+                                            err='{"job": 1, "status": "running"}\n'))
+            self.assertIn("returned no JSON report", str(ctx.exception))
+            # caching is the actual harm -- assert on the file's absence
+            self.assertFalse((Path(td) / "report.json").exists())
+
     def test_error_beside_corners_is_a_partial_run_and_is_returned(self):
         """`error` AND `corners` means a partially-failed run, not an
         envelope: the caller's own reader decodes the usable corners."""
@@ -263,6 +275,21 @@ class TestEnvelopeFromStderr(unittest.TestCase):
     def test_a_json_array_on_stderr_is_not_an_envelope(self):
         self.assertIsNone(klt_sim.envelope_from_stderr("[1, 2, 3]\n"))
 
+    def test_a_non_envelope_dict_yields_none(self):
+        """Issue #898: a JSON dict with no `error` key -- a progress or
+        status object at column 0 -- is not an envelope, and must not be
+        returned as one."""
+        self.assertIsNone(
+            klt_sim.envelope_from_stderr('{"job": 1, "status": "running"}\n'))
+
+    def test_a_non_envelope_dict_does_not_mask_the_real_envelope(self):
+        """Issue #898: the scan keeps walking past a non-envelope dict to
+        the envelope behind it."""
+        text = ('{"job": 1, "status": "running"}\n'
+                '{"error": {"code": "batch_no_capacity"}}\n')
+        env = klt_sim.envelope_from_stderr(text)
+        self.assertEqual(env["error"]["code"], "batch_no_capacity")
+
 
 class TestSubmitEnvelopeBehindWarnings(unittest.TestCase):
     """Issue #892: the two consequences of assuming stderr is pure JSON --
@@ -309,6 +336,39 @@ class TestSubmitEnvelopeBehindWarnings(unittest.TestCase):
             self.assertEqual(report, REPORT)
             self.assertEqual(len(calls), 3)
             self.assertEqual(naps, [7, 7])
+
+    def test_a_non_envelope_dict_does_not_mask_the_envelope_behind_it(self):
+        """Issue #898: a column-0 progress object in front of the envelope
+        must not swallow the refusal -- it is named as its own code, and
+        the capacity retry still fires."""
+        stderr = ('{"job": 1, "status": "running"}\n'
+                  + _stderr_behind_warnings())
+        calls, naps = [], []
+
+        def runner(argv):
+            calls.append(argv)
+            return 1, "", stderr
+
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            with self.assertRaises(klt_sim.SubmitError) as ctx:
+                self._submit(d, backend="batch", runner=runner,
+                             capacity_retries=1, retry_wait_s=7, sleep=naps.append)
+            msg = str(ctx.exception)
+            self.assertIn("batch_no_capacity", msg)
+            self.assertNotIn("returned no JSON report", msg)
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(naps, [7])
+            self.assertFalse((d / "report.json").exists())
+
+    def test_an_error_beside_corners_on_stderr_is_still_a_partial_run(self):
+        """`error` AND `corners` on stderr is a partially-failed run, not an
+        envelope: returned for the caller's own reader, never refused."""
+        partial = dict(REPORT, error={"code": "partial"})
+        with tempfile.TemporaryDirectory() as td:
+            report = self._submit(Path(td), backend="batch",
+                                  runner=_runner(rc=1, out="", err=json.dumps(partial)))
+            self.assertEqual(report["corners"], REPORT["corners"])
 
     def test_a_non_capacity_envelope_behind_warnings_is_not_retried(self):
         calls = []

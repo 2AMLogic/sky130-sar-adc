@@ -74,10 +74,18 @@ def envelope_from_stderr(text: str) -> dict | None:
 
     So the stream is scanned rather than assumed: every line that opens a
     JSON object is a candidate, and the first one that decodes to a dict
-    wins. Trailing text after the envelope is ignored; a candidate line that
-    does not decode (a progress line that happens to start with `{`) is
-    skipped rather than ending the scan. Deliberately not a strip-the-known-
-    `klt:`-prefixes rule, which would be brittle against new wording.
+    carrying an `"error"` key wins. Trailing text after the envelope is
+    ignored; a candidate line that does not decode (a progress line that
+    happens to start with `{`) is skipped rather than ending the scan.
+    Deliberately not a strip-the-known-`klt:`-prefixes rule, which would
+    be brittle against new wording.
+
+    The `"error"` requirement is the point (issue #898): a report is a
+    stdout artifact, so the only dict stderr has a documented reason to
+    carry is an envelope. A non-envelope JSON object -- a progress or
+    status dict at column 0 -- must neither stand in for a report nor mask
+    a real envelope further down the stream; the scan walks past it to the
+    envelope behind it, and a stream carrying no envelope yields None.
     """
     decoder = json.JSONDecoder()
     offset = 0
@@ -88,7 +96,7 @@ def envelope_from_stderr(text: str) -> dict | None:
             except ValueError:
                 pass
             else:
-                if isinstance(value, dict):
+                if isinstance(value, dict) and "error" in value:
                     return value
         offset += len(line)
     return None
@@ -159,6 +167,11 @@ def submit(
     produced an error ENVELOPE (`error` present and no `corners`). An `error`
     key ALONGSIDE `corners` is a partially-failed run, not an envelope, and
     is returned for the caller's own reader to decode.
+
+    A JSON dict on stderr that carries NO `error` key is a third outcome and
+    is refused as "no JSON report" (issue #898): a report is a stdout
+    artifact, so a stderr dict that is not an envelope never becomes one --
+    it is raised over, not cached.
 
     `capacity_retries` adds a bounded client-side retry on a capacity refusal
     *on top of* `--wait-for-capacity`, for the client/runner pairings where
