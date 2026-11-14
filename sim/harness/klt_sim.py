@@ -2,8 +2,9 @@
 
 A campaign driver's job is to build a deck and a request and to decode the
 report it gets back. The part in between -- write the request, run `klt sim`,
-read the JSON report off stdout (or off stderr, where the client writes its
-error envelope), refuse an error envelope rather than read it as zero
+read the JSON report off stdout (or scan stderr for the error envelope the
+client writes there, behind its own warnings), refuse an error envelope
+rather than read it as zero
 corners, cache the report so a resumed campaign does not re-spend fleet
 capacity -- is identical for every campaign, and lives here.
 
@@ -39,6 +40,9 @@ DEFAULT_CAPACITY_WAIT_S = 600.0
 #: How much of a non-JSON `klt sim` failure is quoted in `SubmitError`. One
 #: value for every campaign: the four private copies truncated at 600, 800,
 #: 1200 and 600 characters respectively, which was drift, not a decision.
+#: It is the TAIL that is quoted (issue #892): `klt` leads with install
+#: warnings and per-job progress, so the head of a long stderr is the part
+#: that says least about the failure.
 ERROR_TEXT_CHARS = 1200
 
 #: A shared fleet refuses a launch while it is at its concurrency cap, and
@@ -55,6 +59,51 @@ class SubmitError(RuntimeError):
 def is_capacity_refusal(message: str) -> bool:
     """True when `message` is the fleet saying "not right now"."""
     return any(m.lower() in message.lower() for m in CAPACITY_MARKERS)
+
+
+def envelope_from_stderr(text: str) -> dict | None:
+    """The `klt` error envelope carried somewhere in `text`, or None.
+
+    `klt` writes its error envelope to stderr, but not necessarily ALONE:
+    install warnings and per-job progress lines are written there first, so
+    `json.loads(stderr)` raises on a stream that does plainly contain an
+    envelope (issue #892). That mattered twice over -- the refusal was
+    reported as "no JSON report" (a client malfunction) instead of as the
+    fleet's own `batch_no_capacity`, and `submit()`'s capacity retry, which
+    is gated on a DECODED envelope, could never fire on that shape.
+
+    So the stream is scanned rather than assumed: every line that opens a
+    JSON object is a candidate, and the first one that decodes to a dict
+    wins. Trailing text after the envelope is ignored; a candidate line that
+    does not decode (a progress line that happens to start with `{`) is
+    skipped rather than ending the scan. Deliberately not a strip-the-known-
+    `klt:`-prefixes rule, which would be brittle against new wording.
+    """
+    decoder = json.JSONDecoder()
+    offset = 0
+    for line in (text or "").splitlines(keepends=True):
+        if line.startswith("{"):
+            try:
+                value, _ = decoder.raw_decode(text, offset)
+            except ValueError:
+                pass
+            else:
+                if isinstance(value, dict):
+                    return value
+        offset += len(line)
+    return None
+
+
+def error_excerpt(text: str) -> str:
+    """The `ERROR_TEXT_CHARS`-character TAIL of a failed client's output.
+
+    Quoted only when no envelope decoded at all. The tail, not the head:
+    see `ERROR_TEXT_CHARS`.
+    """
+    text = text or ""
+    if len(text) <= ERROR_TEXT_CHARS:
+        return text
+    return "..." + text[-ERROR_TEXT_CHARS:]
 
 
 def default_runner(argv: list[str]) -> tuple[int, str, str]:
@@ -130,15 +179,19 @@ def submit(
     for attempt in range(capacity_retries + 1):
         rc, out, err = runner(argv)
         try:
-            try:
-                report = json.loads(out)
-            except json.JSONDecodeError:
-                report = json.loads(err)  # `klt` writes its error envelope to stderr (rc 1)
+            # A successful report is on stdout and is STRICT json: a report
+            # that does not parse whole is not a report.
+            report = json.loads(out)
         except json.JSONDecodeError as exc:
-            raise SubmitError(
-                f"{tag} returned no JSON report (rc={rc}): "
-                f"{(err or out)[:ERROR_TEXT_CHARS]}"
-            ) from exc
+            # `klt` writes its error envelope to stderr (rc 1), behind its
+            # own warning and progress lines -- so stderr is scanned for the
+            # envelope, never required to BE it (issue #892).
+            report = envelope_from_stderr(err)
+            if report is None:
+                raise SubmitError(
+                    f"{tag} returned no JSON report (rc={rc}): "
+                    f"{error_excerpt(err or out)}"
+                ) from exc
         if "error" in report and "corners" not in report:
             msg = json.dumps(report["error"])
             if is_capacity_refusal(msg) and attempt < capacity_retries:
