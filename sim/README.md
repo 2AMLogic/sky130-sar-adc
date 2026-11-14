@@ -903,10 +903,18 @@ only runs the stdlib `--check`.
 
 | Stage | What it proves | Needs PDK? |
 | --- | --- | --- |
-| 1/4 | `sim/harness/*` unit tests (`sim/tests/`) | no |
+| 1/4 | the `sim/tests` unit suite -- all of it, not just `sim/harness/*`: that directory is the repo's only unittest root | no |
 | 2/4 | toolchain + PDK pin match `sim/toolchain.json` | — |
 | 3/4 | `harness-corner-smoke` PVT run and `mc-smoke` Monte Carlo run (incl. its negative control) both pass end to end | yes |
 | 4/4 | **negative control**: re-running `harness-corner-smoke` with `--sabotage-corners` (the process-corner `.lib` section forced to `tt`, everything else untouched) must **FAIL** its process-axis sensitivity floor | yes |
+
+Stage 1 is where `npm run check:ci` runs the unit suite — the only place it
+does, since issue #889 removed the chain's second, identical run via
+`npm run test`. The PDK-gated `pdk-smoke` job also invokes
+`./sim/selftest.sh --require-pdk` directly rather than `check:ci`, so this
+stage is that job's only unit-suite run as well, and the suite's only CI run
+on a machine that has ngspice. `sim/tests/test_check_ci_unit_suite_once.py`
+holds both facts.
 
 Stage 4 is the one that matters most. Stages 1–3 can all pass while the corner
 runner silently simulates typical everywhere — every number would look

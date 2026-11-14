@@ -81,10 +81,14 @@ Findings that qualify every CI number below:
 1. **All 99 runs surfaced the message through the unit-test step, not the
    script step.** Every one of those 99 logs contains
    `AssertionError: Lists differ: ['challenge-4-proposal.md:...` and none
-   contains `OK: every citation`. `check:ci` is an `&&` chain with
-   `npm run test` before `npm run check:proposal-citations`
-   (`package.json:7`), so the script step never ran in those runs. The unit
-   suite (`sim/tests/test_proposal_citations.py`) runs the checks over the
+   contains `OK: every citation`. `check:ci` is an `&&` chain that runs the
+   unit suite before `npm run check:proposal-citations` (`package.json`), so
+   the script step never ran in those runs. In the runs counted here that
+   first step was `npm run test` -> `test:unit`; since issue #889 the suite
+   reaches the same position through `npm run check:harness` ->
+   `sim/selftest.sh` stage 1, and the order is held by
+   `sim/tests/test_check_ci_unit_suite_once.py`. The unit suite
+   (`sim/tests/test_proposal_citations.py`) runs the checks over the
    live tree, so the live-tree tests and the script duplicate each other in CI.
 2. **Fires are not classified as "real stale citation" vs "branch mid-update".**
    Every fire is on a feature branch that regenerated or superseded records

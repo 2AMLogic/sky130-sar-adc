@@ -1,8 +1,9 @@
 """Import-smoke coverage for the `layout/*/bin/` entry-point scripts (issue
 #399) -- pure stdlib, no PDK/ngspice/KLayout required, so it belongs to the
-headless tier (`npm run test` -> `test:unit`, run by CI's "Repo checks
-(headless, no PDK)" job; mirrors sim/tests/test_harness.py's PDK-free unit-test
-convention, see sim/selftest.sh stage 1/4).
+headless tier (`npm run test:unit` standalone; reached in CI through
+`check:ci` -> `npm run check:harness` -> `sim/selftest.sh` stage 1, in the
+"Repo checks (headless, no PDK)" job; mirrors sim/tests/test_harness.py's
+PDK-free unit-test convention, see sim/selftest.sh stage 1/4).
 
 Why this exists
 ---------------
