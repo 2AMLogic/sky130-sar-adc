@@ -2,6 +2,11 @@
 
 Sections moved byte-for-byte from [WORK_LOG.md](../WORK_LOG.md) by `loom-daemon work-docs archive`.
 
+### 2026-09-14
+
+- **Issue #31** (closed): T1 item 9: ship a testbench per claimed spec row with a documented cold-start invocation and pinned PDK revision
+- **PR #134**: sim: index every claimed spec row to its testbench, cold start and pinned PDK (#31)
+
 ### 2026-09-12
 
 - **Issue #263** (closed): design: SAR search applies no trial perturbation and never clears the CDAC between conversions -- conversion still does not converge after #257's capture-timing fix
