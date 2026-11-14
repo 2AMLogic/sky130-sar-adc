@@ -21,7 +21,7 @@ REPO = SIM_DIR.parent
 sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(SIM_DIR / "digital-partition"))
 
-from harness import corners as corners_mod  # noqa: E402
+from harness import corners as corners_mod, klt_sim  # noqa: E402
 import digital_area as da  # noqa: E402
 import digital_char as dc  # noqa: E402
 import digital_report as dr  # noqa: E402
@@ -409,6 +409,31 @@ def klt_report(units, remote=None):
     return {"status": "pass", "corners": corners, "environment": {"remote": remote or {"job_id": "j1"}}}
 
 
+def fleet_shard(job, runner="0.9.0", client="0.9.0", compat="match"):
+    """One `environment.remote.fleet[]` entry, keyed as the fleet writes it.
+
+    The version keys live HERE on a sharded run and nowhere on
+    `environment.remote` -- the shape issue #888 is about."""
+    return {"job_id": job, "state": "done", "exit_code": "0",
+            "instance_type": "c7i.8xlarge", "elapsed_seconds": 258,
+            "runner_klt_version": runner, "client_klt_version": client,
+            "runner_compatibility": compat}
+
+
+def committed_sharded_report() -> tuple[Path, dict] | None:
+    """The first committed `klt sim` report that actually went out sharded.
+
+    A real artifact rather than a hand-built one: the fleet, not this test
+    file, decided which keys a shard entry carries. Only the
+    reference-drive-budget driver requests `remote.hosts`, so that is where
+    the shape is committed."""
+    for q in sorted(REPO.glob("sim/reference-drive-budget/corners/*/report.json")):
+        raw = json.loads(q.read_text())
+        if ((raw.get("environment") or {}).get("remote") or {}).get("fleet"):
+            return q, raw
+    return None
+
+
 class TestReportReading(unittest.TestCase):
     def test_reads_corners_and_remote(self):
         rep = klt_report({"tt_27c_1.80v": ("pass", perfect_values(), [])})
@@ -416,6 +441,19 @@ class TestReportReading(unittest.TestCase):
         self.assertEqual(list(res), ["tt_27c_1.80v"])
         self.assertEqual(info["remote"], {"job_id": "j1"})
         self.assertTrue(dc.grade_unit(res["tt_27c_1.80v"]).passed)
+
+    def test_run_info_is_the_shared_harness_reader(self):
+        """Issue #888: the run-level facts are whatever
+        `harness.klt_sim.run_info()` makes of the report -- for the sharded
+        shape as much as the single-job one -- not a private dict built from
+        `environment.remote` alone."""
+        rep = klt_report({"tt_27c_1.80v": ("pass", perfect_values(), [])})
+        self.assertEqual(dc.read_report(rep)[1], klt_sim.run_info(rep))
+        rep["environment"]["remote"] = {"fleet": [fleet_shard("a"), fleet_shard("b")]}
+        _, info = dc.read_report(rep)
+        self.assertEqual(info, klt_sim.run_info(rep))
+        self.assertTrue(info["sharded"])
+        self.assertEqual([j["job_id"] for j in info["jobs"]], ["a", "b"])
 
     def test_error_envelope_raises(self):
         with self.assertRaises(ValueError):
@@ -684,6 +722,74 @@ class TestRunnerSkew(unittest.TestCase):
                {"run": {"remote": None}}, {"run": {}}]
         self.assertEqual(dc.runner_skew(log), ["fleet runner klt 0.5.0 vs submitting client klt 0.7.0"])
         self.assertEqual(dc.runner_skew(log[1:]), [])
+
+    def _sharded_run(self, *shards) -> dict:
+        """A `run` block as `read_report()` produces one for a sharded run."""
+        return klt_sim.run_info({"status": "pass", "corners": [],
+                                 "environment": {"remote": {"fleet": list(shards)}}})
+
+    def test_one_mismatching_shard_is_reported(self):
+        """Issue #888: a sharded run has one runner per shard, so every shard
+        is examined -- a single disagreeing one is a disclosure."""
+        run = self._sharded_run(fleet_shard("a"), fleet_shard("b"),
+                                fleet_shard("c", runner="0.5.0", compat="mismatch"))
+        self.assertEqual(dc.runner_skew([{"run": run}]),
+                         ["fleet runner klt 0.5.0 vs submitting client klt 0.9.0"])
+
+    def test_an_all_matching_fleet_reports_nothing(self):
+        run = self._sharded_run(fleet_shard("a"), fleet_shard("b"), fleet_shard("c"))
+        self.assertEqual(dc.runner_skew([{"run": run}]), [])
+
+    def test_a_skewing_fleet_is_reported_once_per_distinct_pair(self):
+        """Eleven shards on the same lagging image are one statement, not
+        eleven; two different lagging versions are two."""
+        run = self._sharded_run(*[fleet_shard(str(i), runner="0.9.0", client="0.9.2")
+                                  for i in range(11)],
+                                fleet_shard("odd", runner="0.8.0", client="0.9.2"))
+        self.assertEqual(dc.runner_skew([{"run": run}]),
+                         ["fleet runner klt 0.9.0 vs submitting client klt 0.9.2",
+                          "fleet runner klt 0.8.0 vs submitting client klt 0.9.2"])
+
+    def test_extra_runs_are_examined_sharded_too(self):
+        """The negative control is passed as an `extra_runs` entry, not in the
+        probe log, so it must be walked the same way."""
+        run = self._sharded_run(fleet_shard("nc", runner="0.5.0"))
+        self.assertEqual(dc.runner_skew([], [run]),
+                         ["fleet runner klt 0.5.0 vs submitting client klt 0.9.0"])
+
+    def test_a_pre_888_campaign_file_still_discloses_its_skew(self):
+        """Committed `campaign.json` run blocks carry the single-job `remote`
+        dict and no `jobs[]`; those records are append-only evidence and are
+        not re-minted, so they must keep reading."""
+        run = {"backend": "batch", "status": "pass",
+               "remote": {"job_id": "j", "runner_klt_version": "0.5.0",
+                          "client_klt_version": "0.7.0", "runner_compatibility": "mismatch"}}
+        self.assertEqual(dc.runner_skew([{"run": run}]),
+                         ["fleet runner klt 0.5.0 vs submitting client klt 0.7.0"])
+
+    def test_committed_sharded_report_discloses_its_skew(self):
+        """The real fleet-written sharded shape, read end to end:
+        `read_report()` -> `runner_skew()`. Before #888 this returned `[]`
+        however the shards disagreed, because the version keys are not on
+        `environment.remote` at all."""
+        found = committed_sharded_report()
+        self.assertIsNotNone(found, "no committed sharded report to read")
+        path, raw = found
+        remote = raw["environment"]["remote"]
+        for key in ("runner_klt_version", "client_klt_version", "runner_compatibility"):
+            self.assertNotIn(key, remote, f"{path.name} is not the sharded shape")
+        shards = remote["fleet"]
+        self.assertGreater(len(shards), 1)
+        pairs = {(s["runner_klt_version"], s["client_klt_version"]) for s in shards}
+        self.assertEqual(len(pairs), 1, "fixture assumes one runner image")
+        runner, client = pairs.pop()
+        self.assertNotEqual(runner, client, "fixture assumes the image lagged the client")
+        # The digital reader does not care about the corner payload; only the
+        # environment shape is under test, so the corners are dropped.
+        _, info = dc.read_report({"status": raw.get("status"), "corners": [],
+                                  "environment": raw["environment"]})
+        self.assertEqual(dc.runner_skew([{"run": info}]),
+                         [f"fleet runner klt {runner} vs submitting client klt {client}"])
 
 
 class TestRecordRendering(unittest.TestCase):

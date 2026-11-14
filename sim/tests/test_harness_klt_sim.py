@@ -355,11 +355,14 @@ class TestRunInfo(unittest.TestCase):
     """A sharded batch run carries job identity under
     `environment.remote.fleet[]`, not on `environment.remote` itself."""
 
-    def _shard(self, job, pdk="f6eeac7", ng="ngspice-47"):
+    def _shard(self, job, pdk="f6eeac7", ng="ngspice-47", runner="0.9.0",
+               client="0.9.0", compat="match"):
         return {
             "job_id": job, "state": "done", "exit_code": "0",
             "instance_type": "c7i.8xlarge", "elapsed_seconds": 258,
-            "runner_klt_version": "0.9.0",
+            "runner_klt_version": runner,
+            "client_klt_version": client,
+            "runner_compatibility": compat,
             "runner_request_features": {"status": "supported"},
             "worker_environment": {
                 "pdk": {"variant": "sky130A", "stamp_text": f"open_pdks {pdk}"},
@@ -395,6 +398,27 @@ class TestRunInfo(unittest.TestCase):
         self.assertEqual(len(info["worker_pdks_seen"]), 2)
         info = self._info({"fleet": [self._shard("a"), self._shard("b", ng="ngspice-46")]})
         self.assertIsNone(info["worker_ngspice"])
+
+    def test_every_shards_version_skew_facts_reach_jobs(self):
+        """Issue #888: `runner_compatibility` / `client_klt_version` are
+        PER-SHARD and absent from `environment.remote` on a sharded run, so a
+        campaign that reads them off `remote` sees no skew however the shards
+        disagree. `jobs[]` carries them, one entry per shard."""
+        remote = {"fleet": [self._shard("a"),
+                            self._shard("b", runner="0.5.0", compat="mismatch")]}
+        info = self._info(remote)
+        self.assertEqual(
+            [(j["runner_klt_version"], j["client_klt_version"], j["runner_compatibility"])
+             for j in info["jobs"]],
+            [("0.9.0", "0.9.0", "match"), ("0.5.0", "0.9.0", "mismatch")])
+        for key in ("runner_klt_version", "client_klt_version", "runner_compatibility"):
+            self.assertNotIn(key, info["remote"],
+                             "the sharded envelope carries no run-level version keys")
+
+    def test_single_job_version_skew_facts_also_reach_jobs(self):
+        info = self._info(dict(self._shard("solo", runner="0.5.0", compat="mismatch")))
+        self.assertEqual(info["jobs"][0]["client_klt_version"], "0.9.0")
+        self.assertEqual(info["jobs"][0]["runner_compatibility"], "mismatch")
 
     def test_no_fleet_and_no_job_id_yields_no_jobs(self):
         info = self._info({})
@@ -469,6 +493,29 @@ class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
                 if 'remote.get("job_id")' in text:
                     self.assertIn("fleet", text,
                                   "use harness.klt_sim.run_info() for run-level facts")
+
+    def test_only_the_harness_walks_the_sharded_envelope(self):
+        """Issue #888: `run_info()` is the ONE place that knows the sharded
+        report shape, so no campaign has to recognise it.
+
+        The driver scan above cannot see this class of defect -- the read it
+        was written for lived in a campaign LIBRARY module, not a `run_*.py`
+        driver, and it reached for the version keys rather than `job_id`. So
+        this assertion covers every campaign module and keys on the envelope
+        itself: a file that names `remote["fleet"]` is a second reader of the
+        shape, whatever keys it goes on to pull out of it.
+        """
+        for p in sorted(SIM_DIR.glob("*/*.py")) + sorted(SIM_DIR.glob("*/*/*.py")):
+            if p.parent.name in ("harness", "tests") or "harness/" in p.as_posix():
+                continue
+            text = p.read_text()
+            reads = [r for r in ('["fleet"]', "('fleet')", '("fleet")') if r in text]
+            with self.subTest(module=f"{p.parent.name}/{p.name}"):
+                self.assertEqual(
+                    reads, [],
+                    f"{p.parent.name}/{p.name} reads {reads} itself -- read run-level "
+                    "facts through harness.klt_sim.run_info() instead; its jobs[] "
+                    "already carries one entry per shard")
 
 
 if __name__ == "__main__":
