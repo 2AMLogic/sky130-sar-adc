@@ -1,0 +1,83 @@
+name: 'Set up pinned ngspice + sky130 PDK'
+description: >-
+  Provision the pinned simulation toolchain this repo's committed evidence was
+  minted on: install ngspice's build deps, resolve `ngspice_reference` from
+  sim/toolchain.json, restore-or-build ngspice at that version under
+  /opt/ngspice (cache key `ngspice-<version>-<runner.os>`), put it on PATH,
+  then `pip install ciel==2.6.1` and `ciel enable` the sky130 PDK at
+  sim/pdk.json's `open_pdks_commit`.
+
+  One shared composite action (issue #875) so every consuming job provisions
+  identically by construction instead of by hand-synchronised copies; it
+  changes no pin, cache key, or job trigger. Requires `actions/checkout` to
+  have run first: both pins are read from the checked-out sim/toolchain.json
+  and sim/pdk.json.
+runs:
+  using: 'composite'
+  steps:
+    - name: Install ngspice build deps
+      shell: bash
+      # ngspice does NOT come from apt. ubuntu-latest ships ngspice-42, below
+      # sim/toolchain.json's `ngspice_min_major` floor, and the harness
+      # correctly refuses to simulate on a drifted toolchain -- numbers from
+      # it would not be comparable with the records already in sim/. Lowering
+      # the pin to match whatever apt happens to ship would be relaxing the
+      # gate to make the check pass, which is precisely what CLAUDE.md
+      # forbids; so CI builds a version that meets the floor instead. The
+      # build is cached, so this costs a few minutes once per pin bump.
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential bison flex \
+          libreadline-dev libx11-dev libxaw7-dev libxpm-dev \
+          libxrender-dev gawk automake libtool
+
+    - name: Resolve the pinned ngspice version
+      id: ngspice-pin
+      shell: bash
+      # `ngspice_reference` is the version this repo's committed records were
+      # produced with, so the nightly proof runs on the same simulator the
+      # evidence trail was minted on. `ngspice_min_major` stays the actual
+      # gate the harness enforces at run time.
+      run: |
+        V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["ngspice_reference"])')"
+        echo "version=${V}" >> "$GITHUB_OUTPUT"
+
+    - name: Cache ngspice build
+      id: cache-ngspice
+      uses: actions/cache@v4
+      with:
+        path: /opt/ngspice
+        key: ngspice-${{ steps.ngspice-pin.outputs.version }}-${{ runner.os }}
+
+    - name: Build ngspice ${{ steps.ngspice-pin.outputs.version }} from source
+      if: steps.cache-ngspice.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        V="${{ steps.ngspice-pin.outputs.version }}"
+        curl -fsSL -o /tmp/ngspice.tar.gz \
+          "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/${V}/ngspice-${V}.tar.gz/download"
+        mkdir -p /tmp/ngspice-src
+        tar -xzf /tmp/ngspice.tar.gz -C /tmp/ngspice-src --strip-components=1
+        cd /tmp/ngspice-src
+        ./configure --prefix=/opt/ngspice --without-x --disable-debug \
+          --enable-xspice
+        make -j"$(nproc)"
+        make install
+
+    - name: Put the built ngspice on PATH
+      shell: bash
+      run: echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
+
+    - name: Install ciel
+      shell: bash
+      run: pip install "ciel==2.6.1"
+
+    - name: Fetch + enable the pinned sky130 PDK
+      shell: bash
+      # The pin lives in sim/pdk.json (open_pdks_commit) so CI and
+      # docs/environment-setup.md cannot drift apart; the harness itself
+      # re-checks the resolved commit against sim/toolchain.json and fails
+      # on drift rather than silently producing incomparable numbers.
+      run: |
+        PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
+        ciel enable --pdk-family sky130 "$PDK_COMMIT"

@@ -42,7 +42,7 @@
       "path": ".github/workflows/ci.yml",
       "passed": true,
       "executed": true,
-      "content_hash": "sha256:6473417bb5c90259e0450ba1ab0f92d2f9f21039d6b1ef95cba43bab91047ecf"
+      "content_hash": "sha256:abac067eead1a4339f7c357600ba21e70b7cb3cd89ff8dd003cfb756e78b6272"
     },
     {
       "check": "ci-workflow-runs",
