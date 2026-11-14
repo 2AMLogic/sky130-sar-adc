@@ -33,6 +33,8 @@ from pathlib import Path
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 
+import provenance_fixture  # noqa: E402
+
 
 RUNNER = SIM_DIR / "vcm-drive-budget/run_vcm_drive_budget.py"
 _spec = importlib.util.spec_from_file_location("run_vcm_drive_budget_under_test", RUNNER)
@@ -390,9 +392,9 @@ class TestCornersRecordTtNoteWiring(unittest.TestCase):
     record actually gets the measured tt budget and the window's seed
     figure -- the pre-#882 defect was a call site that compared nothing, so
     a correct helper wired to the wrong arguments would reproduce it. No
-    ngspice: provenance resolution is stubbed into a temp dir the same way
-    sim/tests/test_full_conversion.py stubs it, and no path under
-    sim/vcm-drive-budget/ is written."""
+    ngspice: provenance resolution is stubbed into a temp dir through
+    sim/tests/provenance_fixture.py, the fixture every record-writer test in
+    this suite shares, and no path under sim/vcm-drive-budget/ is written."""
 
     @staticmethod
     def _corner_point(cid: str, process: str, temp: float, supply: float,
@@ -412,40 +414,17 @@ class TestCornersRecordTtNoteWiring(unittest.TestCase):
                      points: list[dict] | None = None,
                      info: dict | None = None,
                      artifacts: dict[str, str] | None = None) -> str:
-        from harness import evidence
-
         points = points if points is not None else [
             self._corner_point("tt_27c_1.80v", "tt", 27.0, rt.VDD_NOM,
                                tt_budget_ohm),
             self._corner_point("ss_125c_1.62v", "ss", 125.0, 1.62, 1e3),
         ]
-        real_dir, real_resolve = rt.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True,
-                                                         exist_ok=True)
-            (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(
-                netlist_text)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
-
         with tempfile.TemporaryDirectory() as tmp:
-            try:
-                rt.EXPERIMENT_DIR = Path(tmp)
-                evidence.resolve_provenance = fake_resolve
+            with provenance_fixture.fake_provenance(rt, Path(tmp)):
                 path = rt.write_corners_record(
                     points, rt.DEFAULT_POINT, window=window,
                     info=info, artifacts=artifacts)
                 return path.read_text()
-            finally:
-                rt.EXPERIMENT_DIR = real_dir
-                evidence.resolve_provenance = real_resolve
 
     def test_a_tt_budget_unequal_to_the_seed_is_reported_as_differing(self):
         """The exact shape of the regression: the `worst` seed figure is
@@ -1026,37 +1005,14 @@ class TestCornersDecoupleRecordPortSections(unittest.TestCase):
     """The same post-port sections on the C_decouple writer (issue #881)."""
 
     def _record_text(self, points: list[dict], window: str = "worst") -> str:
-        from harness import evidence
-
-        real_dir, real_resolve = rt.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True,
-                                                         exist_ok=True)
-            (experiment_dir / "netlist-snapshots" / "REC.spice").write_text(
-                netlist_text)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
-
         with tempfile.TemporaryDirectory() as tmp:
-            try:
-                rt.EXPERIMENT_DIR = Path(tmp)
-                evidence.resolve_provenance = fake_resolve
+            with provenance_fixture.fake_provenance(rt, Path(tmp)):
                 return rt.write_corners_decouple_record(
                     points, rt.DEFAULT_POINT, window=window,
                     info=TestCornersRecordPortSections.INFO,
                     artifacts={"request.json": "{}", "tb.spice": "* deck",
                                "report.json": "{}"},
                 ).read_text()
-            finally:
-                rt.EXPERIMENT_DIR = real_dir
-                evidence.resolve_provenance = real_resolve
 
     @staticmethod
     def _point(cid: str, *, complete: bool = True,
