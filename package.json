@@ -3,7 +3,7 @@
   "description": "Loom-managed workspace with AI development orchestration",
   "private": true,
   "scripts": {
-    "check:ci": "npm run lint && npm run test && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:glue-parity && npm run check:halflsb-parity && npm run check:composition-parity && npm run check:signoff-hashes && npm run check:signoff-attest && npm run check:digital-ref && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:harness && npm run check:supersedes && npm run check:append-only && npm run check:artifact-manifests && npm run check:report",
+    "check:ci": "npm run lint && npm run test:compile && npm run check:harness && ./.loom/scripts/check-xschem-embedded-quotes.sh && npm run check:klt-pin-evidence && npm run check:drc-evidence && npm run check:glue-parity && npm run check:halflsb-parity && npm run check:composition-parity && npm run check:signoff-hashes && npm run check:signoff-attest && npm run check:digital-ref && npm run check:spec-coverage && npm run check:proposal-citations && npm run check:supersedes && npm run check:append-only && npm run check:artifact-manifests && npm run check:report",
     "check:harness": "./sim/selftest.sh",
     "check:harness:quick": "./sim/selftest.sh --quick",
     "check:harness:full": "./sim/selftest.sh --full",

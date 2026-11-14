@@ -35,6 +35,15 @@
 # needs to be cheaper, cut mc_n before cutting corners: stage 4's negative
 # control needs at least two process corners to have anything to compare.
 #
+# Stage 1 is not harness-only despite its history: sim/tests is this repo's
+# only unittest root, so the stage runs the layout, signoff and
+# proposal-citation tests too. Two callers depend on it and neither runs the
+# suite itself, so do not drop it (issue #889): `npm run check:ci` reaches the
+# suite ONLY through here, and the PDK-gated `pdk-smoke` job invokes
+# `./sim/selftest.sh --require-pdk` directly -- the suite's only CI run on a
+# machine that has ngspice, which sim/tests/test_top_plate_cpar.py needs.
+# `sim/tests/test_check_ci_unit_suite_once.py` holds both halves.
+#
 # Exit codes: 0 pass (or skipped sim stages), 1 something failed.
 
 set -uo pipefail
@@ -62,9 +71,9 @@ run_mc() {
   python3 "${SIM_DIR}/monte_carlo.py" "$@"
 }
 
-echo "== 1/4 harness unit tests (no PDK required) =="
+echo "== 1/4 sim/tests unit suite (no PDK required) =="
 if ! python3 -m unittest discover -s "${SIM_DIR}/tests" -t "${SIM_DIR}/tests"; then
-  echo "FAIL: harness unit tests"
+  echo "FAIL: sim/tests unit suite"
   exit 1
 fi
 
