@@ -123,6 +123,7 @@ from _geometry_common import BuildError  # noqa: E402
 from _geometry_common import Rect  # noqa: E402
 from _geometry_common import _assert_column_pitch as _assert_column_pitch_shared  # noqa: E402
 from _geometry_common import _assert_well_isolation as _assert_well_isolation_shared  # noqa: E402
+from _geometry_common import floorplan_pfet_well_islands  # noqa: E402
 from _geometry_common import step_down_to_met1  # noqa: E402
 from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
 from gen_blocks import (  # noqa: E402
@@ -164,20 +165,18 @@ LICON_UM = 0.17
 
 #: Drawn n-well island separation -- unchanged from issue #122's own recipe.
 #: sky130's own `nwell.2a` ("min. nwell spacing (merged if less)") is 1.27um.
+#: Kept local (three readers here: Row 1's floorplan, the isolation
+#: assertion, and this flow's own summary document) and passed into the
+#: shared plan, rather than moved with the Row-1 constants below.
 WELL_GAP_UM = 1.60
-WELL_MARGIN_UM = 0.30
-WELL_TAP_MARGIN_UM = 2.00
-WELL_BELOW_UM = 2.40
-WELL_ABOVE_UM = 0.40
+# The rest of Row 1's n-well/tap margins and its device pitch
+# (`WELL_MARGIN_UM`, `WELL_TAP_MARGIN_UM`, `WELL_BELOW_UM`, `WELL_ABOVE_UM`,
+# the four `TAP_{X,Y}{0,1}_UM` and `BLOCK_PITCH_UM`) now live in
+# `_geometry_common` only, beside `floorplan_pfet_well_islands` -- their one
+# reader here (issue #909).
 
-#: n-well tap strip geometry (Row 1), in each domain's left margin.
-TAP_X0_UM = 0.40
-TAP_X1_UM = 1.00
-TAP_Y0_UM = -1.80
-TAP_Y1_UM = -0.60
-
-#: Row 1 (PFET) device pitch -- unchanged from the wells recipe.
-BLOCK_PITCH_UM = 3.20
+#: Row 1 channel columns: a source pin jogs this far left of its block's left
+#: edge, a drain pin this far right of its right edge.
 CHANNEL_LEFT_UM = 0.45
 CHANNEL_RIGHT_UM = 0.45
 
@@ -309,50 +308,21 @@ def load_block(report_path: Path) -> dict:
 
 
 # --------------------------------------------------------------------------- #
-# Row 1: PFETs, unchanged from layout/sampling-frontend-wells/
+# Row 1: PFETs, unchanged from layout/sampling-frontend-wells/ -- and since
+# issue #909 literally the same code, not a second copy of it: the plan lives
+# in `_geometry_common.floorplan_pfet_well_islands` and both flows call it.
 # --------------------------------------------------------------------------- #
 def floorplan_row1(blocks: dict[str, dict]) -> tuple[dict, list[dict]]:
-    origins: dict[str, dict[str, float]] = {}
-    domains: list[dict] = []
+    """Row 1's PFET n-well islands, via the plan shared with the wells flow.
 
-    cursor = 0.0
-    ordered_domains: list[str] = []
-    for _bid, _name, domain, *_rest in PFET_DEVICES:
-        if domain not in ordered_domains:
-            ordered_domains.append(domain)
-
-    for domain in ordered_domains:
-        members = [row[0] for row in PFET_DEVICES if row[2] == domain]
-        well_x0 = cursor
-        x = well_x0 + WELL_TAP_MARGIN_UM
-        for block_id in members:
-            origins[block_id] = {"x": x, "y": 0.0}
-            x += BLOCK_PITCH_UM
-        last = members[-1]
-        well_x1 = origins[last]["x"] + blocks[last]["bbox"]["x1"] + WELL_MARGIN_UM
-        top = max(blocks[b]["bbox"]["y1"] for b in members)
-        domains.append(
-            {
-                "id": domain,
-                "net": DOMAIN_TAP_NET[domain],
-                "members": members,
-                "well": {
-                    "x0": well_x0,
-                    "y0": -WELL_BELOW_UM,
-                    "x1": well_x1,
-                    "y1": top + WELL_ABOVE_UM,
-                },
-                "tap": {
-                    "x0": well_x0 + TAP_X0_UM,
-                    "x1": well_x0 + TAP_X1_UM,
-                    "y0": TAP_Y0_UM,
-                    "y1": TAP_Y1_UM,
-                },
-            }
-        )
-        cursor = well_x1 + WELL_GAP_UM
-
-    return origins, domains
+    Returns ``(origins, domains)`` exactly as that shared plan does; this
+    wrapper exists so the rest of this module keeps calling the Row-1 name it
+    already used, and supplies this flow's own local `WELL_GAP_UM` (three
+    readers here, so it stayed local -- see that function's docstring).
+    """
+    return floorplan_pfet_well_islands(
+        blocks, PFET_DEVICES, DOMAIN_TAP_NET, WELL_GAP_UM
+    )
 
 
 def tap_shapes(spec: dict) -> tuple[list[tuple[tuple[int, int], Rect]], float, float]:

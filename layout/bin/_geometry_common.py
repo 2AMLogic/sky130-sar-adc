@@ -31,6 +31,25 @@ still owns its own `tap_shapes()` *wrapper*: `comparator`'s returns a `Pin`,
 the other two return `(shapes, cx, cy)` -- see `tap_shapes()`'s own
 docstring below for why the shared core stays shape-only.
 
+Since issue #909 it also houses the Row-1 PFET n-well island floorplan,
+`floorplan_pfet_well_islands()` -- "walk the device table in domain order,
+place each domain's blocks on a fixed pitch, and size one n-well rectangle
+plus one tap strip per domain" -- which `sampling-frontend-wells` (issue
+#122's own recipe) and `sampling-frontend` Row 1 held byte-identical copies
+of, differing only in the function name, the docstring, and whether the
+shared `_pfet_devices` table was spelled `PFET_DEVICES` or aliased to
+`DEVICES`. The nine constants that plan was the only reader of in each
+consumer (`WELL_MARGIN_UM`, `WELL_TAP_MARGIN_UM`, `WELL_BELOW_UM`,
+`WELL_ABOVE_UM`, the four `TAP_{X,Y}{0,1}_UM` and `BLOCK_PITCH_UM`) moved
+here with it; `WELL_GAP_UM` deliberately did NOT, and is a parameter
+instead, because each consumer has three readers of its own copy -- the same
+`WIRE_UM`-style retention this header records above. Each flow keeps its own
+public wrapper name (`floorplan()` / `floorplan_row1()`) so nothing else in
+either module moved. `layout/halflsb-offset/bin/build_layout.py` carries
+seven of those constants at the same values but plans a different,
+group-based floorplan with no per-domain tap net, and has other local
+readers of them, so it is deliberately not a consumer of this function.
+
 Since issue #495 it also houses the metal-stack layer table and
 `step_down_to_met1()` -- the "walk any generator port down to met1 before
 routing it" via-stack emitter `layout/sampling-frontend/bin/build_layout.py`
@@ -285,6 +304,119 @@ def step_down_to_met1(
         shapes.append((L_VIA1, Rect.centred(x, y, VIA1_UM, VIA1_UM)))
         return x, y
     raise BuildError(f"no met1 step-down rule for layer {layer!r}")
+
+
+# --- Row-1 PFET n-well island floorplan: its constants, then the plan -------
+# Every constant below has exactly ONE reader -- `floorplan_pfet_well_islands`
+# -- in each consumer, which is why they moved here with it (issue #909).
+#: n-well margin around a domain's device blocks and its tap.
+WELL_MARGIN_UM = 0.30
+#: Left margin of each domain's n-well, reserved for the tap column.
+WELL_TAP_MARGIN_UM = 2.00
+#: n-well extent below / above the device row.
+WELL_BELOW_UM = 2.40
+WELL_ABOVE_UM = 0.40
+
+#: Tap strip geometry, in each domain's left margin (x relative to the
+#: domain's n-well x0), below the device row.
+TAP_X0_UM = 0.40
+TAP_X1_UM = 1.00
+TAP_Y0_UM = -1.80
+TAP_Y1_UM = -0.60
+
+#: Device block pitch along the row.
+BLOCK_PITCH_UM = 3.20
+
+
+def floorplan_pfet_well_islands(
+    blocks: dict[str, dict],
+    devices: list[tuple],
+    domain_tap_net: dict[str, str],
+    well_gap_um: float,
+) -> tuple[dict, list[dict]]:
+    """Place every device block and size the three n-well islands.
+
+    Returns ``(origins, domains)`` where ``origins`` maps block id ->
+    ``{"x": .., "y": ..}`` (the `klt gen-compose` placement) and ``domains``
+    is one entry per n-well island, in left-to-right order -- the shape
+    :func:`_assert_well_isolation` below checks, and the shape each consumer
+    draws its island/tap rectangles and tap routing from.
+
+    ``devices`` is `_pfet_devices.PFET_DEVICES` and ``domain_tap_net`` its
+    domain -> tap-net map, both passed in rather than imported here because
+    each flow's own `gen_blocks.py` is the re-export point its siblings read
+    that table from (see that module's note on its deliberate
+    ``DOMAIN_TAP_NET`` re-export, issues #251/#383/#394). A domain is a
+    *contiguous x range* in ``devices`` order, which is what lets one drawn
+    rectangle per domain merge exactly that domain's device wells.
+
+    ``well_gap_um`` is a parameter rather than a constant here for the same
+    reason ``WIRE_UM`` above is carried twice: each consumer has three
+    readers of its own ``WELL_GAP_UM`` -- this plan's cursor advance, its
+    :func:`_assert_well_isolation` call, and the drawn separation it reports
+    in its own summary document -- so that one stays local to each flow,
+    while the nine single-reader constants above moved here with this
+    function.
+
+    Extracted (issue #909) from `layout/sampling-frontend-wells/bin/
+    build_layout.py`'s own ``floorplan()`` -- the copy that already carried
+    this docstring -- of which `layout/sampling-frontend/bin/build_layout.py`
+    held a byte-identical second copy as ``floorplan_row1()``, under a
+    section comment that said so ("Row 1: PFETs, unchanged from
+    layout/sampling-frontend-wells/"). The two differed only in the function
+    name, that docstring, and whether the shared device table was spelled
+    ``PFET_DEVICES`` or ``DEVICES`` -- the latter being
+    `_pfet_devices.PFET_DEVICES` under an ``as`` alias, so the same object.
+    Both flows re-emitted their committed ``draw.request.json`` /
+    ``compose.request.json`` / summary documents byte-identically across the
+    fold-in, so no drawn geometry moved and neither flow's append-only record
+    needed re-minting; what pins this emitter from here on is
+    `sim/tests/test_geometry_common_shared_helpers.py`, asserting THIS
+    function's own origins/island/tap output rather than two copies against
+    each other -- the discipline that file records for
+    :func:`step_down_to_met1`.
+    """
+    origins: dict[str, dict[str, float]] = {}
+    domains: list[dict] = []
+
+    cursor = 0.0
+    ordered_domains: list[str] = []
+    for _bid, _name, domain, *_rest in devices:
+        if domain not in ordered_domains:
+            ordered_domains.append(domain)
+
+    for domain in ordered_domains:
+        members = [row[0] for row in devices if row[2] == domain]
+        well_x0 = cursor
+        x = well_x0 + WELL_TAP_MARGIN_UM
+        for block_id in members:
+            origins[block_id] = {"x": x, "y": 0.0}
+            x += BLOCK_PITCH_UM
+        last = members[-1]
+        well_x1 = origins[last]["x"] + blocks[last]["bbox"]["x1"] + WELL_MARGIN_UM
+        top = max(blocks[b]["bbox"]["y1"] for b in members)
+        domains.append(
+            {
+                "id": domain,
+                "net": domain_tap_net[domain],
+                "members": members,
+                "well": {
+                    "x0": well_x0,
+                    "y0": -WELL_BELOW_UM,
+                    "x1": well_x1,
+                    "y1": top + WELL_ABOVE_UM,
+                },
+                "tap": {
+                    "x0": well_x0 + TAP_X0_UM,
+                    "x1": well_x0 + TAP_X1_UM,
+                    "y0": TAP_Y0_UM,
+                    "y1": TAP_Y1_UM,
+                },
+            }
+        )
+        cursor = well_x1 + well_gap_um
+
+    return origins, domains
 
 
 def _assert_well_isolation(domains: list[dict], well_gap_um: float) -> None:

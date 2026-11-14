@@ -122,6 +122,7 @@ from _geometry_common import BuildError  # noqa: E402
 from _geometry_common import Rect  # noqa: E402
 from _geometry_common import _assert_column_pitch as _assert_column_pitch_shared  # noqa: E402
 from _geometry_common import _assert_well_isolation as _assert_well_isolation_shared  # noqa: E402
+from _geometry_common import floorplan_pfet_well_islands  # noqa: E402
 from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
 from gen_blocks import DEVICES, DOMAIN_TAP_NET, PIN_NETS  # noqa: E402
 
@@ -157,23 +158,13 @@ LICON_UM = 0.17
 #: 1.27 um the two islands are not legally separate wells at all.
 WELL_GAP_UM = 1.60
 
-#: n-well margin around a domain's device blocks and its tap.
-WELL_MARGIN_UM = 0.30
-#: Left margin of each domain's n-well, reserved for the tap column.
-WELL_TAP_MARGIN_UM = 2.00
-#: n-well extent below / above the device row.
-WELL_BELOW_UM = 2.40
-WELL_ABOVE_UM = 0.40
+# The n-well/tap margins and the device pitch (`WELL_MARGIN_UM`,
+# `WELL_TAP_MARGIN_UM`, `WELL_BELOW_UM`, `WELL_ABOVE_UM`, the four
+# `TAP_{X,Y}{0,1}_UM` and `BLOCK_PITCH_UM`) now live in `_geometry_common`
+# only, beside `floorplan_pfet_well_islands` -- their one reader here (issue
+# #909). `WELL_GAP_UM` above stays local: it has three readers in this
+# module, so it is passed to that plan rather than moved.
 
-#: Tap strip geometry, in each domain's left margin (x relative to the
-#: domain's n-well x0), below the device row.
-TAP_X0_UM = 0.40
-TAP_X1_UM = 1.00
-TAP_Y0_UM = -1.80
-TAP_Y1_UM = -0.60
-
-#: Device block pitch along the row.
-BLOCK_PITCH_UM = 3.20
 #: Channel columns: a source pin jogs this far left of its block's left edge,
 #: a drain pin this far right of its right edge.
 CHANNEL_LEFT_UM = 0.45
@@ -239,48 +230,14 @@ def floorplan(blocks: dict[str, dict]) -> tuple[dict, list[dict]]:
     Returns ``(origins, domains)`` where ``origins`` maps block id ->
     ``{"x": .., "y": ..}`` (the `klt gen-compose` placement) and ``domains``
     is one entry per n-well island, in left-to-right order.
+
+    The plan itself is `_geometry_common.floorplan_pfet_well_islands` (issue
+    #909), which `layout/sampling-frontend/bin/build_layout.py` Row 1 held a
+    byte-identical copy of; this module keeps the wrapper name the rest of it
+    already calls, and supplies its own local `WELL_GAP_UM` (three readers
+    here, so it stayed local -- see that function's docstring).
     """
-    origins: dict[str, dict[str, float]] = {}
-    domains: list[dict] = []
-
-    cursor = 0.0
-    ordered_domains: list[str] = []
-    for _bid, _name, domain, *_rest in DEVICES:
-        if domain not in ordered_domains:
-            ordered_domains.append(domain)
-
-    for domain in ordered_domains:
-        members = [row[0] for row in DEVICES if row[2] == domain]
-        well_x0 = cursor
-        x = well_x0 + WELL_TAP_MARGIN_UM
-        for block_id in members:
-            origins[block_id] = {"x": x, "y": 0.0}
-            x += BLOCK_PITCH_UM
-        last = members[-1]
-        well_x1 = origins[last]["x"] + blocks[last]["bbox"]["x1"] + WELL_MARGIN_UM
-        top = max(blocks[b]["bbox"]["y1"] for b in members)
-        domains.append(
-            {
-                "id": domain,
-                "net": DOMAIN_TAP_NET[domain],
-                "members": members,
-                "well": {
-                    "x0": well_x0,
-                    "y0": -WELL_BELOW_UM,
-                    "x1": well_x1,
-                    "y1": top + WELL_ABOVE_UM,
-                },
-                "tap": {
-                    "x0": well_x0 + TAP_X0_UM,
-                    "x1": well_x0 + TAP_X1_UM,
-                    "y0": TAP_Y0_UM,
-                    "y1": TAP_Y1_UM,
-                },
-            }
-        )
-        cursor = well_x1 + WELL_GAP_UM
-
-    return origins, domains
+    return floorplan_pfet_well_islands(blocks, DEVICES, DOMAIN_TAP_NET, WELL_GAP_UM)
 
 
 def _assert_track_clearance(track_y0: float, blocks: dict[str, dict]) -> None:
