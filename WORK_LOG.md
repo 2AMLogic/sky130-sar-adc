@@ -6,8 +6,16 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-14
+
+- **Issue #895** (closed): Remove 13 unused imports flagged by ruff F401 in supply_impedance common.py and three sim tests
+- **PR #900**: chore: drop 13 unused imports from sim campaign common and three tests
+- **Issue #892** (closed): harness/klt_sim: a klt error envelope behind a warning line on stderr is misreported, and defeats capacity-retry
+- **PR #897**: fix(harness): scan klt stderr for the error envelope instead of parsing it whole
+
 ### 2026-11-13
 
+- **Issue #891** (closed): vcm-drive-budget: the full-grid record states "not corner-invariant" even when the spread it just printed is 1.0x
 - **PR #893**: sim: run the vcm-drive-budget PVT grid as one klt sim request
 - **Issue #881** (closed): vcm-drive-budget: port --corners to klt sim and re-mint the four full-grid records after #874
 - **Issue #879** (closed): test: the decision-margin and sequencer-port netlist-shape guards have no test in either direction
@@ -641,9 +649,4 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 - **PR #286**: refactor(sim): dedup write_corners_record() post-provenance boilerplate
 - **PR #287**: layout(sar-adc-top): neutralise klayout-tools#1876 locally, leaving #1878 the only LVS blocker
 - **PR #289**: refactor(sim): dedup xschem netlist_dut()/_preamble() reinvention onto sim/harness/toolchain.py
-
-### 2026-09-14
-
-- **Issue #31** (closed): T1 item 9: ship a testbench per claimed spec row with a documented cold-start invocation and pinned PDK revision
-- **PR #134**: sim: index every claimed spec row to its testbench, cold start and pinned PDK (#31)
 
