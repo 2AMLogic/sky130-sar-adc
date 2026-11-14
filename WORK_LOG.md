@@ -8,6 +8,17 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-14
 
+- **Issue #889** (closed): check:ci runs the full sim/tests unit suite twice: once via npm run test, again as sim/selftest.sh stage 1
+- **PR #919**: refactor(check:ci): reach the sim/tests unit suite once, via selftest stage 1
+- **Issue #908** (closed): Guide docs-PR template claims work_log/ archive rotations qualify for the docs-only fast path; the allowlist is three exact root filenames
+- **Issue #888** (closed): Put digital-partition's run-info read on harness.klt_sim.run_info(): its private copy makes runner_skew() blind to sharded reports
+- **PR #916**: refactor(digital-partition): read run info through harness.run_info() so version skew is seen on every shard
+- **Issue #894** (closed): vcm-drive-budget: full-grid records carry fixed-text sentences their own data and sibling records contradict
+- **PR #902**: fix(vcm-drive-budget): derive record interpretation sentences from the data
+- **Issue #884** (closed): Remove dead npm script worktree:return: its target .loom/scripts/worktree-return.sh does not exist
+- **PR #901**: chore: drop dangling worktree:return npm script
+- **Issue #877** (closed): Remove dead parse_ac_print() and two other unread leftovers in sim drivers
+- **PR #899**: refactor: drop three unread leftovers from the sim drivers
 - **Issue #895** (closed): Remove 13 unused imports flagged by ruff F401 in supply_impedance common.py and three sim tests
 - **PR #900**: chore: drop 13 unused imports from sim campaign common and three tests
 - **Issue #892** (closed): harness/klt_sim: a klt error envelope behind a warning line on stderr is misreported, and defeats capacity-retry
