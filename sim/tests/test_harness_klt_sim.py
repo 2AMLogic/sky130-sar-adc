@@ -29,6 +29,29 @@ from harness import klt_sim  # noqa: E402
 
 REPORT = {"status": "pass", "corners": [{"process": "tt"}], "environment": {}}
 
+#: The real shape behind issue #892: `klt` prints human warning and progress
+#: lines to stderr BEFORE its error envelope, so stderr is not pure JSON.
+#: Transcribed from the submit that died during the #881 batch grid.
+KLT_STDERR_PREAMBLE = (
+    "klt: warning: 2 installs provide PDK variant 'sky130A'; "
+    "read /home/ubuntu/.ciel\n"
+    "klt: batch job klt-sim-b4c5875b12ef submitting to "
+    "s3://<bucket>/jobs/klt-sim-b4c5875b12ef\n"
+    "klt sim: batch job klt-sim-b4c5875b12ef: submitted\n"
+)
+
+NO_CAPACITY_MESSAGE = (
+    "batch backend failed: BATCH_MAX_VCPU=224 (capacity wait budget of 600s "
+    "exhausted after 6 launch attempt(s))"
+)
+
+
+def _stderr_behind_warnings(code="batch_no_capacity", message=NO_CAPACITY_MESSAGE):
+    """Warning/progress lines, then a pretty-printed `klt` error envelope."""
+    envelope = {"schema_version": 1,
+                "error": {"command": "sim", "message": message, "code": code}}
+    return KLT_STDERR_PREAMBLE + json.dumps(envelope, indent=1) + "\n"
+
 
 def _runner(rc=0, out="", err="", calls=None):
     def run(argv):
@@ -204,6 +227,128 @@ class TestCapacityRetry(unittest.TestCase):
                 klt_sim.submit(d / "request.json", d / "out", backend="batch",
                                runner=_runner(rc=1, err=self.REFUSAL, calls=calls))
             self.assertEqual(len(calls), 1)
+
+
+class TestEnvelopeFromStderr(unittest.TestCase):
+    """`klt`'s error envelope arrives on stderr BEHIND warning and progress
+    lines (issue #892), so stderr must be SCANNED for the envelope rather
+    than assumed to BE it."""
+
+    def test_an_envelope_behind_warning_lines_is_found(self):
+        env = klt_sim.envelope_from_stderr(_stderr_behind_warnings())
+        self.assertEqual(env["error"]["code"], "batch_no_capacity")
+
+    def test_a_pure_json_envelope_is_still_found(self):
+        env = klt_sim.envelope_from_stderr(json.dumps({"error": {"code": "x"}}))
+        self.assertEqual(env["error"]["code"], "x")
+
+    def test_stderr_with_no_json_object_yields_none(self):
+        self.assertIsNone(klt_sim.envelope_from_stderr("Traceback: boom\nbye\n"))
+
+    def test_empty_stderr_yields_none(self):
+        self.assertIsNone(klt_sim.envelope_from_stderr(""))
+
+    def test_a_brace_line_that_does_not_decode_is_skipped_for_the_real_one(self):
+        """A progress line may itself begin with `{` -- the scan keeps going
+        rather than giving up at the first candidate."""
+        text = "{ not json at all\n" + _stderr_behind_warnings()
+        self.assertEqual(
+            klt_sim.envelope_from_stderr(text)["error"]["code"], "batch_no_capacity")
+
+    def test_trailing_text_after_the_envelope_is_ignored(self):
+        text = _stderr_behind_warnings() + "klt: exiting with status 1\n"
+        self.assertEqual(
+            klt_sim.envelope_from_stderr(text)["error"]["code"], "batch_no_capacity")
+
+    def test_a_json_array_on_stderr_is_not_an_envelope(self):
+        self.assertIsNone(klt_sim.envelope_from_stderr("[1, 2, 3]\n"))
+
+
+class TestSubmitEnvelopeBehindWarnings(unittest.TestCase):
+    """Issue #892: the two consequences of assuming stderr is pure JSON --
+    the wrong error class, and a capacity refusal that skips the retry."""
+
+    def _submit(self, d: Path, **kw):
+        (d / "request.json").write_text("{}")
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            return klt_sim.submit(d / "request.json", d / "out", **kw)
+
+    def test_the_error_names_the_envelopes_own_code_and_message(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(klt_sim.SubmitError) as ctx:
+                self._submit(Path(td), backend="batch",
+                             runner=_runner(rc=1, err=_stderr_behind_warnings()))
+            msg = str(ctx.exception)
+            self.assertIn("batch_no_capacity", msg)
+            self.assertIn("capacity wait budget", msg)
+            # NOT the "client malfunctioned" class, and not the PDK warning
+            self.assertNotIn("returned no JSON report", msg)
+            self.assertNotIn("2 installs provide PDK variant", msg)
+            self.assertFalse((Path(td) / "report.json").exists())
+
+    def test_capacity_retry_fires_for_an_envelope_behind_warning_lines(self):
+        """The retry is gated on an envelope that PARSED; behind a warning
+        line it never parsed, so `capacity_retries` silently did not apply."""
+        outs = [_stderr_behind_warnings(), _stderr_behind_warnings(),
+                json.dumps(REPORT)]
+        calls, naps = [], []
+
+        def runner(argv):
+            calls.append(argv)
+            o = outs.pop(0)
+            return (0, o, "") if o.startswith("{") else (1, "", o)
+
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            (d / "request.json").write_text("{}")
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                report = klt_sim.submit(d / "request.json", d / "out",
+                                        backend="batch", runner=runner,
+                                        capacity_retries=5, retry_wait_s=7,
+                                        sleep=naps.append)
+            self.assertEqual(report, REPORT)
+            self.assertEqual(len(calls), 3)
+            self.assertEqual(naps, [7, 7])
+
+    def test_a_non_capacity_envelope_behind_warnings_is_not_retried(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            with self.assertRaises(klt_sim.SubmitError) as ctx:
+                self._submit(d, backend="batch", capacity_retries=9,
+                             sleep=lambda s: None,
+                             runner=_runner(rc=1, calls=calls, err=_stderr_behind_warnings(
+                                 code="nonconvergence", message="tran failed to converge")))
+            self.assertIn("nonconvergence", str(ctx.exception))
+            self.assertEqual(len(calls), 1)
+
+    def test_genuinely_non_json_stderr_still_raises_the_no_report_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(klt_sim.SubmitError) as ctx:
+                self._submit(Path(td), backend="batch", label="grid",
+                             runner=_runner(rc=2, out="", err=KLT_STDERR_PREAMBLE))
+            msg = str(ctx.exception)
+            self.assertIn("klt sim (grid) returned no JSON report (rc=2)", msg)
+            self.assertIn("batch job klt-sim-b4c5875b12ef: submitted", msg)
+
+    def test_the_fallback_excerpt_quotes_the_tail_not_the_head(self):
+        """The useful part of a failed `klt` run is at the END of stderr."""
+        noise = "\n".join(f"klt: progress line {i}" for i in range(400))
+        err = "FIRST-LINE-OF-STDERR\n" + noise + "\nLAST-LINE-OF-STDERR"
+        self.assertGreater(len(err), klt_sim.ERROR_TEXT_CHARS)
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(klt_sim.SubmitError) as ctx:
+                self._submit(Path(td), backend="batch", runner=_runner(rc=1, err=err))
+            msg = str(ctx.exception)
+            self.assertIn("LAST-LINE-OF-STDERR", msg)
+            self.assertNotIn("FIRST-LINE-OF-STDERR", msg)
+
+    def test_a_short_fallback_excerpt_is_quoted_whole(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(klt_sim.SubmitError) as ctx:
+                self._submit(Path(td), backend="batch",
+                             runner=_runner(rc=1, err="Traceback: boom"))
+            self.assertIn("Traceback: boom", str(ctx.exception))
 
 
 class TestRunInfo(unittest.TestCase):
