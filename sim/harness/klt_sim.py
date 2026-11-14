@@ -226,6 +226,12 @@ def run_info(report: dict) -> dict:
     sharded record ends up reporting `job None` -- so both are handled here,
     and the executing PDK/simulator are only reported when EVERY shard
     agrees on them.
+
+    `jobs[]` carries one entry per shard (one entry for a single-job run),
+    including that shard's `runner_klt_version` / `client_klt_version` /
+    `runner_compatibility` -- the version-skew facts a disclosure section is
+    rendered from. Read them from `jobs[]`, never off `remote`: on the
+    sharded shape `remote` has no key but `fleet`.
     """
     remote = ((report.get("environment") or {}).get("remote")) or {}
     shards = remote.get("fleet")
@@ -252,6 +258,14 @@ def run_info(report: dict) -> dict:
                 "instance_type": entry.get("instance_type"),
                 "elapsed_seconds": entry.get("elapsed_seconds"),
                 "runner_klt_version": entry.get("runner_klt_version"),
+                # Runner/client version skew is a PER-SHARD fact: a sharded
+                # run carries these two keys only inside `fleet[]`, never on
+                # `environment.remote`, so a campaign that reads them off
+                # `remote` reports no skew however the shards disagree
+                # (issue #888). They are normalised here so no campaign has
+                # to walk `fleet[]` to find them.
+                "client_klt_version": entry.get("client_klt_version"),
+                "runner_compatibility": entry.get("runner_compatibility"),
             })
     backend = (report.get("environment") or {}).get("backend")
     if isinstance(backend, dict):

@@ -44,7 +44,7 @@ SIM_DIR = Path(__file__).resolve().parent.parent
 if str(SIM_DIR) not in sys.path:
     sys.path.insert(0, str(SIM_DIR))
 
-from harness import corners as corners_mod  # noqa: E402
+from harness import corners as corners_mod, klt_sim  # noqa: E402
 
 # --------------------------------------------------------------------------
 # Frequency grid and search
@@ -646,7 +646,12 @@ def read_report(report: dict) -> tuple[dict[str, UnitResult], dict]:
     """Per-corner results keyed by corner id, plus run-level environment
     facts (remote job id etc.). Raises ValueError for an error envelope or a
     report without a corner list -- a campaign must stop on those rather
-    than invent measurements."""
+    than invent measurements.
+
+    The run-level facts come from `harness.klt_sim.run_info()` -- shared with
+    every other batch campaign, so this one cannot regress to a
+    single-job-only read that reports `job None` and no version skew for a
+    sharded run (issues #865, #888)."""
     if not isinstance(report, dict):
         raise ValueError("klt sim report is not a JSON object")
     if "error" in report and "corners" not in report:
@@ -667,8 +672,7 @@ def read_report(report: dict) -> tuple[dict[str, UnitResult], dict]:
         msgs = [str(d.get("message")) for d in (c.get("diagnostics") or [])
                 if isinstance(d, dict) and d.get("severity") == "error" and d.get("code") != "measurement"]
         results[cid] = UnitResult(cid, str(c.get("status")), vals, errs, msgs[:2])
-    env = report.get("environment") or {}
-    return results, {"remote": env.get("remote"), "status": report.get("status")}
+    return results, klt_sim.run_info(report)
 
 
 def grade_unit(unit: UnitResult | None, checks: Sequence[Check] | None = None) -> ProbeGrade:
@@ -841,18 +845,35 @@ def summarize(searches: dict[str, CornerSearch], units: dict[str, dict[int, Unit
 
 
 def runner_skew(probe_log: Sequence[dict], extra_runs: Sequence[dict] = ()) -> list[str]:
-    """Distinct 'runner klt X vs client klt Y' statements from the submissions'
-    `environment.remote` blocks, for every run whose runner and client
-    versions differ (empty when none do)."""
+    """Distinct 'runner klt X vs client klt Y' statements, one per distinct
+    skewing runner/client pair across the submissions (empty when none skew).
+
+    Every EXECUTING unit is examined, not just the first: a sharded run has
+    one fleet job per shard, each with its own runner version, and those keys
+    live inside `environment.remote.fleet[]` rather than on
+    `environment.remote` -- so reading `remote` alone reports no skew however
+    the shards disagree (issue #888). `harness.klt_sim.run_info()` normalises
+    both report shapes into `jobs[]`, which is what is walked here.
+
+    `remote` is still read as well, so a campaign file minted before #888
+    (whose `run` blocks carry the single-job `remote` dict and no `jobs[]`)
+    still discloses its skew. On a sharded `remote` there are no version keys
+    to find, and on a single-job one the `jobs[]` entry repeats them, so the
+    de-duplication below absorbs the overlap.
+    """
     seen: list[str] = []
     runs = [e.get("run") or {} for e in probe_log] + list(extra_runs)
     for run in runs:
-        rem = run.get("remote") or {}
-        if not isinstance(rem, dict):
+        if not isinstance(run, dict):
             continue
-        r, c = rem.get("runner_klt_version"), rem.get("client_klt_version")
-        if r and c and (rem.get("runner_compatibility") == "mismatch" or r != c):
-            msg = f"fleet runner klt {r} vs submitting client klt {c}"
-            if msg not in seen:
-                seen.append(msg)
+        units = [j for j in (run.get("jobs") or []) if isinstance(j, dict)]
+        rem = run.get("remote")
+        if isinstance(rem, dict):
+            units.append(rem)
+        for unit in units:
+            r, c = unit.get("runner_klt_version"), unit.get("client_klt_version")
+            if r and c and (unit.get("runner_compatibility") == "mismatch" or r != c):
+                msg = f"fleet runner klt {r} vs submitting client klt {c}"
+                if msg not in seen:
+                    seen.append(msg)
     return seen
