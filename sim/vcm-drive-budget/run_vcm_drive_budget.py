@@ -830,6 +830,252 @@ def tt_point_seed_comparison_note(measured_budget_ohm: float | None,
     return f"{measured} {comparison}"
 
 
+def bare_budget_spread_note(best_ohm: float, binding_ohm: float,
+                             scored_count: int, all_scored_censored: bool,
+                             largest_swept_ohm: float,
+                             partial_grid: bool) -> str:
+    """The full-grid bare record's worst-to-best spread clause, rendered
+    from the ratio and the censoring facts (issue #894, filed as #891).
+
+    `best_ohm` / `binding_ohm` are the loosest and tightest 1-LSB budgets
+    among the corners that HAVE one, `scored_count` how many those are,
+    `all_scored_censored` whether every one of them equals the largest
+    swept R_source, and `partial_grid` whether some corner had no positive
+    budget at all (which changes what population the spread is over).
+
+    The pre-#894 wording ended in a fixed literal -- "the bare R_source
+    budget is **not** corner-invariant" -- appended to a ratio the writer
+    had just computed. At `1.0x` that sentence states the opposite of the
+    number immediately before it, and `1.0x` is exactly what the committed
+    full-grid records print: every scored corner right-censored at the
+    largest swept value. A tie there is a statement about where the sweep
+    list stops, not a measurement of corner sensitivity, and the record's
+    own censoring note two paragraphs up already says so. No value of the
+    ratio could make the literal false to the writer, which is what
+    `CLAUDE.md`'s "Verification is the product" rule forbids.
+
+    Pure (figures in, string out) so every branch is unit-testable without
+    ngspice; covered by sim/tests/test_run_vcm_drive_budget.py."""
+    where = ("among the corner(s) that have one" if partial_grid
+             else "across the ratified grid")
+    censored_note = (
+        f" Every one of them is right-censored at the largest swept "
+        f"R_source ({largest_swept_ohm:.0f} ohm), so the true budgets are "
+        ">= that value and this sweep list cannot separate them."
+        if all_scored_censored else ""
+    )
+
+    # A single scored corner has no worst-to-best pair at all, so no ratio
+    # is defined -- reporting "1.0x" there would dress up an absent
+    # comparison as a measured tie.
+    if scored_count < 2:
+        return (
+            "Only one ratified corner has a positive 1-LSB budget, so this "
+            "grid measures no worst-to-best spread at all: whether the bare "
+            "R_source budget is corner-invariant is not established either "
+            f"way here.{censored_note}"
+        )
+
+    ratio = best_ohm / binding_ohm
+    if best_ohm > binding_ohm:
+        return (
+            f"Worst-to-best spread {where}: {ratio:.1f}x -- the bare "
+            "R_source budget is **not** corner-invariant."
+        )
+    if all_scored_censored:
+        return (
+            f"Worst-to-best spread {where}: {ratio:.1f}x -- but every one "
+            f"of the {scored_count} scored corner(s) is right-censored at "
+            f"the largest swept R_source ({largest_swept_ohm:.0f} ohm), so "
+            "this sweep list cannot distinguish them. The tie is a "
+            "statement about where the sweep list stops, NOT a measurement "
+            "of corner sensitivity: whether the bare R_source budget is "
+            "corner-invariant is not established either way here."
+        )
+    return (
+        f"Worst-to-best spread {where}: {ratio:.1f}x -- the bare R_source "
+        f"budget is equal across all {scored_count} scored corner(s) at "
+        "this sweep list's resolution. That is evidence FOR corner-"
+        "invariance over the swept list, not against it, though a finer "
+        "sweep list could still separate them."
+    )
+
+
+#: Per-window reference for the C_decouple record's per-corner-shape note:
+#: `(record id, the distinct POSITIVE per-corner 1-LSB bare budgets that
+#: record reports)`. Keyed by window so the comparison is always
+#: same-window -- the pre-#894 literal cited the WORST-window record from
+#: both windows' records, an uncontrolled cross-window comparison. Fixed
+#: historical facts transcribed from those records' own tables, the same
+#: contract as `SINGLE_CORNER_SEED_BUDGET_1LSB_OHM`; the legacy entry lists
+#: only the positive values because several corners there have no positive
+#: budget at all.
+PER_CORNER_SHAPE_REFERENCE = {
+    "worst": ("20260907-052526-f589273", (1000.0, 10000.0, 30000.0)),
+    "legacy": ("20260907-090200-7768162", (10000.0, 100000.0)),
+}
+
+
+def marginal_r_source_shape_note(points: list[dict], window: str,
+                                  fallback_ohm: float,
+                                  *, brief: bool = False) -> str:
+    """The C_decouple record's note on its OWN per-corner marginal
+    R_source values, compared against the same window's full-grid bare
+    campaign (issue #894).
+
+    `points` are the COMPLETE `run_corners_decouple()` points; the
+    partition into fallback / genuinely-marginal corners is taken from
+    `partition_decouple_rescue()` rather than re-derived.
+
+    The pre-#894 wording was two fixed literals: the Claim asserted "the
+    bare budget is already known to span >= an order of magnitude across
+    this grid" as settled for this run, and the Result asserted that these
+    values "reproduce the bare R_source full-grid campaign's own per-corner
+    shape". Both were unconditional, and in every committed record the
+    marginal R_source is the SAME fallback value at 9 of 9 corners -- a
+    uniform column, which reproduces no per-corner shape at all. Worse,
+    the Result's own sibling `else` branch already said every corner ran
+    against a fallback resistance, so the record contradicted itself one
+    bullet later.
+
+    Two things this note is careful about:
+
+    - **The two columns are different quantities.** The reference record's
+      column is a 1-LSB *budget* (the largest swept R_source that still
+      PASSED); this record's column is the *marginal* R_source (the
+      smallest swept value that FAILED bare, or `marginal_r_source()`'s
+      fallback when none did). They are adjacent entries of the same sweep
+      list, not the same number, so the comparison is about per-corner
+      VARIATION, and "reproduces" is reserved for exact figure-for-figure
+      agreement -- `tt_point_seed_comparison_note()`'s rule.
+    - **Same window only.** `PER_CORNER_SHAPE_REFERENCE` is keyed by
+      window.
+
+    `brief=True` renders only what THIS run's marginal column looks like
+    and drops the cross-record comparison. That is the Claim bullet's
+    form: the Claim's job is to say why each corner is re-derived against
+    its own marginal R_source, so it needs this run's own shape but should
+    not restate the Result's whole comparison verbatim one section earlier.
+    Note it therefore makes no claim about the reference record at all,
+    which is the point -- the pre-#894 Claim asserted that record's span as
+    settled for this run.
+
+    Pure (points and figures in, string out); covered by
+    sim/tests/test_run_vcm_drive_budget.py."""
+    ref_id, ref_values = PER_CORNER_SHAPE_REFERENCE[window]
+    ref_link = f"[`records/{ref_id}.md`]({ref_id}.md)"
+    ref_lo, ref_hi = min(ref_values), max(ref_values)
+    ref_phrase = (
+        f"{ref_link} reports per-corner bare 1-LSB budgets taking "
+        f"{len(ref_values)} distinct positive values across this grid "
+        f"({ref_lo:.0f}-{ref_hi:.0f} ohm, {ref_hi / ref_lo:.1f}x)"
+    )
+    caveat = (
+        "That column and this one are different quantities on the same "
+        "sweep list -- a budget is the largest swept R_source that still "
+        "passed, a marginal R_source the smallest that failed -- so what "
+        "is compared here is per-corner variation, not the two columns' "
+        "identity."
+    )
+
+    if not points:
+        base = (
+            "No corner in this run produced a usable bare sweep, so this "
+            "record measures no per-corner marginal R_source shape of its "
+            "own"
+        )
+        return f"{base}." if brief else (
+            f"{base} and is not compared against {ref_link}."
+        )
+
+    split = partition_decouple_rescue(points)
+    fallbacks = split["nothing_to_rescue"]
+    measured = split["needed"]
+    n = len(points)
+
+    if not measured:
+        # Report the points' OWN values, not the sweep list's top value, so
+        # this sentence cannot disagree with the table it sits under.
+        fb_values = sorted({p["marginal_r_source_ohm"] for p in points})
+        if len(fb_values) == 1:
+            observed = (
+                f"All {n} corner(s) in this run resolve to the SAME "
+                f"marginal R_source ({fb_values[0]:.0f} ohm)"
+            )
+        else:
+            observed = (
+                f"All {n} corner(s) in this run resolve to "
+                "`marginal_r_source()`'s fallback "
+                f"({', '.join(f'{v:.0f}' for v in fb_values)} ohm)"
+            )
+        base = (
+            f"{observed}: it is `marginal_r_source()`'s fallback at every "
+            "corner -- no swept bare R_source pushed any of them past 1 "
+            f"provisional LSB, so each fell back to the largest swept "
+            f"value ({fallback_ohm:.0f} ohm). This run therefore measures "
+            "NO per-corner shape of its own"
+        )
+        return f"{base}." if brief else (
+            f"{base} and does NOT reproduce one -- {ref_phrase}, a "
+            f"variation this run does not show. {caveat}"
+        )
+
+    if fallbacks:
+        fb_label = ", ".join(f"`{p['corner_id']}`" for p in fallbacks)
+        scope = (
+            f"{len(fallbacks)} of {n} corner(s) ({fb_label}) resolve to "
+            f"`marginal_r_source()`'s fallback ({fallback_ohm:.0f} ohm) -- "
+            "no swept bare R_source failed there, so those corners carry "
+            "no per-corner shape of their own; what follows is scoped to "
+            f"the remaining {len(measured)} corner(s)."
+        )
+    else:
+        scope = (
+            f"All {n} corner(s) have a marginal R_source re-derived from "
+            "their own failing bare sweep, none of them "
+            "`marginal_r_source()`'s fallback."
+        )
+
+    values = sorted({p["marginal_r_source_ohm"] for p in measured})
+    if len(values) == 1:
+        if len(measured) == 1:
+            lead = (f"That single corner's marginal R_source is "
+                    f"{values[0]:.0f} ohm")
+        else:
+            lead = (f"All {len(measured)} share the same marginal R_source "
+                    f"({values[0]:.0f} ohm)")
+        mine = f"{lead}, so this run measures no per-corner spread of its own"
+        comparison = (
+            f" and does NOT reproduce one -- {ref_phrase}, a variation "
+            "this run does not show."
+        )
+    else:
+        lo, hi = values[0], values[-1]
+        mine = (
+            f"Their marginal R_source takes {len(values)} distinct values "
+            f"spanning {lo:.0f}-{hi:.0f} ohm ({hi / lo:.1f}x) in this run, "
+            "so the bare drive impedance that matters IS corner-dependent "
+            "here"
+        )
+        if tuple(values) == tuple(sorted(ref_values)):
+            comparison = (
+                f" -- figure for figure the same set {ref_link} reports "
+                "for the same window, so this run reproduces that "
+                "campaign's own per-corner shape."
+            )
+        else:
+            comparison = (
+                f"; {ref_phrase}, which these figures do not match one for "
+                "one, so this run does not reproduce that campaign's "
+                "per-corner shape. Which is the better reading is not "
+                "settled here -- both are append-only evidence from "
+                "different runs."
+            )
+    if brief:
+        return f"{scope} {mine}."
+    return f"{scope} {mine}{comparison} {caveat}"
+
+
 # ---------------------------------------------------------------------------
 # --corners execution: ONE `klt sim` request per invocation (issue #881)
 # ---------------------------------------------------------------------------
@@ -1544,8 +1790,17 @@ def write_corners_decouple_record(points: list[dict], point: str,
     supplies_run = sorted({p["supply_v"] for p in points})
     sample_ns, r_source_list = WINDOW_CONFIG[window]
     window_desc = WINDOW_DESCRIPTION[window]
-    other_window = "legacy" if window == "worst" else "worst"
-    other_window_desc = WINDOW_DESCRIPTION[other_window]
+
+    # Both the Claim and the Result used to assert this run reproduced
+    # f589273's per-corner shape, unconditionally (#894). Derived once here
+    # from this run's own marginal values so the two sections cannot
+    # disagree with each other or with the table between them.
+    shape_note = marginal_r_source_shape_note(
+        complete, window, r_source_list[-1])
+    # The Claim needs this run's own shape as methodology rationale, not the
+    # Result's whole cross-record comparison restated one section earlier.
+    shape_note_brief = marginal_r_source_shape_note(
+        complete, window, r_source_list[-1], brief=True)
 
     lines: list[str] = []
     a = lines.append
@@ -1570,11 +1825,10 @@ def write_corners_decouple_record(points: list[dict], point: str,
         "bare R_source full-grid campaigns, each corner here is decoupled "
         "against its OWN marginal R_source** (`marginal_r_source()`, "
         "re-derived from that same corner's own bare sweep in the same "
-        "invocation) rather than a value borrowed from tt/27C/1.8V -- the "
-        "bare budget is already known to span >= an order of magnitude "
-        "across this grid ([`records/20260907-052526-f589273.md`]"
-        "(20260907-052526-f589273.md)), so a single borrowed resistance "
-        "would not be the marginal case at most corners. No claim here is "
+        "invocation) rather than a value borrowed from tt/27C/1.8V, so "
+        "that a borrowed resistance cannot silently stand in for the "
+        f"marginal case at corners where it is not one. {shape_note_brief} "
+        "No claim here is "
         "graded against a ratified spec row: `spec/target-spec.md` is "
         "entirely DRAFT (#1/#27); `LSB_DIFF_MV_PROVISIONAL` is a reference "
         "scale, never a pass/fail gate; the DR-006 acquisition window is "
@@ -1600,11 +1854,8 @@ def write_corners_decouple_record(points: list[dict], point: str,
         f"corner, over the "
         f"`[{', '.join(f'{c * 1e12:g}' for c in C_DECOUPLE_SWEEP_F)}]` pF "
         "sweep list, each "
-        "corner at its own marginal R_source (see the table below). The "
-        f"{other_window_desc} window's own C_decouple sweep stays "
-        "single-corner-only (tt/27C/1.8V), deferred to a future pass -- the "
-        "same one-window-per-pass precedent this mechanism's own bare "
-        "R_source full-grid work already established."
+        "corner at its own marginal R_source (see the table below). "
+        "Nothing outside that scope is reported here."
     )
     a("")
     a("## C_decouple budget for <= 1 provisional LSB of differential error, per corner")
@@ -1754,23 +2005,15 @@ def write_corners_decouple_record(points: list[dict], point: str,
     notes.append(
         "The per-corner marginal R_source values in the table above are "
         "themselves re-derived from each corner's own bare sweep in this "
-        "same invocation, and reproduce the bare R_source full-grid "
-        "campaign's own per-corner shape "
-        "([`records/20260907-052526-f589273.md`]"
-        "(20260907-052526-f589273.md)) rather than assuming the "
-        "tt/27C/1.8V value applies everywhere."
+        "same invocation, rather than assuming the tt/27C/1.8V value "
+        f"applies everywhere. {shape_note}"
     )
     notes.append(
         f"This campaign repeats ONLY the C_decouple sweep at the "
-        f"{window_desc} window. The {other_window_desc} window's own "
-        "C_decouple sweep remains single-corner (tt/27C/1.8V) only; a "
-        "full-grid pass over it is a natural next step, the same "
-        "one-window-per-pass precedent this mechanism's own bare R_source "
-        "full-grid campaigns already established. It does not, on its own, "
-        "establish what R_source/C_decouple an actual on-chip VCM buffer or "
-        "off-chip reference network would present -- no such buffer exists "
-        "in this design yet (docs/chipalooza/challenge-4-proposal.md "
-        "Section 2.2)."
+        f"{window_desc} window. It does not, on its own, establish what "
+        "R_source/C_decouple an actual on-chip VCM buffer or off-chip "
+        "reference network would present -- no such buffer exists in this "
+        "design yet (docs/chipalooza/challenge-4-proposal.md Section 2.2)."
     )
 
     a("## Result")
@@ -1832,8 +2075,6 @@ def write_corners_record(points: list[dict], point: str,
     supplies_run = sorted({p["supply_v"] for p in points})
     sample_ns, r_source_list = WINDOW_CONFIG[window]
     window_desc = WINDOW_DESCRIPTION[window]
-    other_window = "legacy" if window == "worst" else "worst"
-    other_window_desc = WINDOW_DESCRIPTION[other_window]
 
     lines: list[str] = []
     a = lines.append
@@ -1877,11 +2118,8 @@ def write_corners_record(points: list[dict], point: str,
         f"- **Scope, narrower than the single-corner default run**: only "
         f"the `{point}` test point's bare (undecoupled) R_source sweep at "
         f"the {window_desc} window ({sample_ns:.3f} ns) is repeated "
-        f"per corner, over the reduced `{r_source_list}` sweep list. The "
-        f"{other_window_desc} window and the C_decouple sweep stay "
-        "single-corner-only (tt/27C/1.8V), deferred to a future pass, "
-        "same first-pass/full-grid split precedent the other mechanism "
-        "campaigns already established."
+        f"per corner, over the reduced `{r_source_list}` sweep list. "
+        "Nothing outside that scope is reported here."
     )
     a("")
     a("## Bare R_source budget for <= 1 provisional LSB of differential error, per corner")
@@ -1964,12 +2202,13 @@ def write_corners_record(points: list[dict], point: str,
             f"`{best['corner_id']}`" if len(best_ties) == 1
             else "tied at " + ", ".join(f"`{p['corner_id']}`" for p in best_ties)
         )
-        spread_phrase = (
-            "Worst-to-best spread "
-            + ("among the corner(s) that have one" if none_found
-               else "across the ratified grid")
-            + f": {best_val / binding_val:.1f}x -- the bare R_source budget "
-            "is **not** corner-invariant."
+        # Rendered from the ratio and the censoring facts, not asserted
+        # (#894/#891): at 1.0x the pre-#894 literal contradicted the number
+        # it was appended to.
+        spread_phrase = bare_budget_spread_note(
+            best_val, binding_val, len(scored),
+            all(p["budget_1lsb_censored"] for p in scored),
+            r_source_list[-1], bool(none_found),
         )
         lead = (
             f"Among the {len(scored)} ratified corner(s) that DO have a "
@@ -2078,15 +2317,11 @@ def write_corners_record(points: list[dict], point: str,
         )
     notes.append(
         f"This campaign repeats ONLY the bare (undecoupled) R_source sweep "
-        f"at the {window_desc} window, at every ratified corner. The "
-        f"{other_window_desc} window and the C_decouple sweep remain "
-        "single-corner (tt/27C/1.8V) only; a full-grid pass "
-        "over either is a natural next step, same open-item shape as the "
-        "other Section 7 Item 2 mechanisms before their own full-grid "
-        "passes landed. It does not, on its own, establish what R_source/"
-        "C_decouple an actual on-chip VCM buffer or off-chip reference "
-        "network would present -- no such buffer exists in this design "
-        "yet (docs/chipalooza/challenge-4-proposal.md Section 2.2)."
+        f"at the {window_desc} window, at every ratified corner. It does "
+        "not, on its own, establish what R_source/C_decouple an actual "
+        "on-chip VCM buffer or off-chip reference network would present -- "
+        "no such buffer exists in this design yet "
+        "(docs/chipalooza/challenge-4-proposal.md Section 2.2)."
     )
 
     a("## Result")
