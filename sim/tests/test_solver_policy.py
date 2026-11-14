@@ -39,8 +39,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gen_full_conversion_tb as tb  # noqa: E402
 import run_conversion as rc  # noqa: E402
-from full_conversion_campaigns import cm_trace as fc_cm  # noqa: E402
-from full_conversion_campaigns import coherent_sine as fc_sine  # noqa: E402
 from full_conversion_campaigns import common as fc_common  # noqa: E402
 from full_conversion_campaigns import dc_codes as fc_dc  # noqa: E402
 from full_conversion_campaigns import decision_margin as fc_dm  # noqa: E402

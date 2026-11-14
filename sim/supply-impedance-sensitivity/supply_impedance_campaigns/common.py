@@ -17,14 +17,11 @@ This module imports no campaign module; the campaign modules import this one.
 """
 from __future__ import annotations
 
-import functools
 import json
 import math
 import re
 import sys
-import tempfile
 import time
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
