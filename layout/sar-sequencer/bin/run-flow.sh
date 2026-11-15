@@ -41,17 +41,12 @@ set -euo pipefail
 
 BLOCK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAYOUT_DIR="$(cd "$BLOCK_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
-KLT="$LAYOUT_DIR/.venv/bin/klt"
-PDK_VARIANT=sky130A
-# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
-export PDK=sky130A
 TOP=sar_sequencer
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"
 
-require_klt "$KLT"
-require_pdk "$KLT" "$PDK_VARIANT"
+# Sets REPO_ROOT/KLT/PDK_VARIANT, exports PDK, gates on the venv and the PDK.
+flow_init "$BLOCK_DIR"
 
 if ! command -v openroad >/dev/null 2>&1; then
   echo "run-flow.sh: no 'openroad' binary on \$PATH -- see docs/environment-setup.md" >&2

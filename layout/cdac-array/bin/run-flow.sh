@@ -54,27 +54,20 @@ set -euo pipefail
 
 CDAC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAYOUT_DIR="$(cd "$CDAC_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
-KLT="$LAYOUT_DIR/.venv/bin/klt"
 PY="$LAYOUT_DIR/.venv/bin/python"
-PDK_VARIANT=sky130A
-# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
-export PDK=sky130A
 TOPS=(cdac_unit_cell cdac_array)
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"
 
-require_klt "$KLT"
-require_pdk "$KLT" "$PDK_VARIANT"
+# Sets REPO_ROOT/KLT/PDK_VARIANT, exports PDK, gates on the venv and the PDK.
+flow_init "$CDAC_DIR"
 if ! command -v xschem >/dev/null 2>&1; then
   echo "run-flow.sh: no 'xschem' on \$PATH -- see docs/environment-setup.md" >&2
   exit 1
 fi
 
-RECORD_ID="$(new_record_id "$REPO_ROOT")"
-OUT_DIR="$CDAC_DIR/reports/$RECORD_ID"
-mkdir -p "$OUT_DIR"
-echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
+# Sets RECORD_ID and OUT_DIR.
+flow_begin_record "$CDAC_DIR"
 
 # --- 0. Regenerate the LVS references from the schematics -------------------
 # Always regenerated, never trusted from the committed copy: an LVS "match"
