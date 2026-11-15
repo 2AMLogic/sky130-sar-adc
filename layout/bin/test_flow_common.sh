@@ -11,7 +11,7 @@
 # What it is for. The per-block flow equivalence of the #915 factoring was
 # demonstrated by re-running all eight `layout/*/bin/run-flow.sh` flows and
 # diffing the records (see that issue's PR), but a PASSING flow run cannot
-# exercise two things the helpers are responsible for:
+# exercise three things the helpers are responsible for:
 #
 #   1. the FAILED-verdict path of `finish_record` -- the stderr line and the
 #      non-zero exit a flow takes when render-record.py rejects a verdict.
@@ -21,10 +21,15 @@
 #   2. `flow_caller_name`'s whole reason to exist -- that an error raised
 #      through a nested helper (`flow_init` -> `require_klt`) still names the
 #      `run-flow.sh` the operator invoked, not `_flow_common.sh`.
+#   3. the violation path of `drc_blocks_fanout` -- `klt drc` exits 3 when it
+#      finds violations, a normal documented outcome each fanout invocation
+#      must survive (`|| true`), and only a violation-bearing run reaches
+#      that path (#940).
 #
 # Each assertion that has a meaningful opposite is run against both arms (a
-# failing AND a passing render-record.py; an absent AND a present `klt`),
-# matching this repo's negative-control discipline for the flows themselves.
+# failing AND a passing render-record.py; an absent AND a present `klt`; a
+# violating AND a clean `klt drc`), matching this repo's negative-control
+# discipline for the flows themselves.
 set -euo pipefail
 
 LAYOUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
@@ -82,12 +87,18 @@ BLOCK="$T/layout/testblock"
 
 cat > "$T/layout/.venv/bin/klt" <<'EOF'
 #!/usr/bin/env bash
-# Stub klt. `pdk find` succeeds; `drc` emits a recognisable envelope; `report`
-# writes nothing of consequence. Every call is appended to $KLT_CALLS.
+# Stub klt. `pdk find` succeeds; `report` writes nothing of consequence. Every
+# call is appended to $KLT_CALLS. `drc` emits a recognisable envelope first,
+# then exits 3 when the block id contains `dirty`: violations are a normal
+# documented `klt drc` outcome, and the real `klt drc --format json` writes
+# its envelope to stdout even on that exit (#940).
 [[ -n "${KLT_CALLS:-}" ]] && printf '%s\n' "$*" >> "$KLT_CALLS"
 case "$1" in
   "pdk") exit 0 ;;
-  "drc") echo "{\"stub_drc\": \"$2\"}" ;;
+  "drc")
+    echo "{\"stub_drc\": \"$2\"}"
+    case "$(basename "$2" .gds)" in *dirty*) exit 3 ;; esac
+    ;;
   *) : ;;
 esac
 EOF
@@ -120,7 +131,10 @@ echo "LAYOUT_DIR=$LAYOUT_DIR"
 flow_begin_record "$BLOCK_DIR"
 echo "RECORD_ID=$RECORD_ID"
 echo "OUT_DIR=$OUT_DIR"
-BLOCKS=(alpha beta)
+# The block list is environment-selectable so one caller serves both fanout
+# arms: unset it is the clean arm, a list naming a `dirty` block drives the
+# stub's exit-3 violation arm (see the stub above).
+BLOCKS=(${FANOUT_BLOCKS:-alpha beta})
 drc_blocks_fanout "$OUT_DIR" "${BLOCKS[@]}"
 : > "$OUT_DIR/drc.json"
 : > "$OUT_DIR/lvs.json"
@@ -243,6 +257,46 @@ else
 fi
 expect_contains "drc_blocks_fanout invokes the deck the flows record against" \
   "drc $out_dir/alpha.gds --deck sky130 --format json" "$(cat "$T/calls.txt")"
+
+# --- 4b. drc_blocks_fanout: the violation arm ---------------------------------
+# `klt drc` exits 3 on violations -- a normal documented outcome, which is why
+# every fanout invocation is `|| true`-guarded: without the guard, `set -e`
+# aborts the caller the first time a block has a violation, exactly the case
+# the envelope exists to record (#940). A violation-bearing block is selected
+# by block id (`dirty`), and each arm places it differently: first (so two
+# entries must be written AFTER a violation), middle, last (so the closing
+# brace must follow a violation with no trailing entry), and everywhere.
+for arm in "dirty alpha beta" "alpha dirty beta" "alpha beta dirty" \
+           "dirty1 dirty2 dirty3"; do
+  set +e
+  arm_out="$(cd / && FANOUT_BLOCKS="$arm" "$BLOCK/bin/run-flow.sh" \
+    2>"$T/dirty-err.txt")"
+  arm_rc=$?
+  set -e
+  arm_dir="$(printf '%s\n' "$arm_out" | sed -n 's/^OUT_DIR=//p')"
+  expect_eq "a violating block does not abort the caller [$arm]" "0" "$arm_rc"
+  expect_contains "the caller runs to completion past the fanout [$arm]" \
+    "run-flow.sh: done. See $BLOCK/reports/" "$arm_out"
+  for b in $arm; do
+    expect_contains "the envelope still records $b's entry [$arm]" \
+      "\"$b\": {\"stub_drc\": \"$arm_dir/$b.gds\"}" \
+      "$(cat "$arm_dir/drc.blocks.json")"
+  done
+  if [[ "$(tail -n 1 "$arm_dir/drc.blocks.json")" == "}" ]]; then
+    ok "the envelope still closes after the violation [$arm]"
+  else
+    fail "the envelope still closes after the violation [$arm]" \
+      "a closing brace on the last line" \
+      "$(tail -n 1 "$arm_dir/drc.blocks.json")"
+  fi
+  if python3 -c 'import json,sys; json.load(open(sys.argv[1]))' \
+    "$arm_dir/drc.blocks.json"; then
+    ok "the violation-bearing envelope is valid JSON [$arm]"
+  else
+    fail "the violation-bearing envelope is valid JSON [$arm]" \
+      "parseable" "parse error"
+  fi
+done
 
 # --- 5. finish_record: both arms --------------------------------------------
 # PASS arm: "done.", exit 0, LATEST updated.
