@@ -1215,6 +1215,29 @@ class TestMarginalRSourceShapeNote(unittest.TestCase):
         self.assertIn("a variation this run does not show", note)
         self.assertIn(rt.PER_CORNER_SHAPE_REFERENCE["worst"][0], note)
 
+    def test_the_legacy_reference_phrase_names_the_excluded_population(self):
+        """Issue #905 (2): 4 of the legacy record's 9 corners have no
+        positive budget and its positive-and-largest budgets are marked
+        right-censored in that record's own table, so the note must not
+        present the 10000-100000 span as a measured 10.0x ratio over
+        "this grid" -- the ratio that record deliberately declined to
+        state."""
+        note = self._note(self._all_fallback(), window="legacy")
+        self.assertNotIn("10.0x", note)
+        self.assertNotIn("across this grid", note)
+        self.assertIn("alongside 4 corners with no positive budget at all",
+                      note)
+        self.assertIn("right-censored at the largest swept value", note)
+        self.assertIn("10000 ohm to >= 100000 ohm", note)
+
+    def test_the_worst_reference_phrase_still_reports_its_measured_ratio(self):
+        """Issue #905: the worst window is the clean case -- all 9 corners
+        positive, none censored -- so its phrase keeps the ratio and the
+        plain grid population. No regression in the clean window."""
+        note = self._note(self._all_fallback())
+        self.assertIn("across this grid", note)
+        self.assertIn("(1000-30000 ohm, 30.0x)", note)
+
     # -- branch 2: values vary and none is a fallback --------------------
     def test_varying_values_report_this_runs_own_spread(self):
         points = [
@@ -1236,6 +1259,19 @@ class TestMarginalRSourceShapeNote(unittest.TestCase):
         note = self._note(points)
         self.assertIn("reproduces that campaign's own per-corner shape", note)
         self.assertIn("figure for figure", note)
+
+    def test_the_exact_match_branch_does_not_assert_then_deny_identity(self):
+        """Issue #905 (1): the exact-match bullet claimed figure-for-figure
+        agreement and then appended the caveat denying "the two columns'
+        identity" -- asserting and denying the same thing in one bullet.
+        The caveat belongs to the branches that compare variation; this
+        branch claims shape agreement, so the denial is not appended."""
+        ref = rt.PER_CORNER_SHAPE_REFERENCE["worst"][1]
+        points = [self._pt(f"c{i}", fallback=False, marginal=v)
+                  for i, v in enumerate(ref)]
+        note = self._note(points)
+        self.assertIn("figure for figure", note)
+        self.assertNotIn("not the two columns' identity", note)
 
     def test_varying_values_that_differ_do_not_say_reproduces(self):
         points = [
@@ -1301,7 +1337,7 @@ class TestMarginalRSourceShapeNote(unittest.TestCase):
         windows' records -- an uncontrolled cross-window comparison."""
         for window in rt.WINDOW_CONFIG:
             self.assertIn(window, rt.PER_CORNER_SHAPE_REFERENCE)
-            ref_id, ref_values = rt.PER_CORNER_SHAPE_REFERENCE[window]
+            ref_id, ref_values = rt.PER_CORNER_SHAPE_REFERENCE[window][:2]
             note = self._note(self._all_fallback(), window=window)
             self.assertIn(ref_id, note, window)
             self.assertTrue(len(ref_values) >= 2, window)
@@ -1311,7 +1347,7 @@ class TestMarginalRSourceShapeNote(unittest.TestCase):
     def test_the_reference_records_exist_in_the_records_directory(self):
         """The map transcribes figures out of real records; a typo'd id
         would make the note cite a record that does not exist."""
-        for window, (ref_id, _) in rt.PER_CORNER_SHAPE_REFERENCE.items():
+        for window, (ref_id, *_) in rt.PER_CORNER_SHAPE_REFERENCE.items():
             self.assertTrue(
                 (rt.EXPERIMENT_DIR / "records" / f"{ref_id}.md").is_file(),
                 f"{window}: {ref_id}")

@@ -895,16 +895,22 @@ def bare_budget_spread_note(best_ohm: float, binding_ohm: float,
 
 #: Per-window reference for the C_decouple record's per-corner-shape note:
 #: `(record id, the distinct POSITIVE per-corner 1-LSB bare budgets that
-#: record reports)`. Keyed by window so the comparison is always
+#: record reports, how many of that record's corners have NO positive
+#: budget, how many of those positive budgets are right-censored at the
+#: largest swept value)`. Keyed by window so the comparison is always
 #: same-window -- the pre-#894 literal cited the WORST-window record from
 #: both windows' records, an uncontrolled cross-window comparison. Fixed
 #: historical facts transcribed from those records' own tables, the same
 #: contract as `SINGLE_CORNER_SEED_BUDGET_1LSB_OHM`; the legacy entry lists
-#: only the positive values because several corners there have no positive
-#: budget at all.
+#: only the positive values because 4 of its 9 corners have no positive
+#: budget at all, and all 3 of its positive-and-largest budgets are marked
+#: right-censored in that same table (issue #905), so the ratio of its
+#: span would be a ratio over a censored lower bound and is not quoted.
+#: The worst entry is the clean case -- all 9 corners positive, none
+#: censored -- so its 30.0x is that record's own measured spread.
 PER_CORNER_SHAPE_REFERENCE = {
-    "worst": ("20260907-052526-f589273", (1000.0, 10000.0, 30000.0)),
-    "legacy": ("20260907-090200-7768162", (10000.0, 100000.0)),
+    "worst": ("20260907-052526-f589273", (1000.0, 10000.0, 30000.0), 0, 0),
+    "legacy": ("20260907-090200-7768162", (10000.0, 100000.0), 4, 3),
 }
 
 
@@ -939,7 +945,11 @@ def marginal_r_source_shape_note(points: list[dict], window: str,
       fallback when none did). They are adjacent entries of the same sweep
       list, not the same number, so the comparison is about per-corner
       VARIATION, and "reproduces" is reserved for exact figure-for-figure
-      agreement -- `tt_point_seed_comparison_note()`'s rule.
+      agreement -- `tt_point_seed_comparison_note()`'s rule. That quantity
+      caveat is therefore omitted in the exact-match branch: its claim is
+      shape agreement, not column identity, so appending a denial of an
+      identity it never asserted would contradict the sentence it lands
+      in (issue #905).
     - **Same window only.** `PER_CORNER_SHAPE_REFERENCE` is keyed by
       window.
 
@@ -954,13 +964,26 @@ def marginal_r_source_shape_note(points: list[dict], window: str,
 
     Pure (points and figures in, string out); covered by
     sim/tests/test_run_vcm_drive_budget.py."""
-    ref_id, ref_values = PER_CORNER_SHAPE_REFERENCE[window]
+    ref_id, ref_values, ref_no_budget, ref_censored = (
+        PER_CORNER_SHAPE_REFERENCE[window])
     ref_link = f"[`records/{ref_id}.md`]({ref_id}.md)"
     ref_lo, ref_hi = min(ref_values), max(ref_values)
+    ref_span = (
+        f"{ref_lo:.0f} ohm to >= {ref_hi:.0f} ohm, right-censored at the "
+        "largest swept value"
+        if ref_censored
+        else f"{ref_lo:.0f}-{ref_hi:.0f} ohm, {ref_hi / ref_lo:.1f}x"
+    )
+    ref_population = (
+        "across the corners with a positive budget, alongside "
+        f"{ref_no_budget} corners with no positive budget at all"
+        if ref_no_budget
+        else "across this grid"
+    )
     ref_phrase = (
         f"{ref_link} reports per-corner bare 1-LSB budgets taking "
-        f"{len(ref_values)} distinct positive values across this grid "
-        f"({ref_lo:.0f}-{ref_hi:.0f} ohm, {ref_hi / ref_lo:.1f}x)"
+        f"{len(ref_values)} distinct positive values ({ref_span}) "
+        f"{ref_population}"
     )
     caveat = (
         "That column and this one are different quantities on the same "
@@ -1029,6 +1052,7 @@ def marginal_r_source_shape_note(points: list[dict], window: str,
         )
 
     values = sorted({p["marginal_r_source_ohm"] for p in measured})
+    exact_shape_match = tuple(values) == tuple(sorted(ref_values))
     if len(values) == 1:
         if len(measured) == 1:
             lead = (f"That single corner's marginal R_source is "
@@ -1049,7 +1073,7 @@ def marginal_r_source_shape_note(points: list[dict], window: str,
             "so the bare drive impedance that matters IS corner-dependent "
             "here"
         )
-        if tuple(values) == tuple(sorted(ref_values)):
+        if exact_shape_match:
             comparison = (
                 f" -- figure for figure the same set {ref_link} reports "
                 "for the same window, so this run reproduces that "
@@ -1065,6 +1089,8 @@ def marginal_r_source_shape_note(points: list[dict], window: str,
             )
     if brief:
         return f"{scope} {mine}."
+    if exact_shape_match:
+        return f"{scope} {mine}{comparison}"
     return f"{scope} {mine}{comparison} {caveat}"
 
 
