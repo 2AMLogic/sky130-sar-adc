@@ -6301,10 +6301,21 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **116** of the **121** records under `sim/*/records/` name both an `ngspice`
+  > **117** of the **122** records under `sim/*/records/` name both an `ngspice`
   > version and a 40-hex `open_pdks` commit, while of the **114** records under
   > `layout/*/reports/` and `layout/*/erc-reports/` **113** name a `klt`
   > version and **76** name the `open_pdks` commit
+
+  **Update (2026-11-15, merge of issue #912's PR #938):** merging origin/main
+  into this branch brings in
+  `sim/cdac-array-transfer/records/20261115-014818-7adcfe77.md` — the
+  freshness-pinnable DNL/INL yield envelope re-mint — which names both an
+  `ngspice` version (`ngspice-47`) and a 40-hex `open_pdks` commit
+  (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), so it counts as pinned: the
+  totals move 121 → **122** records and 116 → **117** pinned, which is the
+  figure the census above now states. That flow's own count of records naming
+  no commit is unchanged — six of its ten, all minted before 2026-10-02 — so
+  no flow newly pins the commit. No earlier record was rewritten.
 
   **Update (2026-11-15, issue #913):** the converging-range input sweep
   mints one record of the existing `sim/full-conversion-transient/` campaign —
