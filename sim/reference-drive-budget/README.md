@@ -116,8 +116,9 @@ identical to every swept row's rather than being a different deck.
 
 ### Budget tiers
 
-Adapted from `sim/vcm-drive-budget/`'s `find_budget()` to an integer-code
-observable:
+Adapted from the shared largest-passing-value budget rule
+(`sim/harness/klt_sim.py`'s `budget_row()`, issue #939; originated as
+`sim/vcm-drive-budget/`'s `find_budget()`) to an integer-code observable:
 
 - **0 LSB tier** — the largest swept `R_ref` whose captured codes are
   *unchanged* from the control at every input.

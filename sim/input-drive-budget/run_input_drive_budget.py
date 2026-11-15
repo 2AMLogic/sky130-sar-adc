@@ -40,11 +40,12 @@ WHAT IT BORROWS, AND FROM WHERE (nothing here is a new mechanism):
     debugging implausible crossing results against raw transient data; a
     single point sample cannot reproduce either. No crossing search is
     reintroduced here.
-  * **Reporting convention**: `sim/vcm-drive-budget/`'s `find_budget()` --
-    the budget is the LARGEST swept source resistance whose error stays
-    within the threshold, reported at two tiers (1.0 and 0.1 provisional
-    LSB), with a budget equal to the largest swept value reported as
-    RIGHT-CENSORED rather than as a measured limit.
+  * **Reporting convention**: `sim/vcm-drive-budget/`'s `find_budget()`
+    rule -- now the shared `sim/harness/klt_sim.py` `budget_row()` (issue
+    #939) -- the budget is the LARGEST swept source resistance whose error
+    stays within the threshold, reported at two tiers (1.0 and 0.1
+    provisional LSB), with a budget equal to the largest swept value
+    reported as RIGHT-CENSORED rather than as a measured limit.
   * **Windows**: `sim/vcm-drive-budget/`'s two, both covered here --
     `worst` = the DR-006-derived worst-case acquisition window
     (12 MHz, 83.333 ns) and `legacy` = this repo's pre-existing 400 ns
@@ -224,8 +225,9 @@ R_SOURCE_SWEEP_OHM = [0.0, 100.0, 300.0, 1e3, 3e3, 10e3, 30e3, 100e3]
 #: 8e-8 s, so it is an ideal source to 10 orders of magnitude.
 R_IDEAL_OHM = 1.0e-6
 
-#: The two reported tiers, same largest-passing-value rule as
-#: sim/vcm-drive-budget/run_vcm_drive_budget.py's find_budget().
+#: The two reported tiers, decided by the shared largest-passing-value
+#: budget rule (`sim/harness/klt_sim.py`'s `budget_row()`, issue #939) that
+#: every drive-budget campaign reports by.
 TIERS_LSB = [1.0, 0.1]
 
 #: Per-unit `options.timeout_s`. NOT a free parameter: the batch fleet refuses
@@ -464,10 +466,9 @@ def analysis_steps(
 
 def corner_ids() -> list[str]:
     """The ratified 9-point one-at-a-time PVT grid, in grid order."""
-    grid = corners_mod.ratified_oat_grid(
+    return corners_mod.ratified_corner_ids(
         NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
     )
-    return [corners_mod.corner_id(p, t, v) for p, t, v in grid]
 
 
 def build_request(
@@ -582,36 +583,28 @@ def sweep_rows(
 
 
 def find_budget(rows: list[dict], threshold_lsb: float) -> dict | None:
-    """The largest-swept-value rule of sim/vcm-drive-budget/'s own
-    find_budget(): the last row (sweep order is ascending) whose
-    control-relative error magnitude is still within `threshold_lsb`.
+    """The largest-swept-value budget rule -- the shared
+    `harness.klt_sim.budget_row()` copy (issue #939) of the rule this
+    campaign took from `sim/vcm-drive-budget/`'s `find_budget()`: the last
+    row (sweep order is ascending) whose control-relative `err_lsb`
+    magnitude is still within `threshold_lsb`.
+
+    The `R_source = 0` CONTROL row is excluded from the candidates --
+    positionally, as the shared rule excludes every sweep's first row,
+    which `sweep_rows()` makes equivalent to this campaign's original
+    `r_source_ohm > 0` predicate by refusing any sweep list whose first
+    point is not 0. The control row is the reference every other row's
+    error is measured against, so its own error is identically zero and it
+    would otherwise pass every tier -- turning "no swept resistance works"
+    into a reported budget of "0 ohm", which reads as a measurement but
+    only restates the arithmetic.
 
     None means even the smallest NON-ZERO swept point already exceeds the
     threshold -- reported as "< <that value>", never as a budget of 0. A
     result equal to the largest swept value is RIGHT-CENSORED: every swept
     value stayed within threshold, so the true budget is >= that value, not
-    equal to it.
-
-    The `R_source = 0` CONTROL row is excluded from the candidates. It is the
-    reference every other row's error is measured against, so its own error is
-    identically zero and it would otherwise pass every tier -- turning "no
-    swept resistance works" into a reported budget of "0 ohm", which reads as
-    a measurement but only restates the arithmetic. (This is the one place
-    this function is not byte-identical to the `sim/vcm-drive-budget/` one it
-    mirrors: since issue #874 that implementation excludes the same control
-    row POSITIONALLY -- `rows[1:]` -- rather than by this `r_source_ohm > 0`
-    predicate, because it applies the one helper to a `C_decouple` axis as
-    well as an `R_source` axis and the control row is the sweep's own first
-    row on both, whereas the predicate here only has a meaning on the
-    resistance axis. Both reach the None case; neither reports a budget of
-    0. Caught by sim/tests/test_input_drive_budget.py and, over there, by
-    sim/tests/test_run_vcm_drive_budget.py.)"""
-    ok = [
-        r
-        for r in rows
-        if r["r_source_ohm"] > 0 and abs(r["err_lsb"]) <= threshold_lsb
-    ]
-    return ok[-1] if ok else None
+    equal to it. (Caught by sim/tests/test_input_drive_budget.py.)"""
+    return klt_sim.budget_row(rows, threshold_lsb, "err_lsb")
 
 
 def budget_summary(

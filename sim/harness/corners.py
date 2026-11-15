@@ -155,6 +155,24 @@ def ratified_oat_grid(
     )
 
 
+def ratified_corner_ids(
+    nominal_v: float,
+    tolerance: float,
+    process_corners: list[str],
+    temps_c: list[float],
+) -> list[str]:
+    """corner_id() strings over ratified_oat_grid(), in grid order -- the
+    ratified 9-point one-at-a-time PVT grid as an id list, the form the
+    --corners drivers hand their request builders. One copy of the list
+    comprehension each driver hand-repeated (issue #939); a campaign that
+    adds axes on top of the same grid (top-plate-cpar's RC corners) keeps
+    its own build."""
+    return [
+        corner_id(p, t, v)
+        for p, t, v in ratified_oat_grid(nominal_v, tolerance, process_corners, temps_c)
+    ]
+
+
 def sweep(
     nominal_v: float,
     tolerance: float,

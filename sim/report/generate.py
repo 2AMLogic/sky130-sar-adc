@@ -93,9 +93,7 @@ def truncate(text: str, limit: int = 220) -> str:
 class Citation:
     """A resolved, field-extracted view of one cited evidence record."""
 
-    def __init__(self, rel_path: str, kind: str):
-        self.rel_path = rel_path
-        self.kind = kind
+    def __init__(self, rel_path: str):
         self.abs_path = REPO_ROOT / rel_path
         if not self.abs_path.is_file():
             raise FileNotFoundError(
@@ -196,7 +194,7 @@ def render_row(row: manifest.Row) -> list[str]:
         lines.append("**Evidence:**")
         lines.append("")
     for rel_path in row.sim_citations:
-        c = Citation(rel_path, kind="sim")
+        c = Citation(rel_path)
         detail = (
             c.overall
             or c.statistical_convention

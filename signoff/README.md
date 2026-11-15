@@ -115,14 +115,33 @@ both.
 
 ### Item 6: what the Monte Carlo evidence says, and why it is not cited
 
-Status as of 2026-11-06 (issues #625, #803). Six `klt yield` envelopes exist, all
-`status: "fail"`:
+Status as of 2026-11-15 (issues #625, #803, #912). Seven `klt yield` envelopes
+exist — six current, plus the 2026-10-01 CDAC envelope that the newest CDAC
+entry supersedes — all `status: "fail"`:
 
 - `sim/cdac-array-transfer/yield-reports/20260828-005006-0c70212.json` and
   `20261001-124049-5207381.json` — DNL/INL. The first: `dnl_max_lsb` over
   n=40, empirical yield 0.825 (Clopper–Pearson 95% CI 0.672–0.927) against a
   `±1 LSB`, `target_yield 0.99` limit. The second (n=40 for both
-  `dnl_max_lsb` and `inl_max_lsb`) also fails.
+  `dnl_max_lsb` and `inl_max_lsb`) also fails; the re-mint below supersedes
+  it for freshness-pinnability.
+- `sim/cdac-array-transfer/yield-reports/20261115-014818-7adcfe77.json` —
+  DNL/INL, minted 2026-11-15 (issue #912) by `klt yield` (klayout-tools 0.8.0,
+  klt-yield-native 0.1.0) from the committed
+  `20261115-014818-7adcfe77.samples.json` beside it (`dnl_max_lsb` and
+  `inl_max_lsb`, n=40 per draw, `±1 LSB`, `target_yield 0.99`; the DRAFT
+  target-spec row's own limit). This is a freshness-pinnability re-mint of
+  the `20261001-124049-5207381.json` envelope above — record
+  `sim/cdac-array-transfer/records/20261115-014818-7adcfe77.md` carries
+  `Supersedes: 20261001-124049-5207381` — with the per-draw values re-derived
+  from the same committed `mc-draws/20261001-124049-5207381/` logs and no new
+  simulation, so every statistical value is identical to what that envelope
+  reported: `dnl_max_lsb` empirical yield 0.8250 [0.6722, 0.9266],
+  `inl_max_lsb` 0.9250 [0.7961, 0.9843], both `status: "fail"` with
+  sample-size verdict `insufficient` (per the tool's own warnings the design
+  falls short of the 0.99 target on both measurements, and n=40 cannot
+  support a tight yield-fraction claim on either). The report's `samples`
+  field is the repo-relative path.
 - `sim/enob-estimate/yield-reports/20260828-005033-0c70212.json`,
   `20261001-124717-ba6875d.json`, `20261001-141249-7487784.json` — ENOB, each
   n=2 (far below the campaign's own `min_samples` intent), all fail and are
@@ -148,19 +167,25 @@ not on PyPI, so `pip install "klayout-tools[yield]"` failed to resolve; the
 n=40 ENOB sample set therefore had no envelope. `klt-yield-native` 0.1.0 is
 now published and the pin in `sim/yield-requirements.txt` resolves.
 `sim/harness/evidence.py` reads that pin for its warning hint. The CDAC
-envelope from `mc-draws/` has not been re-minted (needs simulation; separate
-work).
+envelope needed no simulation to catch up: `run_mc.py --reanalyze` re-derives
+its per-draw values from the committed `mc-draws/` logs with no ngspice
+invocation, and it was re-minted that way on 2026-11-15 (issue #912) — the
+DNL/INL entry above.
 
 None is cited, for reasons about the **citation**, not about the campaign:
 
-1. **Five of the six cannot be freshness-pinned.** `klt yield`'s report carries no
-   `provenance` block, so `klt signoff` hashes the samples document the report
-   names instead. Each of those five names a `/tmp/tmp*.json` path that no
-   longer exists and was never committed (the persisted `.samples.json`
-   convention post-dates them); the sixth cites a committed samples file, so
-   this reason does not bar it, but reason 2 does. A pinned entry would render
-   `unverifiable_provenance`; an unpinned one would be a citation with no
-   freshness claim at all, which is what this manifest exists to avoid.
+1. **Four of the six current envelopes cannot be freshness-pinned.** `klt
+   yield`'s report carries no `provenance` block, so `klt signoff` hashes the
+   samples document the report names instead. Each of those four names a
+   `/tmp/tmp*.json` path that no longer exists and was never committed (the
+   persisted `.samples.json` convention post-dates them); the other two —
+   the 2026-10-08 ENOB envelope and the 2026-11-15 CDAC re-mint — cite
+   committed samples files, so this reason does not bar them, but reason 2
+   does. (The superseded `20261001-124049-5207381.json` CDAC envelope is not
+   one of the six: it names a `/tmp` path too, and the re-mint displaces it.)
+   A pinned entry would render `unverifiable_provenance`; an unpinned one
+   would be a citation with no freshness claim at all, which is what this
+   manifest exists to avoid.
 2. **One entry cannot represent two rows.** Item 6 accepts a single evidence
    entry, and this block has two statistical spec rows split across separate
    reports. Citing either alone would misstate the coverage. (Upstream

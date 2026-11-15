@@ -6,8 +6,39 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-15
+
+- **PR #943**: test(sim): match the sharded-fleet-envelope read spelling-insensitively
+- **Issue #918** (closed): test(harness): sharded-envelope guard matches three literal spellings, misses .get("fleet", default) and ['fleet']
+- **PR #936**: docs: correct stale README status claims, guard the T1 count with a test
+- **Issue #911** (closed): README status section is stale: "6 of 22 rows met", "Private for now", and a closed issue cited as open
+- **PR #922**: refactor(layout): hoist run-flow preamble, DRC fan-out and record tail into _flow_common.sh
+- **Issue #915** (closed): Finish the _flow_common.sh factoring: hoist the duplicated run-flow preamble, per-block DRC fan-out and record tail
+- **PR #935**: ci: extract pinned ngspice+sky130-PDK provisioning into one composite action
+- **Issue #875** (closed): Extract the ngspice + sky130 PDK provisioning copied into four ci.yml jobs into one composite action
+- **PR #932**: fix(noise): print v(DIN) instead of asserting v(DIP)=v(DIN) unbacked
+- **Issue #927** (closed): Remove NoiseResult.op_din_v, or print it: a measured op-point the record's v(DIP)=v(DIN) row never reads
+- **PR #934**: refactor(sim): one harness reader for the three byte-identical klt sim corner-measurement readers
+- **Issue #904** (closed): Consolidate the three byte-identical klt sim read_report bodies onto one harness helper
+- **PR #933**: fix(harness): accept only error envelopes from the klt stderr scan
+- **Issue #898** (closed): harness/klt_sim: envelope_from_stderr accepts any JSON dict, so a non-envelope object on stderr could be cached as a report
+
 ### 2026-11-14
 
+- **PR #923**: test: consolidate the 13 inline resolve_provenance stubs onto one fixture
+- **Issue #914** (closed): Consolidate the 13 copied evidence.resolve_provenance stubs in sim/tests onto one shared fixture
+- **PR #910**: docs: roadmap as of 2026-11-13
+- **Issue #889** (closed): check:ci runs the full sim/tests unit suite twice: once via npm run test, again as sim/selftest.sh stage 1
+- **PR #919**: refactor(check:ci): reach the sim/tests unit suite once, via selftest stage 1
+- **Issue #908** (closed): Guide docs-PR template claims work_log/ archive rotations qualify for the docs-only fast path; the allowlist is three exact root filenames
+- **Issue #888** (closed): Put digital-partition's run-info read on harness.klt_sim.run_info(): its private copy makes runner_skew() blind to sharded reports
+- **PR #916**: refactor(digital-partition): read run info through harness.run_info() so version skew is seen on every shard
+- **Issue #894** (closed): vcm-drive-budget: full-grid records carry fixed-text sentences their own data and sibling records contradict
+- **PR #902**: fix(vcm-drive-budget): derive record interpretation sentences from the data
+- **Issue #884** (closed): Remove dead npm script worktree:return: its target .loom/scripts/worktree-return.sh does not exist
+- **PR #901**: chore: drop dangling worktree:return npm script
+- **Issue #877** (closed): Remove dead parse_ac_print() and two other unread leftovers in sim drivers
+- **PR #899**: refactor: drop three unread leftovers from the sim drivers
 - **Issue #895** (closed): Remove 13 unused imports flagged by ruff F401 in supply_impedance common.py and three sim tests
 - **PR #900**: chore: drop 13 unused imports from sim campaign common and three tests
 - **Issue #892** (closed): harness/klt_sim: a klt error envelope behind a warning line on stderr is misreported, and defeats capacity-retry
