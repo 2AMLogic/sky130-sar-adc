@@ -19,17 +19,22 @@ hard campaign failure. `submit()` below gives every non-`local` submit the
 flag by default, so a new campaign inherits the policy instead of re-deciding
 it.
 
-Stdlib only, and the subprocess runner is injectable (`runner=`), so these
-paths are unit-testable without `klt`, the PDK or the fleet.
+Stdlib plus one pure harness sibling (`corners.corner_id` -- string
+formatting, still no PDK), and the subprocess runner is injectable
+(`runner=`), so these paths are unit-testable without `klt`, the PDK or
+the fleet.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+from .corners import corner_id
 
 #: Seconds a non-`local` submit waits for fleet capacity instead of failing
 #: the step. CLAUDE.md's host rule ("pass `--wait-for-capacity 600` on every
@@ -298,3 +303,49 @@ def run_info(report: dict) -> dict:
         "worker_ngspice_seen": sorted(ngs),
         "request_feature_status": next(iter(features)) if len(features) == 1 else None,
     }
+
+
+def finite(x) -> bool:
+    """True when `x` is a real, finite JSON number.
+
+    Never `True`/`False` (a JSON boolean is a status, not a measurement) and
+    never NaN/inf. One definition for every campaign: the drivers had drifted
+    to two, with the bool guard missing from the copy the others were taken
+    from (issue #904).
+    """
+    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def measurements_by_corner(
+    report: dict, supply_key: str
+) -> tuple[dict[str, dict[str, float | None]], dict]:
+    """`({corner_id: {"<step>.<name>": value}}, run_info(report))`.
+
+    Refuses a `klt sim` error ENVELOPE rather than inventing numbers, and
+    nulls a corner whose own status is `error`/`inconclusive` so a partial
+    solve is never read as a measurement. One copy for every campaign: three
+    drivers carried byte-identical private readers of this block (issue
+    #904, extending #865's `run_info()` consolidation to the one identical
+    decoding block it had deliberately left per-driver).
+
+    `supply_key` selects the corner's supply out of its `supply_v` map; the
+    campaign's module constant (`SUPPLY_KEY` = "vsup" today) moves to this
+    argument rather than being baked into yet another module.
+    """
+    if not isinstance(report, dict):
+        raise ValueError("klt sim report is not a JSON object")
+    if "error" in report and "corners" not in report:
+        raise ValueError(f"klt sim error envelope: {report['error']}")
+    out: dict[str, dict[str, float | None]] = {}
+    for c in report.get("corners") or []:
+        sv = (c.get("supply_v") or {}).get(supply_key)
+        cid = corner_id(c["process"], float(c["temperature_c"]), float(sv))
+        vals = {
+            m["name"]: m.get("value")
+            for m in (c.get("measurements") or [])
+            if isinstance(m, dict) and "name" in m
+        }
+        if c.get("status") in ("error", "inconclusive"):
+            vals = {k: None for k in vals}
+        out[cid] = vals
+    return out, run_info(report)

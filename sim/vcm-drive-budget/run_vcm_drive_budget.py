@@ -133,7 +133,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import re
 import subprocess
 import sys
@@ -1318,38 +1317,12 @@ def build_corners_request(
 
 
 def read_corners_report(report: dict) -> tuple[dict[str, dict], dict]:
-    """`({corner_id: {"<step>.<name>": value}}, run info)`.
-
-    Refuses an error ENVELOPE rather than inventing numbers, and nulls a
-    corner whose own status is `error`/`inconclusive` so a partial solve is
-    never read as a measurement."""
-    if not isinstance(report, dict):
-        raise ValueError("klt sim report is not a JSON object")
-    if "error" in report and "corners" not in report:
-        raise ValueError(f"klt sim error envelope: {report['error']}")
-    out: dict[str, dict] = {}
-    for c in report.get("corners") or []:
-        sv = (c.get("supply_v") or {}).get(SUPPLY_KEY)
-        cid = corners_mod.corner_id(
-            c["process"], float(c["temperature_c"]), float(sv)
-        )
-        vals = {
-            m["name"]: m.get("value")
-            for m in (c.get("measurements") or [])
-            if isinstance(m, dict) and "name" in m
-        }
-        if c.get("status") in ("error", "inconclusive"):
-            vals = {k: None for k in vals}
-        out[cid] = vals
-    # Run-level facts come from harness.klt_sim.run_info(), which reads the
-    # sharded `environment.remote.fleet[]` shape as well as the single-job
-    # one -- reading only the latter is how a sharded record ends up
-    # reporting `job None` (issue #865).
-    return out, klt_sim.run_info(report)
+    """`({corner_id: {"<step>.<name>": value}}, run info)` -- the shared
+    reader on harness.klt_sim (issue #904)."""
+    return klt_sim.measurements_by_corner(report, SUPPLY_KEY)
 
 
-def _finite(x) -> bool:
-    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+_finite = klt_sim.finite
 
 
 def _rows_from_steps(values: dict, specs: list[tuple[str, dict]]) -> list[dict] | None:

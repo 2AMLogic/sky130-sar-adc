@@ -34,7 +34,6 @@ end, the CDAC and the comparator).
 from __future__ import annotations
 
 import json
-import math
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -384,8 +383,7 @@ class ProbeGrade:
     n_checks: int
 
 
-def _finite(v) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+_finite = klt_sim.finite
 
 
 def grade_values(values: dict[str, float | None],

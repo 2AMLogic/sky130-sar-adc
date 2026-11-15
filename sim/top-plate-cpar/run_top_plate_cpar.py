@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import subprocess
 import sys
 import tempfile
@@ -247,26 +246,16 @@ def build_request(netlist_name: str, cids: list[str], *, timeout_s: float = 1800
 
 
 def read_report(report: dict) -> tuple[dict[str, dict[str, float | None]], dict]:
-    """{corner_id: {"<step>.<name>": value}} plus run info; refuses error
-    envelopes rather than inventing numbers."""
-    if not isinstance(report, dict):
-        raise ValueError("klt sim report is not a JSON object")
-    if "error" in report and "corners" not in report:
-        raise ValueError(f"klt sim error envelope: {report['error']}")
-    out: dict[str, dict[str, float | None]] = {}
-    for c in report.get("corners") or []:
-        sv = (c.get("supply_v") or {}).get(SUPPLY_KEY)
-        cid = corners_mod.corner_id(c["process"], float(c["temperature_c"]), float(sv))
-        vals = {m["name"]: m.get("value") for m in (c.get("measurements") or [])
-                if isinstance(m, dict) and "name" in m}
-        if c.get("status") in ("error", "inconclusive"):
-            vals = {k: None for k in vals}
-        out[cid] = vals
-    return out, klt_sim.run_info(report)
+    """`({corner_id: {"<step>.<name>": value}}, run info)` -- the shared
+    reader `harness.klt_sim.measurements_by_corner`, which this campaign's
+    contract has always been (issue #904)."""
+    return klt_sim.measurements_by_corner(report, SUPPLY_KEY)
 
 
-def _finite(x) -> bool:
-    return isinstance(x, (int, float)) and math.isfinite(x)
+#: The shared guarded finite: this driver's private copy was the one the
+#: others were copied FROM, and it never picked up their
+#: `not isinstance(x, bool)` hardening (issue #904).
+_finite = klt_sim.finite
 
 
 def curve(values: dict[str, float | None], side: str) -> list[dict] | None:
