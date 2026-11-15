@@ -1,6 +1,6 @@
 # sky130-sar-adc — agent instructions
 
-Private canary block (for now): a SAR ADC on the sky130 open PDK,
+Canary block: a SAR ADC on the sky130 open PDK,
 designed and verified by AI agents. A clean-room DESIGN canary — designed forward
 from a written spec, never reverse-engineered from anyone's silicon or netlist.
 Its two jobs are to dogfood `klayout-tools` and to grow the catalog's inventory
@@ -21,8 +21,8 @@ of verified open-PDK analog blocks.
   `2AMLogic/klayout-tools` describing the tool gap **generically** — that tracker
   is public and scoped to the tool, so keep design-specific detail (spec values,
   this repo's content, block topology) out of it and describe the gap, not the
-  design. This holds even though this repo is private: the tracker you file into
-  is not.
+  design. This holds regardless of this repo's own visibility: the tracker you
+  file into is scoped to the tool, not to this design.
 - **Verification is the product**: no claim without a testbench. PVT corners on
   every recorded result. `sim/` results are append-only evidence — a later run
   mints a new record rather than overwriting an earlier one. Before requesting
@@ -37,10 +37,8 @@ of verified open-PDK analog blocks.
   Until issue #1 ratifies it, the whole table in `spec/target-spec.md` is DRAFT —
   do not treat any value as final, and do not invent settled numbers to replace
   the drafts.
-- **Private, for now**: this repo is private while the spec is drafted and the
-  harness stood up. Going public is an operator decision that inherits the
-  workspace firewall/disclosure rules — not an agent decision. Write commits,
-  issues, and documents as private working material meanwhile.
+- **Public repository**: this repository is public. Write every commit, issue,
+  and document as if a stranger will read it — because one can.
 - **Port parity**: the spec and structure mirror the ratified
   `2AMLogic/gf180-sar-adc` — same block, two PDKs. Prefer aligning with it; where
   sky130 forces a departure, record the divergence in `spec/` rather than
