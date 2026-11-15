@@ -24,17 +24,12 @@ _None._
 - **#743**: T1 item 3 (DRC): repoint manifest items 3/4/11 from the superseded 2026-10-01 stream to reports/LATEST and regrade
 - **#771**: Re-mint digital item 5/7 evidence on the regenerated sar_sequencer netlist
 - **#785**: layout: re-run sar-adc-top on fully regenerated children and triage DRC met1.space.1 + LVS mismatch
-- **#898**: harness/klt_sim: envelope_from_stderr accepts any JSON dict, so a non-envelope object on stderr could be cached as a report
 
 ## Ready
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#875**: Extract the ngspice + sky130 PDK provisioning copied into four ci.yml jobs into one composite action
-- **#898**: harness/klt_sim: envelope_from_stderr accepts any JSON dict, so a non-envelope object on stderr could be cached as a report
-- **#904**: Consolidate the three byte-identical klt sim read_report bodies onto one harness helper
-- **#926**: Remove dead BisectMcResult.draw_seeds: a property no commit has ever read
-- **#927**: Remove NoiseResult.op_din_v, or print it: a measured op-point the record's v(DIP)=v(DIN) row never reads
+- **#940**: test_flow_common.sh does not cover drc_blocks_fanout's `|| true` violation-tolerance guard
 
 ## In Progress
 
@@ -46,24 +41,26 @@ Issues currently being built (`loom:building`).
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits"
-- **#909**: Fold the duplicated Row-1 PFET well-island floorplan into layout/bin/_geometry_common.py
-- **#914**: Consolidate the 13 copied evidence.resolve_provenance stubs in sim/tests onto one shared fixture
-- **#915**: Finish the _flow_common.sh factoring: hoist the duplicated run-flow preamble, per-block DRC fan-out and record tail
+- **#905**: vcm-drive-budget: marginal_r_source_shape_note()'s match branch denies the identity it just asserted, and its legacy reference quotes a ratio that record withheld
+- **#913**: sim: converging-range boundary sweep of the current architecture (DR-021 Open items)
+- **#925**: check:ci: the full sim/selftest.sh now runs before 11 cheap gates, losing fast-fail on PDK hosts
+- **#953**: challenge-4-proposal.md's 'README is stale' parenthetical is now itself stale (README was fixed by #936)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
 - **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
-- **#920**: refactor(layout): share the Row-1 PFET well-island floorplan
+- **#949**: sim: converging-range input sweep as one klt sim request (--input-sweep)
+- **#955**: fix(sim): shape note no longer denies its exact-match identity claim or quotes a ratio over the legacy reference's censored span
+- **#957**: docs: drop stale private-visibility note from proposal licensing bullet
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
-- **#910**: docs: roadmap as of 2026-11-13
-- **#923**: test: consolidate the 13 inline resolve_provenance stubs onto one fixture
+- **#956**: fix(check:ci): run the cheap check:* gates before the full sim selftest
 
 ## Proposed
 
@@ -80,9 +77,11 @@ Issues carrying `loom:curated`.
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report) *(curated)*
 - **#811**: Re-run multi-corner/MC sim records via klt sim under open_pdks f6eeac7 as superseding records (#709 split) *(curated)*
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits" *(curated)*
-- **#898**: harness/klt_sim: envelope_from_stderr accepts any JSON dict, so a non-envelope object on stderr could be cached as a report *(curated)*
-- **#911**: README status section is stale: "6 of 22 rows met", "Private for now", and a closed issue cited as open *(curated)*
+- **#905**: vcm-drive-budget: marginal_r_source_shape_note()'s match branch denies the identity it just asserted, and its legacy reference quotes a ratio that record withheld *(curated)*
 - **#913**: sim: converging-range boundary sweep of the current architecture (DR-021 Open items) *(curated)*
+- **#925**: check:ci: the full sim/selftest.sh now runs before 11 cheap gates, losing fast-fail on PDK hosts *(curated)*
+- **#940**: test_flow_common.sh does not cover drc_blocks_fanout's `|| true` violation-tolerance guard *(curated)*
+- **#953**: challenge-4-proposal.md's 'README is stale' parenthetical is now itself stale (README was fixed by #936) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -105,12 +104,12 @@ Issues carrying `loom:curated`.
 |------|-------|
 | Operator merge-risk holds | 1 |
 | Very important | 0 |
-| Important | 8 |
-| Ready (`loom:issue`) | 5 |
-| In Progress (`loom:building`) | 9 |
-| PRs awaiting review | 2 |
-| Approved PRs awaiting merge | 3 |
-| Curated | 14 |
+| Important | 7 |
+| Ready (`loom:issue`) | 1 |
+| In Progress (`loom:building`) | 10 |
+| PRs awaiting review | 4 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 16 |
 | Architect / Hermit proposals | 8 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->

@@ -8,6 +8,22 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-15
 
+- **PR #954**: harness: remove write-only CornerPointResult.log_path and PdkInfo.xschem_rc
+- **Issue #945** (closed): Remove write-only CornerPointResult.log_path and PdkInfo.xschem_rc from the sim harness
+- **PR #952**: docs: correct stale private-visibility claims in CLAUDE.md to public
+- **Issue #937** (closed): CLAUDE.md still says the repo is private, after README was corrected
+- **PR #951**: test(harness): key the sharded-envelope guard on AST structure, not accessor spellings
+- **Issue #944** (closed): test(harness): sharded-envelope regex enumerates accessors — .pop("fleet") and .setdefault("fleet", []) still evade the guard
+- **PR #947**: refactor: fold the drive-budget rule and ratified OAT corner-id list into shared harness helpers
+- **Issue #939** (closed): Consolidate mirrored find_budget()/corner_ids() copies in the drive-budget drivers
+- **PR #946**: refactor: drop write-only Citation.rel_path/kind fields
+- **Issue #942** (closed): Remove write-only Citation.kind/rel_path fields in sim/report/generate.py
+- **PR #941**: refactor: remove never-read BisectMcResult.draw_seeds property
+- **Issue #926** (closed): Remove dead BisectMcResult.draw_seeds: a property no commit has ever read
+- **PR #938**: sim: mint freshness-pinnable CDAC DNL/INL yield envelope; key target prose on the limit
+- **Issue #912** (closed): Mint a CDAC DNL/INL klt yield envelope that names a committed samples file
+- **PR #920**: refactor(layout): share the Row-1 PFET well-island floorplan
+- **Issue #909** (closed): Fold the duplicated Row-1 PFET well-island floorplan into layout/bin/_geometry_common.py
 - **PR #943**: test(sim): match the sharded-fleet-envelope read spelling-insensitively
 - **Issue #918** (closed): test(harness): sharded-envelope guard matches three literal spellings, misses .get("fleet", default) and ['fleet']
 - **PR #936**: docs: correct stale README status claims, guard the T1 count with a test
