@@ -94,8 +94,8 @@ python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record
 # ^ issue #913 converging-range boundary sweep (DR-021 open item): 24 levels
 #   x 1 baseline corner, one `klt sim` unit per level (a ~2.3 us transient
 #   each); informational, never moves records/LATEST. Narrow the band with
-#   --input-levels=-0.78,-0.5,0.25,0.78 (equals form; anchors +-0.25/+-0.78
-#   are required in any recorded sweep).
+#   --input-levels=-0.78,-0.5,-0.25,0.25,0.78 (equals form; anchors
+#   +-0.25/+-0.78 are required in any recorded sweep).
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
 python3 -m unittest discover -s sim/tests -t sim/tests                   # PDK-free unit tests
 ```
