@@ -32,7 +32,8 @@ layout and a closed-loop conversion campaign all exist, but the block does not
 yet convert correctly across its full input range and its layout does not yet
 pass LVS. Nothing here is T1 (bronze). The sections below say what the
 committed evidence supports; each links to it, and the linked records, not this
-summary, are authoritative.
+summary, are authoritative. [`docs/ROADMAP.md`](docs/ROADMAP.md) is the
+roadmap-level view of the same evidence.
 
 - **Harness** — the xschem + ngspice sim harness and the `klt` DRC/LVS layout
   flow (issue #2), seeded from gf180-sar-adc and
@@ -69,11 +70,14 @@ summary, are authoritative.
   [`signoff/README.md`](signoff/README.md).
 - **Conversion: partial, overall FAIL** — the full-conversion transient
   campaign ([`sim/full-conversion-transient/`](sim/full-conversion-transient/README.md);
-  newest record named in `records/LATEST`) resolves the three mid-scale inputs
-  to within ±1 LSB at all nine ratified corners. It is still recorded as an
-  overall **FAIL**: the two near-full-scale inputs do not converge
-  ([#265](https://github.com/2AMLogic/sky130-sar-adc/issues/265)), and a
-  smaller array gain-error contributor is also open. That verdict is against
+  newest record:
+  [`records/20261011-112119-188e94c.md`](sim/full-conversion-transient/records/20261011-112119-188e94c.md),
+  named in `records/LATEST`) resolves the three mid-scale inputs to within
+  ±1 LSB at all nine ratified corners. It is still recorded as an overall
+  **FAIL**: the two near-full-scale (±0.78·V_REF) inputs do not converge, and
+  a smaller array gain-error contributor is also open.
+  [DR-021](spec/decision-records/DR-021-near-full-scale-common-mode-droop-resolution.md)
+  is the proposed — not yet ratified — resolution. That verdict is against
   the experiment's own informational criterion, not a ratified spec row. The
   statistical (Monte-Carlo) rows are not signed off either; see item 6 in the
   signoff report. This is not a demonstration of full ADC conversion.
@@ -84,13 +88,12 @@ summary, are authoritative.
   every unmet row. CI re-grades it on every push, so it cannot go stale
   unnoticed. [`signoff/README.md`](signoff/README.md) is the claim written
   around it, and [`docs/t1-gap.md`](docs/t1-gap.md) is the short in-repo map
-  pointing at both. Current state: **6 of 22 rows met**, tier `null`.
+  pointing at both. Current state: **13 of 22 rows met**, tier `null`.
 
-## Private for now
+## Public repository
 
-This repository is **private**. Whether and when it goes public is an
-**operator** decision, not an agent one. Write every commit, issue, and document
-as if a stranger will read it.
+This repository is **public**. Write every commit, issue, and document as if a
+stranger will read it — because one can.
 
 ## How verification will work here
 

@@ -18,7 +18,7 @@
       "path": "README.md",
       "passed": true,
       "executed": true,
-      "content_hash": "sha256:612b41dc2e80f6ee3fd02e130ae841ec0f88ab5be71cf15cc424b256e5a7e473"
+      "content_hash": "sha256:bb875e3611525460ef27a98b09ea33f1836a830def1e54a63e523e6cad8e5181"
     },
     {
       "check": "present",
