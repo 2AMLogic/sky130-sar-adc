@@ -68,6 +68,7 @@ sys.path.insert(0, str(CHIPALOOZA_DIR))
 # (the record-writer tests' temp-directory redirect) reaches every writer,
 # which a `from ... import EXPERIMENT_DIR` copy would not.
 import check_proposal_citations as checker  # noqa: E402
+import provenance_fixture  # noqa: E402
 import run_supply_impedance as si  # noqa: E402
 from supply_impedance_campaigns import arm_comparison as si_arm  # noqa: E402
 from supply_impedance_campaigns import common as si_common  # noqa: E402
@@ -1488,22 +1489,8 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         import shutil
         import tempfile
 
-        from harness import evidence
-
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
 
         base = [214, 383, 511, 641, 1023]
 
@@ -1533,15 +1520,10 @@ class TestSweepRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
             point(arm.name, 0.037)
             for arm in si_sweep.sweep_arms(si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM)
         ]
-        try:
-            si_common.EXPERIMENT_DIR = tmp_dir
-            evidence.resolve_provenance = fake_resolve
+        with provenance_fixture.fake_provenance(si_common, tmp_dir):
             path = si_sweep.write_sweep_record(
                 points, "* netlist\n", si_sweep.SWEEP_L_MULTIPLIERS, si_sweep.SWEEP_RSUBX_OHM
             )
-        finally:
-            si_common.EXPERIMENT_DIR = real_dir
-            evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
     def test_the_latest_pointer_is_not_moved(self) -> None:
@@ -1649,22 +1631,8 @@ class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
         import shutil
         import tempfile
 
-        from harness import evidence
-
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
 
         base = [214, 383, 511, 641, 1023]
 
@@ -1698,9 +1666,7 @@ class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
             for arm in ("ideal", "package")
             for cid in corner_ids
         ]
-        try:
-            si_common.EXPERIMENT_DIR = tmp_dir
-            evidence.resolve_provenance = fake_resolve
+        with provenance_fixture.fake_provenance(si_common, tmp_dir):
             path = si_arm.write_record(
                 points,
                 "* netlist\n",
@@ -1709,9 +1675,6 @@ class TestCornerSliceRecordDoesNotMoveThePointer(unittest.TestCase):
                 "",
                 corner_ids if corner_ids != ["tt_27c_1.80v"] else [],
             )
-        finally:
-            si_common.EXPERIMENT_DIR = real_dir
-            evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
     def test_a_corner_slice_leaves_the_pointer_alone(self) -> None:
@@ -1768,22 +1731,8 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         import shutil
         import tempfile
 
-        from harness import evidence
-
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
 
         base = [214, 383, 511, 641, 1023]
 
@@ -1816,13 +1765,8 @@ class TestNullOptionRecordIsNotTheCampaignsCurrentRecord(unittest.TestCase):
         points = [point(si_common.CONTROL_ARM, 0.0, True)] + [
             point(arm.name, 0.065, False) for arm in si_null_sweep.null_sweep_arms(si_null_sweep.NULL_SWEEP_RSUBX_OHM)
         ]
-        try:
-            si_common.EXPERIMENT_DIR = tmp_dir
-            evidence.resolve_provenance = fake_resolve
+        with provenance_fixture.fake_provenance(si_common, tmp_dir):
             path = si_null_sweep.write_null_sweep_record(points, "* netlist\n", si_null_sweep.NULL_SWEEP_RSUBX_OHM)
-        finally:
-            si_common.EXPERIMENT_DIR = real_dir
-            evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
     def test_the_latest_pointer_is_not_moved(self) -> None:
@@ -2645,22 +2589,8 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
         import shutil
         import tempfile
 
-        from harness import evidence
-
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
 
         base = [214, 383, 511, 641, 1023]
         ties = si_decap.load_decap_ties()
@@ -2694,15 +2624,10 @@ class TestDecapEsrRecordDoesNotMoveThePointer(unittest.TestCase):
             point(si_decap.decap_esr_arm_name(m), 0.040 - 0.005 * m)
             for m in si_decap.DECAP_ESR_MULTIPLIERS
         ]
-        try:
-            si_common.EXPERIMENT_DIR = tmp_dir
-            evidence.resolve_provenance = fake_resolve
+        with provenance_fixture.fake_provenance(si_common, tmp_dir):
             path = si_decap.write_decap_esr_record(
                 points, "* netlist\n", si_decap.DECAP_ESR_MULTIPLIERS, ties
             )
-        finally:
-            si_common.EXPERIMENT_DIR = real_dir
-            evidence.resolve_provenance = real_resolve
         return path, tmp_dir
 
     def test_the_latest_pointer_is_not_moved(self) -> None:
@@ -2894,30 +2819,10 @@ class TestUnavailablePowerRendersAsNa(unittest.TestCase):
         import shutil
         import tempfile
 
-        from harness import evidence
-
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
-        real_dir, real_resolve = si_common.EXPERIMENT_DIR, evidence.resolve_provenance
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
-
-        try:
-            si_common.EXPERIMENT_DIR = tmp_dir
-            evidence.resolve_provenance = fake_resolve
+        with provenance_fixture.fake_provenance(si_common, tmp_dir):
             path = writer()
-        finally:
-            si_common.EXPERIMENT_DIR = real_dir
-            evidence.resolve_provenance = real_resolve
         self.assertTrue(str(path).startswith(str(tmp_dir)))
         return path.read_text()
 

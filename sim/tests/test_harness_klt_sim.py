@@ -141,6 +141,18 @@ class TestSubmit(unittest.TestCase):
             with self.assertRaises(klt_sim.SubmitError):
                 self._submit(Path(td), backend="batch", runner=_runner(out=envelope))
 
+    def test_a_non_envelope_dict_on_stderr_is_refused_not_cached(self):
+        """Issue #898: a stderr dict with no `error` key is neither a report
+        nor an envelope -- refused as "no JSON report", never cached."""
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(klt_sim.SubmitError) as ctx:
+                self._submit(Path(td), backend="batch",
+                             runner=_runner(rc=1, out="",
+                                            err='{"job": 1, "status": "running"}\n'))
+            self.assertIn("returned no JSON report", str(ctx.exception))
+            # caching is the actual harm -- assert on the file's absence
+            self.assertFalse((Path(td) / "report.json").exists())
+
     def test_error_beside_corners_is_a_partial_run_and_is_returned(self):
         """`error` AND `corners` means a partially-failed run, not an
         envelope: the caller's own reader decodes the usable corners."""
@@ -263,6 +275,21 @@ class TestEnvelopeFromStderr(unittest.TestCase):
     def test_a_json_array_on_stderr_is_not_an_envelope(self):
         self.assertIsNone(klt_sim.envelope_from_stderr("[1, 2, 3]\n"))
 
+    def test_a_non_envelope_dict_yields_none(self):
+        """Issue #898: a JSON dict with no `error` key -- a progress or
+        status object at column 0 -- is not an envelope, and must not be
+        returned as one."""
+        self.assertIsNone(
+            klt_sim.envelope_from_stderr('{"job": 1, "status": "running"}\n'))
+
+    def test_a_non_envelope_dict_does_not_mask_the_real_envelope(self):
+        """Issue #898: the scan keeps walking past a non-envelope dict to
+        the envelope behind it."""
+        text = ('{"job": 1, "status": "running"}\n'
+                '{"error": {"code": "batch_no_capacity"}}\n')
+        env = klt_sim.envelope_from_stderr(text)
+        self.assertEqual(env["error"]["code"], "batch_no_capacity")
+
 
 class TestSubmitEnvelopeBehindWarnings(unittest.TestCase):
     """Issue #892: the two consequences of assuming stderr is pure JSON --
@@ -310,6 +337,39 @@ class TestSubmitEnvelopeBehindWarnings(unittest.TestCase):
             self.assertEqual(len(calls), 3)
             self.assertEqual(naps, [7, 7])
 
+    def test_a_non_envelope_dict_does_not_mask_the_envelope_behind_it(self):
+        """Issue #898: a column-0 progress object in front of the envelope
+        must not swallow the refusal -- it is named as its own code, and
+        the capacity retry still fires."""
+        stderr = ('{"job": 1, "status": "running"}\n'
+                  + _stderr_behind_warnings())
+        calls, naps = [], []
+
+        def runner(argv):
+            calls.append(argv)
+            return 1, "", stderr
+
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            with self.assertRaises(klt_sim.SubmitError) as ctx:
+                self._submit(d, backend="batch", runner=runner,
+                             capacity_retries=1, retry_wait_s=7, sleep=naps.append)
+            msg = str(ctx.exception)
+            self.assertIn("batch_no_capacity", msg)
+            self.assertNotIn("returned no JSON report", msg)
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(naps, [7])
+            self.assertFalse((d / "report.json").exists())
+
+    def test_an_error_beside_corners_on_stderr_is_still_a_partial_run(self):
+        """`error` AND `corners` on stderr is a partially-failed run, not an
+        envelope: returned for the caller's own reader, never refused."""
+        partial = dict(REPORT, error={"code": "partial"})
+        with tempfile.TemporaryDirectory() as td:
+            report = self._submit(Path(td), backend="batch",
+                                  runner=_runner(rc=1, out="", err=json.dumps(partial)))
+            self.assertEqual(report["corners"], REPORT["corners"])
+
     def test_a_non_capacity_envelope_behind_warnings_is_not_retried(self):
         calls = []
         with tempfile.TemporaryDirectory() as td:
@@ -355,11 +415,14 @@ class TestRunInfo(unittest.TestCase):
     """A sharded batch run carries job identity under
     `environment.remote.fleet[]`, not on `environment.remote` itself."""
 
-    def _shard(self, job, pdk="f6eeac7", ng="ngspice-47"):
+    def _shard(self, job, pdk="f6eeac7", ng="ngspice-47", runner="0.9.0",
+               client="0.9.0", compat="match"):
         return {
             "job_id": job, "state": "done", "exit_code": "0",
             "instance_type": "c7i.8xlarge", "elapsed_seconds": 258,
-            "runner_klt_version": "0.9.0",
+            "runner_klt_version": runner,
+            "client_klt_version": client,
+            "runner_compatibility": compat,
             "runner_request_features": {"status": "supported"},
             "worker_environment": {
                 "pdk": {"variant": "sky130A", "stamp_text": f"open_pdks {pdk}"},
@@ -396,6 +459,27 @@ class TestRunInfo(unittest.TestCase):
         info = self._info({"fleet": [self._shard("a"), self._shard("b", ng="ngspice-46")]})
         self.assertIsNone(info["worker_ngspice"])
 
+    def test_every_shards_version_skew_facts_reach_jobs(self):
+        """Issue #888: `runner_compatibility` / `client_klt_version` are
+        PER-SHARD and absent from `environment.remote` on a sharded run, so a
+        campaign that reads them off `remote` sees no skew however the shards
+        disagree. `jobs[]` carries them, one entry per shard."""
+        remote = {"fleet": [self._shard("a"),
+                            self._shard("b", runner="0.5.0", compat="mismatch")]}
+        info = self._info(remote)
+        self.assertEqual(
+            [(j["runner_klt_version"], j["client_klt_version"], j["runner_compatibility"])
+             for j in info["jobs"]],
+            [("0.9.0", "0.9.0", "match"), ("0.5.0", "0.9.0", "mismatch")])
+        for key in ("runner_klt_version", "client_klt_version", "runner_compatibility"):
+            self.assertNotIn(key, info["remote"],
+                             "the sharded envelope carries no run-level version keys")
+
+    def test_single_job_version_skew_facts_also_reach_jobs(self):
+        info = self._info(dict(self._shard("solo", runner="0.5.0", compat="mismatch")))
+        self.assertEqual(info["jobs"][0]["client_klt_version"], "0.9.0")
+        self.assertEqual(info["jobs"][0]["runner_compatibility"], "mismatch")
+
     def test_no_fleet_and_no_job_id_yields_no_jobs(self):
         info = self._info({})
         self.assertEqual(info["jobs"], [])
@@ -418,6 +502,67 @@ class TestRunInfo(unittest.TestCase):
             "ngspice-47")
         self.assertIsNone(klt_sim.ngspice_from_banner(""))
         self.assertIsNone(klt_sim.ngspice_from_banner("no version here"))
+
+
+class TestMeasurementsByCorner(unittest.TestCase):
+    """Issue #904: the per-corner transcription is ONE harness function.
+
+    TestReportReader (input-drive-budget) and TestReadCornersReport (vcm)
+    keep pinning it through their campaigns' delegations; these pin the
+    helper's own contract directly -- including the `supply_key` argument
+    the campaign module constants used to bake in.
+    """
+
+    @staticmethod
+    def _report(**corner):
+        base = {
+            "process": "tt",
+            "temperature_c": 27.0,
+            "supply_v": {"vsup": 1.8},
+            "status": "pass",
+            "measurements": [{"name": "step.ctop", "value": 1.5}],
+        }
+        base.update(corner)
+        return {"status": "pass", "corners": [base], "environment": {}}
+
+    def test_keys_by_corner_id_and_threads_run_info(self):
+        out, info = klt_sim.measurements_by_corner(self._report(), "vsup")
+        self.assertEqual(out, {"tt_27c_1.80v": {"step.ctop": 1.5}})
+        self.assertEqual(info["status"], "pass")
+
+    def test_supply_key_selects_which_supply_to_key_on(self):
+        out, _info = klt_sim.measurements_by_corner(
+            self._report(supply_v={"vdig": 3.3}), "vdig")
+        self.assertEqual(list(out), ["tt_27c_3.30v"])
+
+    def test_an_error_envelope_is_refused_not_read_as_zero_corners(self):
+        with self.assertRaises(ValueError):
+            klt_sim.measurements_by_corner({"error": {"code": "batch_no_capacity"}}, "vsup")
+
+    def test_an_error_corner_is_nulled_not_partially_read(self):
+        for status in ("error", "inconclusive"):
+            out, _info = klt_sim.measurements_by_corner(
+                self._report(status=status), "vsup")
+            self.assertEqual(out["tt_27c_1.80v"], {"step.ctop": None}, status)
+
+    def test_an_envelope_beside_corners_is_still_readable(self):
+        report = self._report()
+        report["error"] = {"code": "partial"}
+        out, _info = klt_sim.measurements_by_corner(report, "vsup")
+        self.assertEqual(out["tt_27c_1.80v"], {"step.ctop": 1.5})
+
+    def test_a_non_object_report_is_refused(self):
+        with self.assertRaises(ValueError):
+            klt_sim.measurements_by_corner([{"process": "tt"}], "vsup")
+
+
+class TestFinite(unittest.TestCase):
+    def test_real_finite_numbers_only(self):
+        cases = [(1.5, True), (3, True), (True, False), (False, False),
+                 (float("nan"), False), (float("inf"), False),
+                 (None, False), ("1.5", False)]
+        for v, want in cases:
+            self.assertIs(klt_sim.finite(v), want, v)
 
 
 class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
@@ -469,6 +614,48 @@ class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
                 if 'remote.get("job_id")' in text:
                     self.assertIn("fleet", text,
                                   "use harness.klt_sim.run_info() for run-level facts")
+
+    def test_only_the_harness_walks_the_sharded_envelope(self):
+        """Issue #888: `run_info()` is the ONE place that knows the sharded
+        report shape, so no campaign has to recognise it.
+
+        The driver scan above cannot see this class of defect -- the read it
+        was written for lived in a campaign LIBRARY module, not a `run_*.py`
+        driver, and it reached for the version keys rather than `job_id`. So
+        this assertion covers every campaign module and keys on the envelope
+        itself: a file that names `remote["fleet"]` is a second reader of the
+        shape, whatever keys it goes on to pull out of it.
+        """
+        for p in sorted(SIM_DIR.glob("*/*.py")) + sorted(SIM_DIR.glob("*/*/*.py")):
+            if p.parent.name in ("harness", "tests") or "harness/" in p.as_posix():
+                continue
+            text = p.read_text()
+            reads = [r for r in ('["fleet"]', "('fleet')", '("fleet")') if r in text]
+            with self.subTest(module=f"{p.parent.name}/{p.name}"):
+                self.assertEqual(
+                    reads, [],
+                    f"{p.parent.name}/{p.name} reads {reads} itself -- read run-level "
+                    "facts through harness.klt_sim.run_info() instead; its jobs[] "
+                    "already carries one entry per shard")
+
+    def test_no_driver_carries_its_own_corner_measurements_reader(self):
+        """Issue #904: the per-corner transcription (`corner_id` plus the
+        `error`/`inconclusive` null-out) is
+        `harness.klt_sim.measurements_by_corner()`, not a per-driver copy.
+
+        The marker is the reader's own null-out test -- a corner DICT's
+        `.get("status")` compared against that pair -- which the two
+        deliberately-unconsolidated readers do not match: they key by a
+        different tuple and decode UnitResult objects, never corner dicts.
+        """
+        for p in sorted(SIM_DIR.glob("*/run_*.py")):
+            with self.subTest(driver=p.parent.name):
+                self.assertNotIn(
+                    '.get("status") in ("error", "inconclusive")',
+                    p.read_text(),
+                    "use harness.klt_sim.measurements_by_corner() for the "
+                    "per-corner transcription",
+                )
 
 
 if __name__ == "__main__":

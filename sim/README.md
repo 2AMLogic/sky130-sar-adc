@@ -85,6 +85,38 @@ class is a structural guard: it fails if a driver grows its own `klt sim` argv,
 helper replaced had drifted to three different capacity policies (one of them
 none at all).
 
+## Record-writer tests stub provenance through one fixture (issue #914)
+
+A record-writer unit test runs with no PDK and no ngspice, which it buys by
+replacing `harness.evidence.resolve_provenance()` — the one step in a writer
+that needs both — and redirecting the campaign module's `EXPERIMENT_DIR` into
+a temp dir, so the test mints nothing under `sim/`. That replacement is
+**`sim/tests/provenance_fixture.py`**, not a per-file copy:
+
+- `make_fake_resolve(...)` returns the stub. Its filesystem side effects are
+  the real `evidence.write_netlist_snapshot_text()` — the helper production
+  `resolve_provenance()` itself calls — so the directories it creates, the
+  snapshot it writes and the `records/<record-id>.md` path it returns are
+  production behaviour. Only the four fields that need a toolchain to resolve
+  (`record_id`, `netlist_sha`, `pdk_line`, `ng_version`) are faked, and each
+  is overridable by keyword.
+- `fake_provenance(module, tmp_dir)` is the context manager for the common
+  case: it patches `<module>.EXPERIMENT_DIR` and `evidence.resolve_provenance`
+  together with `mock.patch.object`, so the restore is not a `try:`/`finally:`
+  pair re-typed at each call site.
+- **One stubbed ngspice version.** `ngspice-46`, which
+  `sim/tests/test_harness.py` asserts on directly — so that assertion pins the
+  fixture's default. A test needing another version passes `ng_version=` and
+  says why.
+
+`sim/tests/test_provenance_fixture.py` covers the fixture (including that both
+patched names are restored when the writer under test raises) and ends in a
+structural guard: it fails if any `sim/tests/test_*.py` defines its own
+`fake_resolve`, builds its own `evidence.ProvenanceInfo`, or rebinds either
+name by hand. That is how the thirteen copies this fixture replaced had
+drifted — twelve returned `ngspice-46` and one `ngspice-47`, on a field
+nothing asserted on at that site.
+
 ## Quick start
 
 ```sh
@@ -903,10 +935,18 @@ only runs the stdlib `--check`.
 
 | Stage | What it proves | Needs PDK? |
 | --- | --- | --- |
-| 1/4 | `sim/harness/*` unit tests (`sim/tests/`) | no |
+| 1/4 | the `sim/tests` unit suite -- all of it, not just `sim/harness/*`: that directory is the repo's only unittest root | no |
 | 2/4 | toolchain + PDK pin match `sim/toolchain.json` | — |
 | 3/4 | `harness-corner-smoke` PVT run and `mc-smoke` Monte Carlo run (incl. its negative control) both pass end to end | yes |
 | 4/4 | **negative control**: re-running `harness-corner-smoke` with `--sabotage-corners` (the process-corner `.lib` section forced to `tt`, everything else untouched) must **FAIL** its process-axis sensitivity floor | yes |
+
+Stage 1 is where `npm run check:ci` runs the unit suite — the only place it
+does, since issue #889 removed the chain's second, identical run via
+`npm run test`. The PDK-gated `pdk-smoke` job also invokes
+`./sim/selftest.sh --require-pdk` directly rather than `check:ci`, so this
+stage is that job's only unit-suite run as well, and the suite's only CI run
+on a machine that has ngspice. `sim/tests/test_check_ci_unit_suite_once.py`
+holds both facts.
 
 Stage 4 is the one that matters most. Stages 1–3 can all pass while the corner
 runner silently simulates typical everywhere — every number would look

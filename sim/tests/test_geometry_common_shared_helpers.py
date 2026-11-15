@@ -24,8 +24,10 @@ change here changes drawn geometry in two blocks at once and must be a
 deliberate, re-recorded one.
 
 Pure stdlib -- no PDK, no KLayout, no `klt` -- so it belongs to the headless tier
-(`npm run test` -> `test:unit`, CI's "Repo checks (headless, no PDK)" job), the
-same convention `sim/tests/test_layout_entrypoint_imports.py` follows.
+(`npm run test:unit` standalone; reached in CI through `check:ci` ->
+`npm run check:harness` -> `sim/selftest.sh` stage 1, in the "Repo checks
+(headless, no PDK)" job), the same convention
+`sim/tests/test_layout_entrypoint_imports.py` follows.
 """
 
 from __future__ import annotations

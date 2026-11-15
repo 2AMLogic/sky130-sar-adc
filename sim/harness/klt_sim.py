@@ -19,17 +19,22 @@ hard campaign failure. `submit()` below gives every non-`local` submit the
 flag by default, so a new campaign inherits the policy instead of re-deciding
 it.
 
-Stdlib only, and the subprocess runner is injectable (`runner=`), so these
-paths are unit-testable without `klt`, the PDK or the fleet.
+Stdlib plus one pure harness sibling (`corners.corner_id` -- string
+formatting, still no PDK), and the subprocess runner is injectable
+(`runner=`), so these paths are unit-testable without `klt`, the PDK or
+the fleet.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+from .corners import corner_id
 
 #: Seconds a non-`local` submit waits for fleet capacity instead of failing
 #: the step. CLAUDE.md's host rule ("pass `--wait-for-capacity 600` on every
@@ -74,10 +79,18 @@ def envelope_from_stderr(text: str) -> dict | None:
 
     So the stream is scanned rather than assumed: every line that opens a
     JSON object is a candidate, and the first one that decodes to a dict
-    wins. Trailing text after the envelope is ignored; a candidate line that
-    does not decode (a progress line that happens to start with `{`) is
-    skipped rather than ending the scan. Deliberately not a strip-the-known-
-    `klt:`-prefixes rule, which would be brittle against new wording.
+    carrying an `"error"` key wins. Trailing text after the envelope is
+    ignored; a candidate line that does not decode (a progress line that
+    happens to start with `{`) is skipped rather than ending the scan.
+    Deliberately not a strip-the-known-`klt:`-prefixes rule, which would
+    be brittle against new wording.
+
+    The `"error"` requirement is the point (issue #898): a report is a
+    stdout artifact, so the only dict stderr has a documented reason to
+    carry is an envelope. A non-envelope JSON object -- a progress or
+    status dict at column 0 -- must neither stand in for a report nor mask
+    a real envelope further down the stream; the scan walks past it to the
+    envelope behind it, and a stream carrying no envelope yields None.
     """
     decoder = json.JSONDecoder()
     offset = 0
@@ -88,7 +101,7 @@ def envelope_from_stderr(text: str) -> dict | None:
             except ValueError:
                 pass
             else:
-                if isinstance(value, dict):
+                if isinstance(value, dict) and "error" in value:
                     return value
         offset += len(line)
     return None
@@ -160,6 +173,11 @@ def submit(
     key ALONGSIDE `corners` is a partially-failed run, not an envelope, and
     is returned for the caller's own reader to decode.
 
+    A JSON dict on stderr that carries NO `error` key is a third outcome and
+    is refused as "no JSON report" (issue #898): a report is a stdout
+    artifact, so a stderr dict that is not an envelope never becomes one --
+    it is raised over, not cached.
+
     `capacity_retries` adds a bounded client-side retry on a capacity refusal
     *on top of* `--wait-for-capacity`, for the client/runner pairings where
     the flag alone does not wait a refusal out; it re-submits to the same
@@ -226,6 +244,12 @@ def run_info(report: dict) -> dict:
     sharded record ends up reporting `job None` -- so both are handled here,
     and the executing PDK/simulator are only reported when EVERY shard
     agrees on them.
+
+    `jobs[]` carries one entry per shard (one entry for a single-job run),
+    including that shard's `runner_klt_version` / `client_klt_version` /
+    `runner_compatibility` -- the version-skew facts a disclosure section is
+    rendered from. Read them from `jobs[]`, never off `remote`: on the
+    sharded shape `remote` has no key but `fleet`.
     """
     remote = ((report.get("environment") or {}).get("remote")) or {}
     shards = remote.get("fleet")
@@ -252,6 +276,14 @@ def run_info(report: dict) -> dict:
                 "instance_type": entry.get("instance_type"),
                 "elapsed_seconds": entry.get("elapsed_seconds"),
                 "runner_klt_version": entry.get("runner_klt_version"),
+                # Runner/client version skew is a PER-SHARD fact: a sharded
+                # run carries these two keys only inside `fleet[]`, never on
+                # `environment.remote`, so a campaign that reads them off
+                # `remote` reports no skew however the shards disagree
+                # (issue #888). They are normalised here so no campaign has
+                # to walk `fleet[]` to find them.
+                "client_klt_version": entry.get("client_klt_version"),
+                "runner_compatibility": entry.get("runner_compatibility"),
             })
     backend = (report.get("environment") or {}).get("backend")
     if isinstance(backend, dict):
@@ -271,3 +303,49 @@ def run_info(report: dict) -> dict:
         "worker_ngspice_seen": sorted(ngs),
         "request_feature_status": next(iter(features)) if len(features) == 1 else None,
     }
+
+
+def finite(x) -> bool:
+    """True when `x` is a real, finite JSON number.
+
+    Never `True`/`False` (a JSON boolean is a status, not a measurement) and
+    never NaN/inf. One definition for every campaign: the drivers had drifted
+    to two, with the bool guard missing from the copy the others were taken
+    from (issue #904).
+    """
+    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def measurements_by_corner(
+    report: dict, supply_key: str
+) -> tuple[dict[str, dict[str, float | None]], dict]:
+    """`({corner_id: {"<step>.<name>": value}}, run_info(report))`.
+
+    Refuses a `klt sim` error ENVELOPE rather than inventing numbers, and
+    nulls a corner whose own status is `error`/`inconclusive` so a partial
+    solve is never read as a measurement. One copy for every campaign: three
+    drivers carried byte-identical private readers of this block (issue
+    #904, extending #865's `run_info()` consolidation to the one identical
+    decoding block it had deliberately left per-driver).
+
+    `supply_key` selects the corner's supply out of its `supply_v` map; the
+    campaign's module constant (`SUPPLY_KEY` = "vsup" today) moves to this
+    argument rather than being baked into yet another module.
+    """
+    if not isinstance(report, dict):
+        raise ValueError("klt sim report is not a JSON object")
+    if "error" in report and "corners" not in report:
+        raise ValueError(f"klt sim error envelope: {report['error']}")
+    out: dict[str, dict[str, float | None]] = {}
+    for c in report.get("corners") or []:
+        sv = (c.get("supply_v") or {}).get(supply_key)
+        cid = corner_id(c["process"], float(c["temperature_c"]), float(sv))
+        vals = {
+            m["name"]: m.get("value")
+            for m in (c.get("measurements") or [])
+            if isinstance(m, dict) and "name" in m
+        }
+        if c.get("status") in ("error", "inconclusive"):
+            vals = {k: None for k in vals}
+        out[cid] = vals
+    return out, run_info(report)

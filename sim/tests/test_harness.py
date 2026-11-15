@@ -19,6 +19,7 @@ from unittest import mock
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 
+import provenance_fixture  # noqa: E402
 from harness import corners, evidence, measure, runner  # noqa: E402
 from harness import mc_runner, pdk, testbench, toolchain  # noqa: E402
 
@@ -425,21 +426,6 @@ class TestResolveCornersProvenance(unittest.TestCase):
             "complete": complete,
         }
 
-    def _fake_resolve(self, seen: list):
-        def fake(experiment_dir: Path, netlist_text: str):
-            seen.append(netlist_text)
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
-
-        return fake
-
     def test_baseline_snapshot_decks_and_run_summary(self):
         points = [
             self._point("ss", 27.0, 1.8),
@@ -449,7 +435,8 @@ class TestResolveCornersProvenance(unittest.TestCase):
         seen: list = []
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
-            with mock.patch.object(evidence, "resolve_provenance", self._fake_resolve(seen)):
+            fake = provenance_fixture.make_fake_resolve(seen=seen)
+            with mock.patch.object(evidence, "resolve_provenance", fake):
                 info = evidence.resolve_corners_provenance(tmp_dir, points, 1.8)
 
             # the tt/27C/nominal point is the one snapshotted, not points[0]
@@ -481,7 +468,8 @@ class TestResolveCornersProvenance(unittest.TestCase):
         points = [self._point("ss", -40.0, 1.62), self._point("ff", 125.0, 1.98)]
         seen: list = []
         with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.object(evidence, "resolve_provenance", self._fake_resolve(seen)):
+            fake = provenance_fixture.make_fake_resolve(seen=seen)
+            with mock.patch.object(evidence, "resolve_provenance", fake):
                 evidence.resolve_corners_provenance(Path(tmp), points, 1.8)
         self.assertEqual(seen, [points[0]["netlist"]])
 

@@ -23,6 +23,7 @@ place to discover it:
 
 from __future__ import annotations
 
+import contextlib
 import inspect
 import sys
 import tempfile
@@ -38,13 +39,13 @@ sys.path.insert(0, str(EXPERIMENT_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gen_full_conversion_tb as tb  # noqa: E402
+import provenance_fixture  # noqa: E402
 import run_conversion as rc  # noqa: E402
 from full_conversion_campaigns import common as fc_common  # noqa: E402
 from full_conversion_campaigns import dc_codes as fc_dc  # noqa: E402
 from full_conversion_campaigns import decision_margin as fc_dm  # noqa: E402
 from full_conversion_campaigns import node_trace as fc_node  # noqa: E402
 from full_conversion_campaigns import solver_audit as fc_audit  # noqa: E402
-from harness import evidence  # noqa: E402
 from report import generate as report_generate  # noqa: E402
 from test_full_conversion import (  # noqa: E402
     _as_log, _ideal_codes, _synthetic_node_trace, _synthetic_parsed,
@@ -300,37 +301,30 @@ def _point(offset: int = 0, profile: str = fc_common.REFERENCE_SOLVER_PROFILE, g
     return point
 
 
-class _TmpExperiment:
-    """Redirect EXPERIMENT_DIR and provenance into a temp dir."""
+@contextlib.contextmanager
+def _tmp_experiment(tmp: Path):
+    """`provenance_fixture.fake_provenance()` plus a PRIOR `records/LATEST`.
 
-    def __init__(self, tmp: Path):
-        self.tmp = tmp
+    Every test in this file drives a writer that either must leave that
+    pointer alone (a solver CONTROL run, a diagnostic) or must move it (a
+    reference run), so the prior pointer has to exist before the writer runs
+    -- that, and not the provenance stub, is what is specific to this file.
 
-    def __enter__(self):
-        self.real = fc_common.EXPERIMENT_DIR, evidence.resolve_provenance
-        tmp = self.tmp
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC", record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64, pdk_line="sky130A @ testing", ng_version="ngspice-47",
-            )
-
-        fc_common.EXPERIMENT_DIR = tmp
-        evidence.resolve_provenance = fake_resolve
+    The stub is the shared one, on its `ngspice-46` default: this site used to
+    return `ngspice-47`, which nothing here asserted on and which no writer
+    branches on (`solver_audit.py` only renders the version into a prose
+    comparison against `records/LATEST`'s own row), so it was drift rather
+    than a requirement -- issue #914.
+    """
+    with provenance_fixture.fake_provenance(fc_common, tmp):
         (tmp / "records").mkdir(parents=True, exist_ok=True)
         (tmp / "records" / "LATEST").write_text("PRIOR.md\n")
-        return self
-
-    def __exit__(self, *exc):
-        fc_common.EXPERIMENT_DIR, evidence.resolve_provenance = self.real
-        return False
+        yield
 
 
 class TestControlRecordNeverReplacesReference(unittest.TestCase):
     def test_control_record_is_labelled_and_leaves_latest_alone(self):
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
             path = fc_dc.write_record([_point(profile="ngspice-default")], "* n\n",
                                    solver_profile="ngspice-default")
             text = path.read_text()
@@ -343,7 +337,7 @@ class TestControlRecordNeverReplacesReference(unittest.TestCase):
         self.assertIn("--record --solver-profile ngspice-default", text)
 
     def test_control_record_refuses_supersedes_in_the_writer(self):
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
             with self.assertRaises(ValueError):
                 fc_dc.write_record([_point()], "* n\n", supersedes="PRIOR",
                                 solver_profile="gear-only")
@@ -355,7 +349,7 @@ class TestControlRecordNeverReplacesReference(unittest.TestCase):
         # pre-DR-023 campaign: labelled control, LATEST untouched, and the
         # Written-by command is the one that reproduces it.
         pts = [_point(profile="ngspice-default") for _ in range(9)]
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
             text = fc_dc.write_record(pts, "* n\n", solver_profile="ngspice-default").read_text()
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
         self.assertIn("SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE", text)
@@ -364,7 +358,7 @@ class TestControlRecordNeverReplacesReference(unittest.TestCase):
         self.assertEqual(report_generate.extract_field(text, "Supersedes"), "(none)")
 
     def test_reference_record_still_moves_latest_and_names_its_settings(self):
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
             text = fc_dc.write_record([_point()], "* n\n").read_text()
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text().strip(), "REC.md")
         self.assertNotIn("SOLVER-CONTROL RUN", text)
@@ -514,7 +508,7 @@ class TestSolverAuditRecord(unittest.TestCase):
                   simulator_options="not stated (pre-#637 record: ngspice defaults)")
 
     def _write(self, runs, tmp: Path) -> str:
-        with _TmpExperiment(tmp):
+        with _tmp_experiment(tmp):
             path = fc_audit.write_solver_audit_record(
                 runs, "* n\n", 400.0, self.LATEST,
                 "sim/full-conversion-transient/run_conversion.py --solver-audit --record")
@@ -544,7 +538,7 @@ class TestSolverAuditRecord(unittest.TestCase):
         self.assertIn("**yes -- SOLVER-SENSITIVE**", text)
 
     def test_audit_must_start_with_the_reference_profile(self):
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
             for runs in ([_point(profile="gear-only"), _point(profile="ngspice-default")], [_point()]):
                 with self.assertRaises(ValueError):
                     fc_audit.write_solver_audit_record(runs, "* n\n", 1.0, None, "x")
@@ -584,7 +578,7 @@ class TestDiagnosticModesHonourTheProfile(unittest.TestCase):
             for cid, pc, tc, sv in (("tt_27c_1.62v", "tt", 27.0, 1.62),
                                     ("ff_27c_1.80v", "ff", 27.0, 1.80))
         }
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
             text = fc_node.write_node_trace_record(traces, "* n\n", profile).read_text()
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
         return text
