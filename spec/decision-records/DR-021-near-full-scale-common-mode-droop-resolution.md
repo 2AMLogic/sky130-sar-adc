@@ -149,7 +149,10 @@ Why this option:
   the fallback. With `CM deviation ~ |Vd|/2`, holding DR-004's 23.1 mV
   margin literally would limit `|Vd|` to ~46 mV (~13 LSB, ~2.6% of
   `V_REF`), which is not a converter; the real limit is somewhere between
-  `±0.25` and `±0.78·V_REF` and is unmeasured. For scale only: a range cut
+  `±0.25` and `±0.78·V_REF` and was unmeasured as this option was written
+  (now measured at the baseline corner `tt_27c_1.80v` — see the amended
+  **Converging-range boundary sweep** Open item below; the other eight
+  ratified corners remain unmeasured). For scale only: a range cut
   to ±0.3·V_REF at unchanged LSB costs `20·log10(0.3) = -10.5 dB` (~1.7 bit)
   of dynamic range, which against `spec/target-spec.md`'s composite
   behavioral ENOB estimate of `8.491` bit (mean-case) would land near 6.7 bit,
@@ -211,8 +214,18 @@ top plate and this record does not change that.
   not 23.1 mV, but it is unmeasured) and that both inputs land within the
   ±1 LSB band at the 9 ratified corners.
 - **Converging-range boundary sweep** of the current architecture (inputs
-  between 0.25 and 0.78·V_REF): not run, needs a `klt sim` batch request,
-  not local SPICE. Needed only if option 3 is ever invoked as a fallback.
+  between 0.25 and 0.78·V_REF): **run** — issue #913, record
+  `sim/full-conversion-transient/records/20261115-084232-ad7393c6.md`
+  (2026-11-15). Scope: 24 signed input levels in [0.25, 0.78]·V_REF
+  (`0.05·V_REF` rung spacing), one `klt sim` unit per level, the baseline
+  corner `tt_27c_1.80v` only; informational (grades no spec row, supersedes
+  nothing). Finding: conversion holds up to `+0.30·V_REF` / `-0.35·V_REF`
+  and first fails at `+0.35·V_REF` / `-0.40·V_REF`, located to the sweep's
+  `0.05·V_REF` step. The "needed only if option 3 is ever invoked as a
+  fallback" caveat is pre-satisfied at the baseline corner — the sweep ran
+  regardless of whether option 3 is invoked. Still open: the same sweep at
+  the other eight ratified corners, which issue #913 put Out of Scope and
+  which no open issue tracks.
 - Follow-up implementation issue to be filed on ratification; coordinate with
   #269. #267 closes with the decision record (its 2026-09-14 operator-lane
   revision scoped it to "draft the DR as a PR, do not implement"), so this
