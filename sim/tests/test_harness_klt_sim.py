@@ -14,9 +14,9 @@ campaign's author will see it fail.
 
 from __future__ import annotations
 
+import ast
 import io
 import json
-import re
 import sys
 import tempfile
 import unittest
@@ -54,20 +54,36 @@ def _stderr_behind_warnings(code="batch_no_capacity", message=NO_CAPACITY_MESSAG
     return KLT_STDERR_PREAMBLE + json.dumps(envelope, indent=1) + "\n"
 
 
-#: A direct read of the sharded `fleet` envelope: a subscript (`remote[...]`)
-#: or a `.get(...)` call, either quote style, optional whitespace inside the
-#: brackets/parens, with or without a default argument -- and a newline too,
-#: which `\s` tolerates. Assignment, indirection and prose mentions do not fit.
-_ENVELOPE_READ = re.compile(r"""(\[|\.get\()\s*['"]fleet['"]""")
-
-
 def _reads_sharded_envelope(text):
-    """Every spelling of a direct `remote[...]`/`remote.get(...)` read of the
-    sharded `fleet` envelope -- subscript or `.get`, either quote style, with
-    or without a default argument. Tested against the full table (and the
-    decoys it must stay quiet on) by
+    """Every structural read of the sharded `fleet` envelope: a `Subscript`
+    keyed on the constant `"fleet"` (`remote["fleet"]`, whatever the accessor
+    chain) or any call whose first positional argument is the constant
+    `"fleet"` (`remote.get("fleet")`, `remote.pop("fleet")`,
+    `itemgetter("fleet")`, ...). Keys on the parsed AST rather than on an
+    enumeration of accessor spellings (the defect class #888/#918/#944 each
+    had to patch one spelling at a time), and the broad `Call` arm
+    deliberately restores the old literal-tuple breadth, erring toward firing
+    so a human looks. Deliberately NOT caught: variable-key indirection
+    (`remote.get(key)`) -- out of scope on #918/#944. Prose that does not
+    parse yields no read; the scan loop asserts real modules parse, so a
+    syntactically broken module cannot slip past silently. Tested against
+    the full table (and the decoys it must stay quiet on) by
     `test_envelope_matcher_fires_on_every_spelling_of_the_read`."""
-    return [m.group(0) for m in _ENVELOPE_READ.finditer(text)]
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    reads = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript):
+            if isinstance(node.slice, ast.Constant) and node.slice.value == "fleet":
+                reads.append(ast.unparse(node))
+        elif isinstance(node, ast.Call):
+            if (node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and node.args[0].value == "fleet"):
+                reads.append(ast.unparse(node))
+    return reads
 
 
 def _runner(rc=0, out="", err="", calls=None):
@@ -641,12 +657,21 @@ class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
         driver, and it reached for the version keys rather than `job_id`. So
         this assertion covers every campaign module and keys on the envelope
         itself: a file that names `remote["fleet"]` is a second reader of the
-        shape, whatever keys it goes on to pull out of it.
+        shape, whatever keys it goes on to pull out of it. Since #944 the
+        matcher parses each module, so a module that does not parse fails
+        here too -- a syntactically broken module must not slip past the
+        guard silently.
         """
         for p in sorted(SIM_DIR.glob("*/*.py")) + sorted(SIM_DIR.glob("*/*/*.py")):
             if p.parent.name in ("harness", "tests") or "harness/" in p.as_posix():
                 continue
             text = p.read_text()
+            try:
+                ast.parse(text)
+            except SyntaxError as exc:
+                self.fail(f"{p.parent.name}/{p.name} does not parse ({exc}) -- "
+                          "the sharded-envelope guard cannot see through a "
+                          "broken module; fix or remove it")
             reads = _reads_sharded_envelope(text)
             with self.subTest(module=f"{p.parent.name}/{p.name}"):
                 self.assertEqual(
@@ -658,8 +683,12 @@ class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
     def test_envelope_matcher_fires_on_every_spelling_of_the_read(self):
         """Issue #918: the envelope matcher keys on the read, not on
         spellings -- assert it, so the next spelling gap is a failure here
-        rather than a silent pass. Decoys keep the broadening honest: text
-        that merely mentions `fleet` must not fire."""
+        rather than a silent pass. Issue #944: the four accessor spellings
+        the `get`-only regex missed (`.pop`, `.setdefault`, plus
+        `itemgetter`) are positives too. Decoys keep the broadening honest:
+        text that merely mentions `fleet` must not fire, and the list
+        literal the regex era flagged (`KEYS = ["fleet", "pdk"]`) must stay
+        quiet -- a `List` is not a `Subscript`."""
         positives = [
             'remote["fleet"]',
             "remote['fleet']",
@@ -669,12 +698,18 @@ class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
             "remote.get('fleet', [])",
             'remote[ "fleet" ]',
             'remote[\n    "fleet"\n]',
+            'remote.pop("fleet")',
+            "remote.pop('fleet')",
+            'remote.setdefault("fleet", [])',
+            'r.pop("fleet", None)',
+            'itemgetter("fleet")',
         ]
         for sample in positives:
             with self.subTest(sample=sample):
                 self.assertTrue(_reads_sharded_envelope(sample), sample)
         for decoy in ['FLEET_KEY = "fleet"',
                       'remote.get(key)',
+                      'KEYS = ["fleet", "pdk"]',
                       "a fleet of ships",
                       '# the record names "fleet" twice',
                       "# walks the fleet envelope"]:
