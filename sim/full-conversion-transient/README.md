@@ -586,9 +586,10 @@ scheme is out of scope), supersedes nothing, and never moves
 `records/LATEST`; `--supersedes` is refused with the mode, as is any
 `--solver-profile` (there is no pre-DR-023 record on this path to
 reproduce). A refused submit mints a NOT RUN record quoting the refusal —
-there is no local fallback. A recorded sweep must carry the `±0.25` and
-`±0.78` anchors (the committed record's known-converging and known-failing
-rows), so its boundary statement is never reached by interpolation.
+there is no local fallback. Every `--input-sweep` run, `--record` or not,
+must carry the `±0.25` and `±0.78` anchors (the committed record's
+known-converging and known-failing rows), so any boundary statement the run
+can support is never reached by interpolation.
 
 ## Transient solver policy (issue #637, DR-023)
 
