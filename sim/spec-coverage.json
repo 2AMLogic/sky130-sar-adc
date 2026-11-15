@@ -288,6 +288,19 @@
           "documented_in": "sim/full-conversion-transient/README.md",
           "covers": "SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the superseded campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.",
           "records": ["sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md"]
+        },
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice"
+          ],
+          "testbench_note": "The generated, committed sweep fragment carries the differential input as a top-level `.param` (`vin_frac`, a fraction of `vdd_val`) instead of per-conversion literals; the runner sweeps it as the only `corners.params` axis of ONE `klt sim` request -- one unit per level at the baseline corner (issue #913).",
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "PLACEHOLDER-RECORD",
+          "records": ["sim/full-conversion-transient/records/PLACEHOLDER.md"]
         }
       ]
     },

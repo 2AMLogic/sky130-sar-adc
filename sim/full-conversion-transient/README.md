@@ -15,6 +15,7 @@ every point of the ratified PVT corner grid.
 | Quantity | How |
 | --- | --- |
 | Captured code vs ideal code | 5 DC differential inputs spanning the code range (`-0.78`, `-0.25`, `0.00`, `+0.25`, `+0.78` × `V_REF`), read mid-`SAMPLE` of each conversion, decoded against `LSB = 2·V_REF/2^N` (`spec/target-spec.md`, RATIFIED DR-003) |
+| Converging-range boundary (`--input-sweep`, issue #913) | the same observable with the DC level as a swept `vin_frac` parameter: signed inputs across the `0.25..0.78*V_REF` band, one `klt sim` unit per level at `tt_27c_1.80v`, boundary located per sign to the sweep step (informational; DR-021's Open item) |
 | Conversion completion | `BUSY` and `PH_SAMPLE` (`SAMPLE_INT`) sampled in the middle of each of the 12 CLK periods of every measured conversion — the "12 CLK periods, no missing or duplicated phase" check |
 | Average supply/reference current and power | `.meas tran ... avg i(<source>)` over one whole steady-state conversion, per rail (`VDD`, `VPWR`, `VREFP`, `VCM`, `VREFN`) |
 
@@ -89,6 +90,12 @@ python3 sim/full-conversion-transient/run_conversion.py --record --solver-profil
 # ^ a single labelled SOLVER-CONTROL baseline run on the pre-DR-023 settings
 #   (never moves records/LATEST, may not --supersedes); add --corners or a
 #   diagnostic mode to reproduce a pre-DR-023 grid/diagnostic record
+python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record
+# ^ issue #913 converging-range boundary sweep (DR-021 open item): 24 levels
+#   x 1 baseline corner, one `klt sim` unit per level (a ~2.3 us transient
+#   each); informational, never moves records/LATEST. Narrow the band with
+#   --input-levels=-0.78,-0.5,0.25,0.78 (equals form; anchors +-0.25/+-0.78
+#   are required in any recorded sweep).
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
 python3 -m unittest discover -s sim/tests -t sim/tests                   # PDK-free unit tests
 ```
@@ -131,8 +138,9 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 | `gen_full_conversion_tb.py` | Generates the committed fragment; owns the timing schedule, the input set and the ideal-code mapping. `--check` fails if the committed fragment is stale (also pinned byte-for-byte by `sim/tests/test_full_conversion.py`). |
 | `testbench/full_conversion_tb_fragment.spice` | The generated, committed testbench: sources, `.tran`, and every `.meas` card. Rail-referenced via `{vdd_val}` so one fragment serves every supply point. |
 | `run_conversion.py` | The CLI entry point: module docstring, argument parser and `main()`. Every invocation in this README goes through it, unchanged. |
-| `full_conversion_campaigns/` | The campaigns behind that CLI, one module each (issue #861's behavior-preserving split, mirroring `comparator_campaigns/` and `supply_impedance_campaigns/`): `common` (corner axes, DR-023 solver policy, deck assembly, decode, run loop, gain/offset fit, and the node-trace and switching-event-trace cores more than one campaign uses), then `dc_codes`, `node_trace`, `cm_trace`, `decision_margin`, `coherent_sine` and `solver_audit`. Each campaign module imports `common` only. |
+| `full_conversion_campaigns/` | The campaigns behind that CLI, one module each (issue #861's behavior-preserving split, mirroring `comparator_campaigns/` and `supply_impedance_campaigns/`): `common` (corner axes, DR-023 solver policy, deck assembly, decode, run loop, gain/offset fit, and the node-trace and switching-event-trace cores more than one campaign uses), then `dc_codes`, `node_trace`, `cm_trace`, `decision_margin`, `coherent_sine`, `solver_audit` and `input_sweep` (issue #913). Each campaign module imports `common` only. |
 | `testbench/coherent_sine_tb_fragment.spice` | `--coherent-sine`'s generated, committed testbench (issue #603): same supplies/clock/code reads as the DC fragment, coherent antiphase sine input. Pinned byte-for-byte by `sim/tests/test_dynamic_enob_fft.py`. |
+| `testbench/input_sweep_tb_fragment.spice` | `--input-sweep`'s generated, committed testbench (issue #913): same supplies/clock/code reads as the DC fragment, with the differential input as the top-level `.param vin_frac` (one unit per swept level). Pinned byte-for-byte by `sim/tests/test_full_conversion.py`. |
 | `dynamic_enob.py` | Stdlib-only radix-2 FFT and SNDR/ENOB/SFDR analyzer for `--coherent-sine` (no numpy -- `sim/` runs without a venv). |
 | `corners/<record-id>/coherent-sine-<corner-id>.log` | `--coherent-sine` raw output, with the exact fragment that ran beside it. |
 | `netlist-snapshots/<record-id>.spice` | The frozen DUT netlist the record was produced from (byte-identical to `design/sar_adc_top.spice` at the recorded commit). |
@@ -543,6 +551,44 @@ the same default-settings capture, re-run with deeper probes, and the stream
 is bit-for-bit identical. The solver-control record supersedes nothing. It
 makes a different claim, a control, and is not a replacement capture.
 `20261010-070734-f968286` remains superseded via `57a55c1`, as before.
+
+## The converging-range input sweep (`--input-sweep`, issue #913)
+
+**What it answers.** The DC corner campaign (records/LATEST, the newest DC
+corner campaign) resolves the three mid-scale inputs within ±1 LSB and
+misses the two `±0.78*V_REF` inputs at every corner — the near-full-scale
+common-mode droop DR-021 proposes to fix. Nothing between those points had
+been measured. This sweep is DR-021's own **"Converging-range boundary
+sweep" Open item**: signed DC input levels across the `0.25..0.78*V_REF`
+band, one level per `klt sim` unit of ONE request, at `tt_27c_1.80v` under
+the reference solver policy, locating the boundary per sign to the sweep's
+step (`0.05*V_REF` rungs from 0.25 to 0.75 plus the 0.78 endpoint, both
+signs).
+
+**How the level is swept.** The committed
+`testbench/input_sweep_tb_fragment.spice` (generated by
+`gen_full_conversion_tb.py`, pinned byte-for-byte like the other two
+fragments) carries the differential input as a top-level `.param vin_frac`
+instead of per-conversion literals — one committed fragment serves every
+level, the same convention `sim/reference-drive-budget/` uses for its
+`r_ref`. Each unit holds ONE DC level from t = 0 (two conversions: a
+discarded start-up conversion, then the measured one), so the schedule has
+no input steps at all. The deck body, the request and the report decode
+live in `full_conversion_campaigns/input_sweep.py`; the CLI is
+`--input-sweep [--input-levels=<fractions>] --record`. The submit goes
+through the shared `sim/harness` `klt_sim.submit()` path with its default
+capacity wait — never a hand-launched local SPICE grid.
+
+**What its record is.** Informational: a measurement of the AS-COMMITTED
+schematic that locates where conversion stops being correct. It grades no
+`spec/target-spec.md` row, proposes no design change (DR-021's switching
+scheme is out of scope), supersedes nothing, and never moves
+`records/LATEST`; `--supersedes` is refused with the mode, as is any
+`--solver-profile` (there is no pre-DR-023 record on this path to
+reproduce). A refused submit mints a NOT RUN record quoting the refusal —
+there is no local fallback. A recorded sweep must carry the `±0.25` and
+`±0.78` anchors (the committed record's known-converging and known-failing
+rows), so its boundary statement is never reached by interpolation.
 
 ## Transient solver policy (issue #637, DR-023)
 

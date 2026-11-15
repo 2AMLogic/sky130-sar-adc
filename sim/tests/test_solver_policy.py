@@ -194,6 +194,7 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
         args = SimpleNamespace(
             solver_profile=None, sine_solver_control=False, corners=True,
             node_trace=False, cm_trace=False, decision_margin_trace=False,
+            input_sweep=False,
             solver_audit=False, coherent_sine=False,
             supersedes="20261001-105439-c324f80", jobs=3, audit_profile=[],
         )
@@ -213,13 +214,28 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
                 args = SimpleNamespace(
                     solver_profile="ngspice-default", sine_solver_control=False,
                     corners=False, node_trace=False, cm_trace=False,
-                    decision_margin_trace=False, solver_audit=False,
-                    coherent_sine=False, supersedes="", jobs=1, audit_profile=[],
+                    decision_margin_trace=False, input_sweep=False,
+                    solver_audit=False, coherent_sine=False, supersedes="",
+                    jobs=1, audit_profile=[],
                 )
                 setattr(args, mode, True)
                 self.assertEqual(rc.resolve_solver_cli(args), ("ngspice-default", ""))
                 args.solver_profile = "gear-only"
                 self.assertIn("SOLVER CONTROL", rc.resolve_solver_cli(args)[1])
+
+    def test_input_sweep_runs_the_reference_policy_only(self):
+        """issue #913: the boundary sweep has no pre-DR-023 record to
+        reproduce, so a control profile has nothing to say on it -- the
+        resolver refuses the combination (the dispatcher refuses any
+        explicit --solver-profile with the mode before this ever runs)."""
+        args = SimpleNamespace(
+            solver_profile="ngspice-default", sine_solver_control=False,
+            corners=False, node_trace=False, cm_trace=False,
+            decision_margin_trace=False, input_sweep=True,
+            solver_audit=False, coherent_sine=False, supersedes="",
+            jobs=1, audit_profile=[],
+        )
+        self.assertIn("SOLVER CONTROL", rc.resolve_solver_cli(args)[1])
 
     def test_ngspice_default_grid_passes_the_cli_to_check_env(self):
         argv = ["run_conversion.py", "--solver-profile", "ngspice-default", "--corners",
