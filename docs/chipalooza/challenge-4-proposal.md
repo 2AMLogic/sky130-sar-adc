@@ -6278,11 +6278,7 @@ and is not claimed to be met.
   records, and every evidence record cited above — is licensed
   [Apache-2.0](../../LICENSE), Copyright 2026 2AM Logic. It satisfies the
   common structure's requirement for a standard open license with
-  modifiable sources public. (Note: `README.md`'s "Private for now" section
-  predates the 2026-08-25 visibility flip to public and is stale relative
-  to the repository's actual current visibility, confirmed via `gh repo
-  view` at authoring time — a pre-existing documentation gap, not
-  introduced by this document, and out of this issue's scope to fix here.)
+  modifiable sources public.
 - **Flow**: fully open-source. Schematic capture and netlisting via
   [xschem](https://xschem.sourceforge.io/); simulation via
   [ngspice](https://ngspice.sourceforge.io/); layout, DRC, LVS, and
