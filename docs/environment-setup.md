@@ -200,7 +200,7 @@ sim/selftest.sh                # the harness acceptance test (a few minutes)
 sim/selftest.sh --quick        # unit tests + environment check only, no ngspice
 sim/selftest.sh --require-pdk  # fail rather than skip if ngspice/the PDK are missing
 
-npm run check:ci               # lint + python compile + sim/selftest.sh (unit suite) + the check:* gates
+npm run check:ci               # lint + python compile + the check:* gates + sim/selftest.sh (the unit suite runs before the citation gate)
 npm run check:spec-coverage    # spec row -> testbench -> record index only (no PDK needed)
 npm run check:layout           # the klt DRC/LVS trivial-cell proof (layout/README.md)
 ```
