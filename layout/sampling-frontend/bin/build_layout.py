@@ -175,8 +175,10 @@ WELL_GAP_UM = 1.60
 # `_geometry_common` only, beside `floorplan_pfet_well_islands` -- their one
 # reader here (issue #909).
 
-#: Row 1 channel columns: a source pin jogs this far left of its block's left
-#: edge, a drain pin this far right of its right edge.
+#: Per-pin channel-column offset: a port facing -x gets its met1 column this
+#: far left of the port, one facing +x this far right. Read by every row's pin
+#: routing -- `_route_mos_pins` for the Row 1 PFETs and the Row 2 NFETs, and
+#: `_route_cap_pins` for the Row 3 caps -- not by Row 1 alone.
 CHANNEL_LEFT_UM = 0.45
 CHANNEL_RIGHT_UM = 0.45
 
