@@ -39,7 +39,7 @@ this array-only experiment does not exercise (same scope limitation #53's
 own record already states: "informs, but does not substantiate" the
 DNL/INL row). DNL/INL below are computed in units of the ratified ADC LSB
 (matching spec/target-spec.md's own "<=1 LSB" row), NOT this array's own
-7.03 mV code step -- see `dnl_lsb()`/`inl_lsb()`.
+7.03 mV code step -- see `_parse_draw()`.
 """
 
 from __future__ import annotations
@@ -135,8 +135,6 @@ def measure_names() -> list[str]:
 class Draw:
     seed: int
     vdiff: dict[int, float]  # code -> measured differential output (V)
-    dnl_lsb: dict[tuple[int, int], float]  # (c1,c2) -> DNL at that transition, in ratified LSB
-    inl_lsb: dict[int, float]  # code -> INL vs endpoint line, in ratified LSB
     dnl_max_lsb: float
     inl_max_lsb: float
     log_text: str
@@ -177,7 +175,7 @@ def _parse_draw(seed: int | None, log_text: str) -> Draw:
     dnl_max = max((abs(v) for v in dnl_lsb.values()), default=float("nan"))
     inl_max = max((abs(v) for v in inl_lsb.values()), default=float("nan"))
     return Draw(
-        seed=seed if seed is not None else -1, vdiff=vdiff, dnl_lsb=dnl_lsb, inl_lsb=inl_lsb,
+        seed=seed if seed is not None else -1, vdiff=vdiff,
         dnl_max_lsb=dnl_max, inl_max_lsb=inl_max, log_text=log_text,
     )
 
