@@ -8,6 +8,12 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-15
 
+- **PR #962**: test: catch a dropped `|| true` on `klt drc` in the flow-common self-test
+- **Issue #940** (closed): test_flow_common.sh does not cover drc_blocks_fanout's `|| true` violation-tolerance guard
+- **PR #955**: fix(sim): shape note no longer denies its exact-match identity claim or quotes a ratio over the legacy reference's censored span
+- **Issue #905** (closed): vcm-drive-budget: marginal_r_source_shape_note()'s match branch denies the identity it just asserted, and its legacy reference quotes a ratio that record withheld
+- **PR #949**: sim: converging-range input sweep as one klt sim request (--input-sweep)
+- **Issue #913** (closed): sim: converging-range boundary sweep of the current architecture (DR-021 Open items)
 - **PR #957**: docs: drop stale private-visibility note from proposal licensing bullet
 - **Issue #953** (closed): challenge-4-proposal.md's 'README is stale' parenthetical is now itself stale (README was fixed by #936)
 - **PR #956**: fix(check:ci): run the cheap check:* gates before the full sim selftest
