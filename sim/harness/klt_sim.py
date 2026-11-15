@@ -349,3 +349,40 @@ def measurements_by_corner(
             vals = {k: None for k in vals}
         out[cid] = vals
     return out, run_info(report)
+
+
+def budget_row(
+    rows: list[dict],
+    threshold_lsb: float,
+    err_key: str,
+    *,
+    skip_control: bool = True,
+) -> dict | None:
+    """The LAST row of an ascending sweep whose `err_key` error magnitude is
+    still within `threshold_lsb` -- None when no candidate row passes.
+
+    One copy of the largest-passing-value budget rule the drive-budget
+    campaigns report by (issue #939, extending #904's reader consolidation):
+    the budget is the largest swept value that still passes, NOT the last
+    value before the first failure -- sweep error is not monotonic in the
+    swept axis, which each campaign's tests assert rather than assume. A
+    result equal to the largest swept value is RIGHT-CENSORED (every swept
+    value passed, so the true budget is >= that value, not equal to it), and
+    a None means even the smallest non-control point already exceeds the
+    threshold; callers render both as such ("< first_nonzero", ">= last"),
+    never as a budget of 0.
+
+    `skip_control` excludes the sweep's own FIRST row -- the control row
+    every later row's error is measured against, whose own error is
+    identically zero by construction and would otherwise pass every
+    threshold, turning "no swept value works" into a reported budget of "0"
+    that only restates the arithmetic. The exclusion is POSITIONAL (the
+    first row), not by swept value: the same helper grades a `C_decouple`
+    axis as well as an `R_source` axis, and the control row is the sweep's
+    own first row on both. Issue #874 is the history: before it the vcm
+    copy could not return None at all, and every downstream "none found" /
+    "unrescued" branch was dead.
+    """
+    candidates = rows[1:] if skip_control else rows
+    ok = [r for r in candidates if abs(r[err_key]) <= threshold_lsb]
+    return ok[-1] if ok else None

@@ -81,16 +81,19 @@ campaign before any fleet capacity is spent.
   a −0.3800 mV per-node residual at `tt_27c_1.62v` with an **ideal** source
   (~0.11 provisional LSB), so a 0.1-LSB tier read against the ideal target
   could "fail" there with no source resistance at all.
-- **Budget rule.** `sim/vcm-drive-budget/`'s `find_budget()`: the **largest
-  swept** resistance still within the tier, at 1.0 and 0.1 provisional LSB
-  (3.5156 mV, DR-003 Item 2 pending #27 — a reference scale, never a gate).
-  A result equal to the top of the sweep is reported **right-censored**
-  (`>= 100000`), i.e. a lower bound, not a measured limit. A sweep where even
-  the smallest non-zero value fails reports `< 100 (none found)`, never a
-  budget of 0 — the `R_source = 0` row is the *reference*, so it is excluded
-  from the candidates (see `find_budget()`'s docstring for how the mirrored
-  `sim/vcm-drive-budget/` implementation excludes the same row positionally,
-  since issue #874, where this one excludes it by predicate).
+- **Budget rule.** The shared `sim/harness/klt_sim.py` `budget_row()` rule
+  (issue #939; originated as `sim/vcm-drive-budget/`'s `find_budget()`): the
+  **largest swept** resistance still within the tier, at 1.0 and 0.1
+  provisional LSB (3.5156 mV, DR-003 Item 2 pending #27 — a reference scale,
+  never a gate). A result equal to the top of the sweep is reported
+  **right-censored** (`>= 100000`), i.e. a lower bound, not a measured limit.
+  A sweep where even the smallest non-zero value fails reports `< 100 (none
+  found)`, never a budget of 0 — the `R_source = 0` row is the *reference*,
+  so it is excluded from the candidates. The exclusion is positional (the
+  sweep's own first row, as in `sim/vcm-drive-budget/` since issue #874);
+  `sweep_rows()` makes that equivalent to this campaign's original
+  `r_source_ohm > 0` predicate by refusing any sweep list whose first point
+  is not 0.
 - **Sweep.** `sim/vcm-drive-budget/`'s own list, unchanged:
   `0, 100, 300, 1e3, 3e3, 10e3, 30e3, 100e3` ohm. `0` is emitted as a 1 µOhm
   resistor rather than a literal 0 — the same ngspice singular-matrix

@@ -626,28 +626,21 @@ def find_budget(rows: list[dict], threshold_lsb: float) -> dict | None:
     for which abs(diff_err_lsb) stays under `threshold_lsb` -- None if even
     the first non-zero point already exceeds it, and the max swept value's
     row if every point stays under (a right-censored bound, reported as
-    such).
+    such). The shared `harness.klt_sim.budget_row()` rule (issue #939).
 
-    `rows[0]` -- the CONTROL row -- is excluded from the candidates (issue
-    #874). Both `run_sweep()` and `run_decouple_sweep()` seed their baseline
-    from their own first row, so that row's `diff_err_lsb` is identically
-    zero by construction and would otherwise pass every threshold: "no swept
-    value works" would be reported as a budget of "<= 0 ohm" / "<= 0.00 pF",
-    which reads as a measurement but only restates the arithmetic. Excluding
-    it is what makes the None result above reachable at all -- before #874
-    this function could not return None, and every caller branch that
-    reports "none found" / "unrescued" was dead.
-
-    This mirrors `sim/input-drive-budget/run_input_drive_budget.py`'s own
-    `find_budget()` (whose docstring recorded that this implementation's None
-    branch was unreachable), with one deliberate difference: the control row
-    is excluded POSITIONALLY rather than by `r_source_ohm > 0`, because this
-    driver applies the same helper to the C_decouple axis (`c_decouple_f`)
+    `rows[0]` -- the CONTROL row -- is excluded from the candidates
+    POSITIONALLY (issue #874): the same helper grades the C_decouple axis
     as well as the R_source axis, and in both cases the control row is the
-    sweep's own first row by construction. Covered by
-    sim/tests/test_run_vcm_drive_budget.py."""
-    ok = [r for r in rows[1:] if abs(r["diff_err_lsb"]) <= threshold_lsb]
-    return ok[-1] if ok else None
+    sweep's own first row by construction -- `run_sweep()` and
+    `run_decouple_sweep()` both seed their baseline from it, so its
+    `diff_err_lsb` is identically zero and it would otherwise pass every
+    threshold: "no swept value works" would be reported as a budget of
+    "<= 0 ohm" / "<= 0.00 pF", which reads as a measurement but only
+    restates the arithmetic. Excluding it is what makes the None result
+    above reachable at all -- before #874 this function could not return
+    None, and every caller branch that reports "none found" / "unrescued"
+    was dead. Covered by sim/tests/test_run_vcm_drive_budget.py."""
+    return klt_sim.budget_row(rows, threshold_lsb, "diff_err_lsb")
 
 
 def marginal_r_source_is_fallback(rows: list[dict]) -> bool:
@@ -1262,12 +1255,9 @@ def corners_analysis_steps(window: str, sweep: str = "rsource") -> list[dict]:
 
 def corner_ids() -> list[str]:
     """The ratified 9-point one-at-a-time PVT grid, in grid order."""
-    return [
-        corners_mod.corner_id(p, t, v)
-        for p, t, v in corners_mod.ratified_oat_grid(
-            VDD_NOM, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
-        )
-    ]
+    return corners_mod.ratified_corner_ids(
+        VDD_NOM, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
+    )
 
 
 def build_corners_request(
