@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -51,6 +52,22 @@ def _stderr_behind_warnings(code="batch_no_capacity", message=NO_CAPACITY_MESSAG
     envelope = {"schema_version": 1,
                 "error": {"command": "sim", "message": message, "code": code}}
     return KLT_STDERR_PREAMBLE + json.dumps(envelope, indent=1) + "\n"
+
+
+#: A direct read of the sharded `fleet` envelope: a subscript (`remote[...]`)
+#: or a `.get(...)` call, either quote style, optional whitespace inside the
+#: brackets/parens, with or without a default argument -- and a newline too,
+#: which `\s` tolerates. Assignment, indirection and prose mentions do not fit.
+_ENVELOPE_READ = re.compile(r"""(\[|\.get\()\s*['"]fleet['"]""")
+
+
+def _reads_sharded_envelope(text):
+    """Every spelling of a direct `remote[...]`/`remote.get(...)` read of the
+    sharded `fleet` envelope -- subscript or `.get`, either quote style, with
+    or without a default argument. Tested against the full table (and the
+    decoys it must stay quiet on) by
+    `test_envelope_matcher_fires_on_every_spelling_of_the_read`."""
+    return [m.group(0) for m in _ENVELOPE_READ.finditer(text)]
 
 
 def _runner(rc=0, out="", err="", calls=None):
@@ -630,13 +647,39 @@ class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
             if p.parent.name in ("harness", "tests") or "harness/" in p.as_posix():
                 continue
             text = p.read_text()
-            reads = [r for r in ('["fleet"]', "('fleet')", '("fleet")') if r in text]
+            reads = _reads_sharded_envelope(text)
             with self.subTest(module=f"{p.parent.name}/{p.name}"):
                 self.assertEqual(
                     reads, [],
                     f"{p.parent.name}/{p.name} reads {reads} itself -- read run-level "
                     "facts through harness.klt_sim.run_info() instead; its jobs[] "
                     "already carries one entry per shard")
+
+    def test_envelope_matcher_fires_on_every_spelling_of_the_read(self):
+        """Issue #918: the envelope matcher keys on the read, not on
+        spellings -- assert it, so the next spelling gap is a failure here
+        rather than a silent pass. Decoys keep the broadening honest: text
+        that merely mentions `fleet` must not fire."""
+        positives = [
+            'remote["fleet"]',
+            "remote['fleet']",
+            'remote.get("fleet")',
+            "remote.get('fleet')",
+            'remote.get("fleet", [])',
+            "remote.get('fleet', [])",
+            'remote[ "fleet" ]',
+            'remote[\n    "fleet"\n]',
+        ]
+        for sample in positives:
+            with self.subTest(sample=sample):
+                self.assertTrue(_reads_sharded_envelope(sample), sample)
+        for decoy in ['FLEET_KEY = "fleet"',
+                      'remote.get(key)',
+                      "a fleet of ships",
+                      '# the record names "fleet" twice',
+                      "# walks the fleet envelope"]:
+            with self.subTest(decoy=decoy):
+                self.assertEqual(_reads_sharded_envelope(decoy), [], decoy)
 
     def test_no_driver_carries_its_own_corner_measurements_reader(self):
         """Issue #904: the per-corner transcription (`corner_id` plus the
