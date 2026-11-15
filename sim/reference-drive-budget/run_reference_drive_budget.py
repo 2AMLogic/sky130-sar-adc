@@ -601,10 +601,12 @@ def find_budget(rows: list[dict], threshold_lsb: float) -> dict | None:
     """The largest swept `R_ref` whose code movement from the control stays
     within `threshold_lsb` -- None if not even the control row is usable.
 
-    Same selection rule as `sim/vcm-drive-budget/`'s `find_budget()`: the
-    LAST passing row in ascending order, not the last row before the first
-    failure. `monotone` on the returned dict says whether any row above the
-    budget also passed (it should not, and the record says so when it does)."""
+    Same selection rule as the shared `harness.klt_sim.budget_row()` budget
+    rule both drive-budget campaigns report by (issue #939; it originated as
+    `sim/vcm-drive-budget/`'s `find_budget()`): the LAST passing row in
+    ascending order, not the last row before the first failure. `monotone`
+    on the returned dict says whether any row above the budget also passed
+    (it should not, and the record says so when it does)."""
     ok = [r for r in rows if r["max_abs_delta"] is not None
           and r["max_abs_delta"] <= threshold_lsb]
     if not ok:
