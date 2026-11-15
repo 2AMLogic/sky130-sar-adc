@@ -26,7 +26,12 @@ sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(CDAC_DIR))
 
 import run_mc  # noqa: E402
-from run_mc import DRAFT_INL_DNL_TARGET_LSB, reanalyze_from_logs, target_provenance_prose  # noqa: E402
+from run_mc import (  # noqa: E402
+    DRAFT_INL_DNL_TARGET_LSB,
+    reanalysis_prose_line,
+    reanalyze_from_logs,
+    target_provenance_prose,
+)
 
 SOURCE_RECORD_ID = "20260828-005006-0c70212"
 
@@ -107,6 +112,32 @@ class TestTargetProvenanceProse(unittest.TestCase):
         claim, _ = target_provenance_prose(DRAFT_INL_DNL_TARGET_LSB, 0.99)
         self.assertNotIn("DR-007", claim)
         self.assertEqual(DRAFT_INL_DNL_TARGET_LSB, 1.0)
+
+
+class TestReanalysisProseLine(unittest.TestCase):
+    """The reanalysis bullet is a mechanism description shared by every
+    reanalysis mint, so it must be limit-NEUTRAL -- the **Claim** bullet
+    directly above it carries the limit-keyed provenance. The pre-#912 text
+    hardcoded "the candidate revised limit", which at the DRAFT 1.0 LSB
+    default made the record assert (in prose, two lines below a correct
+    Claim) that the run was scored against DR-007's candidate; a
+    case-SENSITIVE grep for the uppercase constants missed it (issue #912
+    review). These guards are case-insensitive for exactly that reason."""
+
+    def test_is_limit_neutral(self):
+        line = reanalysis_prose_line("20261001-124049-5207381")
+        self.assertIn("against the target limit named above", line)
+        lowered = line.lower()
+        self.assertNotIn("candidate revised", lowered)
+        self.assertNotIn("dr-007", lowered)
+
+    def test_names_the_source_record(self):
+        line = reanalysis_prose_line("20261001-124049-5207381")
+        self.assertIn("`mc-draws/20261001-124049-5207381/`", line)
+        self.assertIn(
+            "`sim/cdac-array-transfer/records/20261001-124049-5207381.md`", line
+        )
+        self.assertIn("NO new ngspice invocation", line)
 
 
 class TestKltEnvProse(unittest.TestCase):

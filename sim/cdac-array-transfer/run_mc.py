@@ -315,8 +315,9 @@ def klt_env_prose() -> str:
     shells out to a bare `klt` from PATH, so the version facts are read from
     THAT resolution -- the console script's own shebang names the interpreter
     whose site-packages hold the klayout-tools pair (the python running this
-    script need not be the one the envelope was minted by). Every failure
-    degrades to a less specific but still honest string; nothing here raises."""
+    script need not be the one the envelope was minted by). Every failure --
+    including a truncated/empty console script -- degrades to a less specific
+    but still honest string; nothing here raises."""
     which = shutil.which("klt")
     if not which:
         return "klt: not on PATH (no envelope could be minted)"
@@ -347,7 +348,7 @@ def klt_env_prose() -> str:
                             f" (klayout-tools {parts[0]}, klt-yield-native {parts[1]}; "
                             "klt yield envelope; pin sim/yield-requirements.txt)"
                         )
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired, IndexError):
         pass
     return f"{klt_ver}{suffix}"
 
@@ -399,6 +400,26 @@ def target_provenance_prose(
             f"(`<= +-{limit}`)"
         )
     return claim_body, target_desc
+
+
+def reanalysis_prose_line(source_record_id: str) -> str:
+    """Body of a record's "- **Reanalysis, not a new simulation**:" bullet --
+    the mechanism description only (what was re-parsed from where, and that
+    `klt yield` re-scores it). Deliberately limit-NEUTRAL ("the target limit
+    named above"): the **Claim** bullet directly above carries the
+    limit-keyed provenance via target_provenance_prose(), and this bullet is
+    shared by every reanalysis mint -- hardcoding either target's name here
+    (issue #912 review: "the candidate revised limit") would contradict the
+    Claim at any other limit, putting a false provenance claim about a spec
+    target into an append-only record."""
+    return (
+        "derived/composite -- NO new ngspice invocation. Re-parses the already-committed "
+        f"`mc-draws/{source_record_id}/`"
+        f" logs from source record `sim/cdac-array-transfer/records/{source_record_id}.md` "
+        "(issue #29) with the SAME DNL/INL computation `_parse_draw()` uses, then re-runs "
+        "`klt yield` against the target limit named above -- mirrors "
+        "`sim/enob-estimate/run_enob.py`'s own 'derived/composite' provenance convention."
+    )
 
 
 def write_evidence(
@@ -472,14 +493,7 @@ def write_evidence(
     if result.source_record_id:
         claim_body, _ = target_provenance_prose(target_limit_lsb, target_yield)
         a(f"- **Claim**: {claim_body}")
-        a(
-            f"- **Reanalysis, not a new simulation**: derived/composite -- NO new ngspice "
-            f"invocation. Re-parses the already-committed `mc-draws/{result.source_record_id}/`"
-            f" logs from source record `sim/cdac-array-transfer/records/{result.source_record_id}.md` "
-            "(issue #29) with the SAME DNL/INL computation `_parse_draw()` uses, then re-runs "
-            "`klt yield` against the candidate revised limit above -- mirrors "
-            "`sim/enob-estimate/run_enob.py`'s own 'derived/composite' provenance convention."
-        )
+        a(f"- **Reanalysis, not a new simulation**: {reanalysis_prose_line(result.source_record_id)}")
     else:
         a(
             "- **Claim**: `spec/target-spec.md#target-table` -- DNL/INL DRAFT target row "
