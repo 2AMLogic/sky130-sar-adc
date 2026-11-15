@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import shutil
 import sys
 import tempfile
@@ -1344,6 +1345,26 @@ class TestInputSweepSubmitPath(unittest.TestCase):
         self.assertTrue((tmp_dir / "corners" / "REC" / "request.json").is_file())
         self.assertTrue((tmp_dir / "corners" / "REC" / "report.json").is_file())
         self.assertTrue((tmp_dir / "corners" / "REC" / "tb.spice").is_file())
+        self.assertTrue(result["all_read"])
+
+    def test_record_writer_completes_with_klt_absent_from_path(self):
+        """The headless, no-PDK check host has no `klt` on PATH: write_record()
+        must still mint the record, stating a placeholder in the Environment
+        block rather than raising FileNotFoundError (the deterministic CI
+        failure the first cut of this PR shipped). `git` stays reachable
+        through a symlink so the path under test is the klt lookup alone --
+        `environment_block()` still calls git with check=True."""
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        bare_path = tmp_dir / "bare-path"
+        bare_path.mkdir()
+        git = shutil.which("git")
+        self.assertIsNotNone(git)
+        (bare_path / "git").symlink_to(git)
+        with mock.patch.dict(os.environ, {"PATH": str(bare_path)}):
+            path, _tmp, result = self._write_record_with_fixture()
+        text = path.read_text()
+        self.assertIn("(klt --version unavailable)", text)
         self.assertTrue(result["all_read"])
 
     def test_not_run_record_quotes_the_refusal_and_never_moves_latest(self):

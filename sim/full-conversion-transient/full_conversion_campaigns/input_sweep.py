@@ -163,11 +163,11 @@ def parse_input_levels(text: str) -> list[float]:
 
 
 def check_input_levels(levels) -> list[float]:
-    """normalize_input_levels() plus the campaign's own requirement: a
-    recorded sweep must carry both anchors (each REQUIRED_MAGNITUDES value
-    at BOTH signs), so the record's boundary statement is anchored to the
-    committed record's known-converging and known-failing rows and is never
-    reached by interpolation."""
+    """normalize_input_levels() plus the campaign's own requirement: EVERY
+    --input-sweep run, --record or not, must carry both anchors (each
+    REQUIRED_MAGNITUDES value at BOTH signs), so any boundary statement the
+    run can support is anchored to the committed record's known-converging
+    and known-failing rows and is never reached by interpolation."""
     vals = normalize_input_levels(levels)
     missing = [
         f"{'+' if sign > 0 else '-'}{m:g}"
@@ -177,7 +177,8 @@ def check_input_levels(levels) -> list[float]:
     ]
     if missing:
         raise ValueError(
-            "a recorded input sweep must contain the band's anchors at both "
+            "every --input-sweep run (--record or not) must contain the "
+            "band's anchors at both "
             f"signs, {[f'+-{m:g}' for m in REQUIRED_MAGNITUDES]} (the committed "
             "record's known-converging and known-failing rows); missing "
             f"{missing}"
@@ -557,6 +558,19 @@ def _boundary_sentence(label: str, b: dict) -> str:
     )
 
 
+def klt_client_version() -> str:
+    """`klt --version`, or a stated placeholder when the client is absent.
+    The headless, no-PDK check host has no `klt` on PATH; the record writer
+    must still complete there (same shape as run_vcm_drive_budget.py)."""
+    try:
+        done = subprocess.run(
+            ["klt", "--version"], capture_output=True, text=True, check=False
+        )
+    except OSError:
+        return "(klt --version unavailable)"
+    return done.stdout.strip() or "(klt --version unavailable)"
+
+
 def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
                  written_by: str) -> Path:
     """The evidence record. `tag_dir` is the `submit()` workdir holding
@@ -649,7 +663,7 @@ def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
         lines += [
             "",
             "**Not readable at " + ", ".join(_frac_cell(f) for f in unreadable)
-            + "***: those units produced no captured code (their rows read "
+            + "**: those units produced no captured code (their rows read "
             "`n/a` above). They are counted in NEITHER boundary list -- a "
             "unit that did not complete states nothing about where "
             "conversion stops, and reading it as a failure would place the "
@@ -711,9 +725,7 @@ def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
         "for PDK or simulator version.",
         "",
     ]
-    klt_version = subprocess.run(
-        ["klt", "--version"], capture_output=True, text=True, check=False
-    ).stdout.strip()
+    klt_version = klt_client_version()
     worker_pdk = info.get("worker_pdk")
     worker_ng = info.get("worker_ngspice")
     pdk_line = (f"sky130A @ {worker_pdk.split()[-1]}" if worker_pdk else prov.pdk_line)

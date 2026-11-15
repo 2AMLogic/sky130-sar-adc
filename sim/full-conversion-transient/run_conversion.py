@@ -379,9 +379,10 @@ def main() -> int:
         "levels as fractions of V_REF, each within [0.25, 0.78]*V_REF in "
         f"magnitude (default: the full band, {len(DEFAULT_INPUT_FRACTIONS)} "
         "levels: both signs of 0.25 rising in 0.05 steps to 0.75 plus the "
-        "0.78 endpoint). A recorded sweep must carry the +-0.25 and +-0.78 "
-        "anchors so its boundary statement is never reached by "
-        "interpolation. A list beginning with a negative level must use the "
+        "0.78 endpoint). Every --input-sweep run (--record or not) must "
+        "carry the +-0.25 and +-0.78 anchors so any boundary statement it "
+        "can support is never reached by interpolation. A list beginning "
+        "with a negative level must use the "
         "equals form, --input-levels=-0.78,... , so argparse does not read "
         "the level as an option.",
     )
