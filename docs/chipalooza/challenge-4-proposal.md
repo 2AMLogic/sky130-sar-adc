@@ -6320,9 +6320,10 @@ and is not claimed to be met.
   (`ngspice-47`) and a 40-hex `open_pdks` commit
   (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), the pair the *executing* batch
   workers reported, stated beside the submitting host's own. It counts as
-  pinned: the totals move 115 → **116** records and, because this flow's
-  newest records already pinned the commit, 115 → **116** pinned, which is the
-  figure the census above now states. No flow's count of records naming no
+  pinned: the totals move 120 → **121** records and, because this flow's
+  newest records already pinned the commit, 115 → **116** pinned — the figure
+  the census block stated at that commit, since the `#912` entry above has
+  since moved it to **117** of the **122**. No flow's count of records naming no
   commit changed, so no flow newly pins the commit. No earlier record was
   rewritten.
 
