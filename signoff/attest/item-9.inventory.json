@@ -9,6 +9,7 @@
     "sim/comparator-decision/testbench/comparator_core.spice",
     "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice",
     "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice",
+    "sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice",
     "sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice",
     "sim/sampling-cdac-handoff/testbench/sampling_frontend_dut.spice",
     "sim/sampling-frontend/testbench/sampling_frontend_dut.spice",

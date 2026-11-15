@@ -299,8 +299,8 @@
           "testbench_note": "The generated, committed sweep fragment carries the differential input as a top-level `.param` (`vin_frac`, a fraction of `vdd_val`) instead of per-conversion literals; the runner sweeps it as the only `corners.params` axis of ONE `klt sim` request -- one unit per level at the baseline corner (issue #913).",
           "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record",
           "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "PLACEHOLDER-RECORD",
-          "records": ["sim/full-conversion-transient/records/PLACEHOLDER.md"]
+          "covers": "The converging-range boundary sweep of the AS-COMMITTED schematic (issue #913, closing the 'Converging-range boundary sweep' Open item of DR-021): 24 signed DC input levels across the 0.25..0.78*V_REF band (0.05*V_REF rungs plus the 0.78 endpoint, both signs), one unit each of ONE klt sim request at tt_27c_1.80v under the DR-023 reference solver policy reltol-gear. Every level produced a captured code and reproduces the committed corner record where they overlap (-0.25 -> 383, +0.25 -> 641, -0.78 -> 214, all identical). The boundary, per sign: positive, largest tested magnitude that converges +0.30*V_REF and smallest that does not +0.35*V_REF (the captured code saturates at full scale from +0.35 up); negative, largest tested -0.35*V_REF and smallest -0.40*V_REF (the negative side degrades gradually, 15 LSB at -0.40 growing to 101 LSB at -0.78). INFORMATIONAL only: a measurement of the unmodified schematic that grades no row of spec/target-spec.md, proposes no design change (DR-021's switching scheme is out of scope), supersedes nothing and never moves records/LATEST.",
+          "records": ["sim/full-conversion-transient/records/20261115-084232-ad7393c6.md"]
         }
       ]
     },
