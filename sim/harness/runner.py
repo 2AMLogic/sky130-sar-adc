@@ -22,7 +22,6 @@ class CornerPointResult:
     supply_v: float
     corner_id: str
     measures: dict[str, float]
-    log_path: Path
     log_text: str
     ok: bool
     check_failures: list[str] = field(default_factory=list)
@@ -95,7 +94,6 @@ def run(
     record_id = evidence.new_record_id()
     netlist_sha = evidence.sha256_file(manifest.netlist_fragment)
 
-    corners_out_dir = manifest.experiment_dir / "corners" / record_id
     points: list[CornerPointResult] = []
 
     # See corners_mod.oat_grid()'s docstring for why this is a one-at-a-time
@@ -119,7 +117,6 @@ def run(
             )
             log_text = toolchain.run_ngspice(netlist, scratch_dir, cid)
             parsed = measure.parse(log_text, list(manifest.measure.keys()))
-            log_path = corners_out_dir / f"{cid}.log"
             points.append(
                 CornerPointResult(
                     process_corner=process_corner,
@@ -127,7 +124,6 @@ def run(
                     supply_v=supply_v,
                     corner_id=cid,
                     measures=parsed,
-                    log_path=log_path,
                     log_text=log_text,
                     ok=True,
                 )

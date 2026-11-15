@@ -14,7 +14,6 @@
     }
   ],
   "ngspice_lib": "libs.tech/combined/sky130.lib.spice",
-  "xschem_pdk_rc": "libs.tech/xschem/xschemrc",
   "process_corners": ["tt", "ss", "ff", "sf", "fs"],
   "mismatch_corners": ["tt_mm", "ss_mm", "ff_mm", "sf_mm", "fs_mm"],
   "notes": [
