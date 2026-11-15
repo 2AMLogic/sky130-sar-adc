@@ -307,8 +307,10 @@ table. `sim/selftest.sh` stage 4 exercises exactly this (see below).
 `sim/run_corners.py` runs a baseline point plus, for each axis in turn, every
 other value on that axis with the remaining two axes held at baseline. This is
 precisely the set the per-axis sensitivity computation consumes, and a single
-ngspice invocation against sky130's combined model library costs ~15–20 s on
-the reference toolchain (library load dominates, not the simulation). A record
+ngspice invocation against sky130's combined model library is dominated by
+library load, not the simulation (~2.9 s per invocation measured on a
+GitHub-hosted `ubuntu-latest` runner with the pinned toolchain, 2026-11-15,
+`pdk-smoke` run 43718624521). A record
 therefore states 9 points where a full grid would state 45, at no loss of
 per-axis signal. A record whose claim genuinely needs corner *interactions*
 (e.g. worst-case ss/−40 °C/low-supply simultaneously) must say so and run
@@ -966,11 +968,18 @@ version is a **warning**: xschem only turns a schematic into a netlist, and
 each record already pins the exact netlist it ran by SHA-256, so the drift is
 reported and recorded without blocking a PVT run.
 
-Runtime: the default run is 17 ngspice invocations, ~5 minutes measured on the
-reference toolchain and dominated by sky130 model-library load (~15–20 s per
-invocation, largely independent of the circuit). `--full` runs the complete
-corner grid and a larger Monte Carlo N and is meant as a deliberate periodic
-deeper pass. On a runner without ngspice or the PDK it costs seconds.
+Runtime: the default run is 17 ngspice invocations, dominated by sky130
+model-library load (largely independent of the circuit). Measured on a
+GitHub-hosted `ubuntu-latest` runner with the pinned toolchain
+(2026-11-15, `pdk-smoke` run 43718624521): the 17-invocation simulation
+stages took ~49 s (≈2.9 s per invocation) and the whole script 73.9 s,
+24.9 s of which is the stage-1 unit suite. This repo defines no
+"reference host" — the only formal reference is `sim/toolchain.json`'s
+version pins, which that run satisfies — so attribute any runtime figure
+to the hardware and date it was measured on. `--full` runs the complete
+corner grid and a larger Monte Carlo N and is meant as a deliberate
+periodic deeper pass. On a runner without ngspice or the PDK it costs
+seconds.
 
 ## Bootstrap smoke test
 

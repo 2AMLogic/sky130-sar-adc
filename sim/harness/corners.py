@@ -106,10 +106,12 @@ def oat_grid(
     grid: it is exactly the set a per-axis sensitivity computation needs
     (each axis's spread is only ever computed from points held at baseline
     on the other two axes), and for a sky130 combined-library ngspice
-    invocation (~15-20s each on this toolchain -- PDK model-library load
-    dominates, not simulation time) a full grid would cost minutes per
-    experiment for no additional signal. E.g. len(process)=5, len(temp)=3,
-    len(supply)=3 costs 9 OAT runs instead of 45 full-factorial ones.
+    invocation (PDK model-library load dominates, not simulation time;
+    ~2.9 s each measured on a GitHub-hosted ubuntu-latest runner with the
+    pinned toolchain, 2026-11-15, pdk-smoke run 43718624521) a full grid
+    would still cost minutes per experiment for no additional signal.
+    E.g. len(process)=5, len(temp)=3, len(supply)=3 costs 9 OAT runs
+    instead of 45 full-factorial ones.
     """
     seen: set[tuple[str, float, float]] = set()
     grid: list[tuple[str, float, float]] = []
