@@ -330,6 +330,32 @@ def write_noise_campaign_evidence(
     )
 
 
+def _op_point_rows(result: NoiseResult) -> list[str]:
+    """The record's op-point table rows -- one measured node per row (issue #927).
+
+    This used to be two rows for three measured numbers: a `v(TAIL)` row, and a
+    row *labelled* `v(DIP)=v(DIN)` that printed only `op_dip_v`. The deck does
+    `print v(TAIL) v(DIP) v(DIN)` (see _noise_deck) and run_noise() does parse
+    all three, so that `=` asserted a symmetry the append-only record never
+    showed a number for: its only support was the deck's by-construction
+    symmetry, not the two values the run already held in hand. Each node now
+    gets its own row and the asymmetry is reported as a measured delta from the
+    same run, so the table claims nothing it does not also print.
+
+    Kept as a pure function (no PDK, no ngspice, no record write) so the row
+    text itself is unit-testable -- see sim/tests/test_noise_record_rows.py.
+    """
+    cond = f"{result.corner}/{result.temp_c}C/{VDD}V"
+    dip_din_delta = abs(result.op_dip_v - result.op_din_v)
+    return [
+        f"| Op point: v(TAIL) | {result.op_tail_v:.4f} V | {cond} |",
+        f"| Op point: v(DIP) | {result.op_dip_v:.4f} V | {cond} |",
+        f"| Op point: v(DIN) | {result.op_din_v:.4f} V | {cond} |",
+        f"| Op point: abs(v(DIP) - v(DIN)) (measured DIP/DIN asymmetry) | "
+        f"{dip_din_delta:.2e} V | {cond} |",
+    ]
+
+
 def write_noise_evidence(
     result: NoiseResult, note: str = "", supersedes: str = "",
 ) -> Path:
@@ -370,8 +396,7 @@ def write_noise_evidence(
     a("")
     a("| Quantity | Value | Corner condition |")
     a("|---|---|---|")
-    a(f"| Op point: v(TAIL) | {result.op_tail_v:.4f} V | {result.corner}/{result.temp_c}C/{VDD}V |")
-    a(f"| Op point: v(DIP)=v(DIN) | {result.op_dip_v:.4f} V | {result.corner}/{result.temp_c}C/{VDD}V |")
+    lines.extend(_op_point_rows(result))
     a(
         f"| Single-ended input-referred noise (`inoise_total`, referred through Vinp) | "
         f"{result.single_ended_rms_v * 1000:.4f} mV rms | {result.corner}/{result.temp_c}C/{VDD}V |"
