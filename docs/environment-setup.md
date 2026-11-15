@@ -33,9 +33,11 @@ except where noted) — `sim/harness/toolchain.py` / `sim/run_corners.py
 is simulated. Verify by hand first.
 
 ciel is **not** machine-checked by `sim/toolchain.json`. The pin that is
-authoritative for CI is `pip install "ciel==2.6.1"` in the `pdk-smoke` job of
-`.github/workflows/ci.yml`; the table above records the same version. Bump
-both together. (The PDK *contents* are machine-checked: the harness reads the
+authoritative for CI is `pip install "ciel==2.6.1"` in
+`.github/actions/setup-ngspice-pdk/action.yml` — the shared composite action
+all four PDK-provisioning CI jobs call (`pdk-smoke` plus the three
+dispatch-only evidence jobs; issue #875). The table above records the same
+version. Bump both together. (The PDK *contents* are machine-checked: the harness reads the
 `SOURCES` file at the root of the resolved variant tree and fails on an
 open_pdks revision other than `sim/pdk.json`'s.)
 

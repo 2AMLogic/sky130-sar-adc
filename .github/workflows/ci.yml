@@ -521,52 +521,14 @@ jobs:
         run: |
           echo "/opt/xschem/bin" >> "$GITHUB_PATH"
 
-      - name: Resolve the pinned ngspice version
-        id: ngspice-pin
-        # `ngspice_reference` is the version this repo's committed records were
-        # produced with, so the nightly proof runs on the same simulator the
-        # evidence trail was minted on. `ngspice_min_major` stays the actual
-        # gate the harness enforces at run time.
-        run: |
-          V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["ngspice_reference"])')"
-          echo "version=${V}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache ngspice build
-        id: cache-ngspice
-        uses: actions/cache@v4
-        with:
-          path: /opt/ngspice
-          key: ngspice-${{ steps.ngspice-pin.outputs.version }}-${{ runner.os }}
-
-      - name: Build ngspice ${{ steps.ngspice-pin.outputs.version }} from source
-        if: steps.cache-ngspice.outputs.cache-hit != 'true'
-        run: |
-          V="${{ steps.ngspice-pin.outputs.version }}"
-          curl -fsSL -o /tmp/ngspice.tar.gz \
-            "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/${V}/ngspice-${V}.tar.gz/download"
-          mkdir -p /tmp/ngspice-src
-          tar -xzf /tmp/ngspice.tar.gz -C /tmp/ngspice-src --strip-components=1
-          cd /tmp/ngspice-src
-          ./configure --prefix=/opt/ngspice --without-x --disable-debug \
-            --enable-xspice
-          make -j"$(nproc)"
-          make install
-
-      - name: Put the built ngspice on PATH
-        run: |
-          echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
-
-      - name: Install ciel
-        run: pip install "ciel==2.6.1"
-
-      - name: Fetch + enable the pinned sky130 PDK
-        # The pin lives in sim/pdk.json (open_pdks_commit) so CI and
-        # docs/environment-setup.md cannot drift apart; the harness itself
-        # re-checks the resolved commit against sim/toolchain.json and fails
-        # on drift rather than silently producing incomparable numbers.
-        run: |
-          PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
-          ciel enable --pdk-family sky130 "$PDK_COMMIT"
+      - name: Set up pinned ngspice + sky130 PDK
+        # Shared composite action (issue #875): the four provisioning copies in
+        # this file were hand-synchronised; one definition now backs `pdk-smoke`
+        # and the three dispatch-only evidence jobs, so the pins cannot drift
+        # between them. The xschem+ngspice apt deps installed above are a
+        # superset of the action's ngspice-only set, so its apt step is a no-op
+        # re-install here.
+        uses: ./.github/actions/setup-ngspice-pdk
 
       - name: Harness acceptance test (PVT + Monte Carlo + both negative controls)
         # --require-pdk turns the "tools unavailable, skipping" path into a
@@ -660,50 +622,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ngspice build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential bison flex \
-            libreadline-dev libx11-dev libxaw7-dev libxpm-dev \
-            libxrender-dev gawk automake libtool
-
-      - name: Resolve the pinned ngspice version
-        id: ngspice-pin
-        run: |
-          V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["ngspice_reference"])')"
-          echo "version=${V}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache ngspice build
-        id: cache-ngspice
-        uses: actions/cache@v4
-        with:
-          path: /opt/ngspice
-          key: ngspice-${{ steps.ngspice-pin.outputs.version }}-${{ runner.os }}
-
-      - name: Build ngspice ${{ steps.ngspice-pin.outputs.version }} from source
-        if: steps.cache-ngspice.outputs.cache-hit != 'true'
-        run: |
-          V="${{ steps.ngspice-pin.outputs.version }}"
-          curl -fsSL -o /tmp/ngspice.tar.gz \
-            "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/${V}/ngspice-${V}.tar.gz/download"
-          mkdir -p /tmp/ngspice-src
-          tar -xzf /tmp/ngspice.tar.gz -C /tmp/ngspice-src --strip-components=1
-          cd /tmp/ngspice-src
-          ./configure --prefix=/opt/ngspice --without-x --disable-debug \
-            --enable-xspice
-          make -j"$(nproc)"
-          make install
-
-      - name: Put the built ngspice on PATH
-        run: echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
-
-      - name: Install ciel
-        run: pip install "ciel==2.6.1"
-
-      - name: Fetch + enable the pinned sky130 PDK
-        run: |
-          PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
-          ciel enable --pdk-family sky130 "$PDK_COMMIT"
+      - name: Set up pinned ngspice + sky130 PDK
+        uses: ./.github/actions/setup-ngspice-pdk
 
       - name: Run the default coherent-sine capture and record it
         id: run
@@ -810,50 +730,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ngspice build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential bison flex \
-            libreadline-dev libx11-dev libxaw7-dev libxpm-dev \
-            libxrender-dev gawk automake libtool
-
-      - name: Resolve the pinned ngspice version
-        id: ngspice-pin
-        run: |
-          V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["ngspice_reference"])')"
-          echo "version=${V}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache ngspice build
-        id: cache-ngspice
-        uses: actions/cache@v4
-        with:
-          path: /opt/ngspice
-          key: ngspice-${{ steps.ngspice-pin.outputs.version }}-${{ runner.os }}
-
-      - name: Build ngspice ${{ steps.ngspice-pin.outputs.version }} from source
-        if: steps.cache-ngspice.outputs.cache-hit != 'true'
-        run: |
-          V="${{ steps.ngspice-pin.outputs.version }}"
-          curl -fsSL -o /tmp/ngspice.tar.gz \
-            "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/${V}/ngspice-${V}.tar.gz/download"
-          mkdir -p /tmp/ngspice-src
-          tar -xzf /tmp/ngspice.tar.gz -C /tmp/ngspice-src --strip-components=1
-          cd /tmp/ngspice-src
-          ./configure --prefix=/opt/ngspice --without-x --disable-debug \
-            --enable-xspice
-          make -j"$(nproc)"
-          make install
-
-      - name: Put the built ngspice on PATH
-        run: echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
-
-      - name: Install ciel
-        run: pip install "ciel==2.6.1"
-
-      - name: Fetch + enable the pinned sky130 PDK
-        run: |
-          PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
-          ciel enable --pdk-family sky130 "$PDK_COMMIT"
+      - name: Set up pinned ngspice + sky130 PDK
+        uses: ./.github/actions/setup-ngspice-pdk
 
       - name: Run the DC baseline solver audit and record it
         id: run
@@ -928,50 +806,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ngspice build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential bison flex \
-            libreadline-dev libx11-dev libxaw7-dev libxpm-dev \
-            libxrender-dev gawk automake libtool
-
-      - name: Resolve the pinned ngspice version
-        id: ngspice-pin
-        run: |
-          V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["ngspice_reference"])')"
-          echo "version=${V}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache ngspice build
-        id: cache-ngspice
-        uses: actions/cache@v4
-        with:
-          path: /opt/ngspice
-          key: ngspice-${{ steps.ngspice-pin.outputs.version }}-${{ runner.os }}
-
-      - name: Build ngspice ${{ steps.ngspice-pin.outputs.version }} from source
-        if: steps.cache-ngspice.outputs.cache-hit != 'true'
-        run: |
-          V="${{ steps.ngspice-pin.outputs.version }}"
-          curl -fsSL -o /tmp/ngspice.tar.gz \
-            "https://sourceforge.net/projects/ngspice/files/ng-spice-rework/${V}/ngspice-${V}.tar.gz/download"
-          mkdir -p /tmp/ngspice-src
-          tar -xzf /tmp/ngspice.tar.gz -C /tmp/ngspice-src --strip-components=1
-          cd /tmp/ngspice-src
-          ./configure --prefix=/opt/ngspice --without-x --disable-debug \
-            --enable-xspice
-          make -j"$(nproc)"
-          make install
-
-      - name: Put the built ngspice on PATH
-        run: echo "/opt/ngspice/bin" >> "$GITHUB_PATH"
-
-      - name: Install ciel
-        run: pip install "ciel==2.6.1"
-
-      - name: Fetch + enable the pinned sky130 PDK
-        run: |
-          PDK_COMMIT="$(python3 -c 'import json;print(json.load(open("sim/pdk.json"))["open_pdks_commit"])')"
-          ciel enable --pdk-family sky130 "$PDK_COMMIT"
+      - name: Set up pinned ngspice + sky130 PDK
+        uses: ./.github/actions/setup-ngspice-pdk
 
       - name: Run the nine-corner DC reference campaign and record it
         id: run
