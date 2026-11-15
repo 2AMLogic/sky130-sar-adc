@@ -288,6 +288,19 @@
           "documented_in": "sim/full-conversion-transient/README.md",
           "covers": "SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the superseded campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.",
           "records": ["sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md"]
+        },
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice"
+          ],
+          "testbench_note": "The generated, committed sweep fragment carries the differential input as a top-level `.param` (`vin_frac`, a fraction of `vdd_val`) instead of per-conversion literals; the runner sweeps it as the only `corners.params` axis of ONE `klt sim` request -- one unit per level at the baseline corner (issue #913).",
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "The converging-range boundary sweep of the AS-COMMITTED schematic (issue #913, closing the 'Converging-range boundary sweep' Open item of DR-021): 24 signed DC input levels across the 0.25..0.78*V_REF band (0.05*V_REF rungs plus the 0.78 endpoint, both signs), one unit each of ONE klt sim request at tt_27c_1.80v under the DR-023 reference solver policy reltol-gear. Every level produced a captured code and reproduces the committed corner record where they overlap (-0.25 -> 383, +0.25 -> 641, -0.78 -> 214, all identical). The boundary, per sign: positive, largest tested magnitude that converges +0.30*V_REF and smallest that does not +0.35*V_REF (the captured code saturates at full scale from +0.35 up); negative, largest tested -0.35*V_REF and smallest -0.40*V_REF (the negative side degrades gradually, 15 LSB at -0.40 growing to 101 LSB at -0.78). INFORMATIONAL only: a measurement of the unmodified schematic that grades no row of spec/target-spec.md, proposes no design change (DR-021's switching scheme is out of scope), supersedes nothing and never moves records/LATEST.",
+          "records": ["sim/full-conversion-transient/records/20261115-084232-ad7393c6.md"]
         }
       ]
     },

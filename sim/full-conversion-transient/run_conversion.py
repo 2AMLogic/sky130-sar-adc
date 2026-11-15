@@ -7,6 +7,7 @@
     python3 sim/full-conversion-transient/run_conversion.py            # tt/27C/1.8V only
     python3 sim/full-conversion-transient/run_conversion.py --corners --record
     python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record
+    python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record
 
 WHAT THIS IS. Every prior `sim/` experiment drives one sub-block, or the
 sequencer against an *ideal* comparator-decision stimulus
@@ -58,6 +59,17 @@ same DUT driven by a coherent antiphase sine instead of the DC schedule
 conversion, SNDR/ENOB by the stdlib-only FFT in `dynamic_enob.py`. Baseline
 corner only; an informational cross-check of `sim/enob-estimate/`'s
 behavioral-accelerated composite, never a grade of the DRAFT ENOB row.
+
+CONVERGING-RANGE INPUT SWEEP (`--input-sweep`, issue #913). One `klt sim`
+request, one unit per signed DC input level across the 0.25..0.78*V_REF
+band, at the baseline corner under the reference solver policy -- the
+boundary sweep DR-021's Open items list names, closing the gap between the
+committed record's converging mid-scale rows and failing +-0.78*V_REF
+rows. The swept level is the committed sweep fragment's own `vin_frac`
+parameter (`full_conversion_campaigns/input_sweep.py` owns the list, the
+request, the decode and the record; the deck is never looped locally). A
+refused submit mints a NOT RUN record; the sweep's record supersedes
+nothing and never moves records/LATEST.
 
 SOLVER POLICY (issue #637, DR-023). Transient solver settings are a named
 profile resolved at deck assembly (SOLVER_PROFILES / `--solver-profile`).
@@ -133,6 +145,15 @@ from full_conversion_campaigns.coherent_sine import (  # noqa: E402
     sine_point_problems,
     write_sine_record,
 )
+from full_conversion_campaigns.input_sweep import (  # noqa: E402
+    DEFAULT_INPUT_FRACTIONS,
+    SubmitError as InputSweepSubmitError,
+    check_input_levels,
+    parse_input_levels,
+    run_sweep,
+    write_not_run_record,
+    write_record as write_input_sweep_record,
+)
 from full_conversion_campaigns.solver_audit import (  # noqa: E402
     compare_audit_runs,
     latest_baseline_row,
@@ -190,6 +211,7 @@ def resolve_solver_cli(args: argparse.Namespace) -> tuple[str, str]:
         ("--node-trace", args.node_trace),
         ("--cm-trace", args.cm_trace),
         ("--decision-margin-trace", args.decision_margin_trace),
+        ("--input-sweep", args.input_sweep),
     )
     if args.solver_audit:
         others = [f for f, on in modes + (
@@ -208,6 +230,15 @@ def resolve_solver_cli(args: argparse.Namespace) -> tuple[str, str]:
         return profile, ""
     if args.audit_profile:
         return "", "--audit-profile requires --solver-audit"
+    if args.input_sweep and is_solver_control(profile):
+        # issue #913: the boundary sweep has no pre-DR-023 record on its
+        # path to reproduce, so a control profile has nothing to say on it
+        # (the dispatcher additionally refuses any explicit --solver-profile
+        # with the mode).
+        return "", ("--input-sweep runs the reference solver policy only "
+                    f"({REFERENCE_SOLVER_PROFILE}, DR-023): {profile!r} is a "
+                    "SOLVER CONTROL and there is no pre-DR-023 record on this "
+                    "path for it to reproduce")
     if is_solver_control(profile):
         if args.supersedes:
             return "", (f"solver profile {profile!r} is a SOLVER CONTROL, not a "
@@ -328,6 +359,34 @@ def main() -> int:
         "control is --solver-profile ngspice-default.",
     )
     ap.add_argument(
+        "--input-sweep",
+        action="store_true",
+        help="converging-range boundary sweep (issue #913, the DR-021 open "
+        "item): sweep signed DC differential input levels across the "
+        "0.25..0.78*V_REF band, ONE LEVEL PER UNIT of one `klt sim` request "
+        "(never a local SPICE grid), at the baseline corner "
+        "(tt/27C/1.80V) under the reference solver policy. Informational -- "
+        "a measurement of the AS-COMMITTED schematic, never a spec claim; "
+        "its record never moves records/LATEST and --supersedes is refused. "
+        "A refused submit mints a NOT RUN record with the refusal reason; "
+        "there is no local fallback. Mutually exclusive with --corners/"
+        "--node-trace/--cm-trace/--decision-margin-trace/--coherent-sine/"
+        "--solver-audit and with --supersedes/--jobs/--solver-profile.",
+    )
+    ap.add_argument(
+        "--input-levels", default=None, metavar="FRACTIONS",
+        help="--input-sweep only: comma/space-separated differential input "
+        "levels as fractions of V_REF, each within [0.25, 0.78]*V_REF in "
+        f"magnitude (default: the full band, {len(DEFAULT_INPUT_FRACTIONS)} "
+        "levels: both signs of 0.25 rising in 0.05 steps to 0.75 plus the "
+        "0.78 endpoint). Every --input-sweep run (--record or not) must "
+        "carry the +-0.25 and +-0.78 anchors so any boundary statement it "
+        "can support is never reached by interpolation. A list beginning "
+        "with a negative level must use the "
+        "equals form, --input-levels=-0.78,... , so argparse does not read "
+        "the level as an option.",
+    )
+    ap.add_argument(
         "--solver-profile", choices=tuple(SOLVER_PROFILES), default=None,
         help="transient solver policy (issue #637; DR-023). Default "
         f"`{REFERENCE_SOLVER_PROFILE}` (the reference policy). Any other profile -- "
@@ -413,6 +472,47 @@ def main() -> int:
     elif args.sine_trace or args.sine_switch_trace or args.sine_solver_control:
         print("FAIL: --sine-trace/--sine-switch-trace/--sine-solver-control require "
               "--coherent-sine", file=sys.stderr)
+        return 2
+
+    # issue #913: resolve the sweep's level list and refuse every flag
+    # combination that would stand in for a boundary measurement -- all
+    # before any toolchain check or submission.
+    levels = None
+    if args.input_sweep:
+        others = [
+            flag for flag, on in (
+                ("--corners", args.corners),
+                ("--node-trace", args.node_trace),
+                ("--cm-trace", args.cm_trace),
+                ("--decision-margin-trace", args.decision_margin_trace),
+                ("--coherent-sine", args.coherent_sine),
+                ("--solver-audit", args.solver_audit),
+            ) if on
+        ]
+        if others:
+            print(f"FAIL: --input-sweep cannot be combined with {', '.join(others)}",
+                  file=sys.stderr)
+            return 2
+        for flag, on in (
+            ("--supersedes", bool(args.supersedes)),
+            ("--jobs", args.jobs != 1),
+            ("--solver-profile", args.solver_profile is not None),
+        ):
+            if on:
+                print(f"FAIL: --input-sweep does not take {flag}: it submits ONE "
+                      "request, runs the reference solver policy (DR-023) and "
+                      "supersedes nothing", file=sys.stderr)
+                return 2
+        try:
+            levels = check_input_levels(
+                parse_input_levels(args.input_levels)
+                if args.input_levels is not None else DEFAULT_INPUT_FRACTIONS
+            )
+        except ValueError as exc:
+            print(f"FAIL: {exc}", file=sys.stderr)
+            return 2
+    elif args.input_levels is not None:
+        print("FAIL: --input-levels requires --input-sweep", file=sys.stderr)
         return 2
 
     # issue #637: resolve the solver policy once, and refuse every flag
@@ -514,6 +614,42 @@ def main() -> int:
                     runs, audit_netlist_text, total_wall_s, latest_baseline_row(), written_by,
                 )
             return 1 if any(r["missing"] for r in runs) else 0
+
+        if args.input_sweep:
+            assert levels is not None  # resolved by the flag checks above
+            if tb.SWEEP_FRAGMENT_PATH.read_text() != tb.sweep_fragment_text():
+                print(
+                    "FAIL: testbench/input_sweep_tb_fragment.spice is stale against "
+                    "gen_full_conversion_tb.py -- regenerate it before running.",
+                    file=sys.stderr,
+                )
+                return 1
+            print(
+                f"Converging-range input sweep (issue #913) at "
+                f"{corners_mod.corner_id(*BASELINE_CORNER)}: {len(levels)} levels, "
+                "one `klt sim` unit each:"
+            )
+            written_by = (
+                "sim/full-conversion-transient/run_conversion.py --input-sweep --record"
+            )
+            if args.input_levels is not None:
+                written_by += f" --input-levels={args.input_levels}"
+            try:
+                result = run_sweep(levels, scratch, args.quiet)
+            except InputSweepSubmitError as exc:
+                # AC 5: a refused or failed submission is committed evidence
+                # too -- a NOT RUN record quoting the refusal, never a local
+                # SPICE fallback.
+                print(f"FAIL: {exc}", file=sys.stderr)
+                if args.record:
+                    write_not_run_record(scratch / "sweep", str(exc), written_by)
+                return 1
+            if args.record:
+                write_input_sweep_record(
+                    result["rows"], result["info"], result["req"],
+                    result["workdir"], written_by,
+                )
+            return 0 if result["all_read"] else 1
 
         if is_solver_control(solver_profile) and (
             args.node_trace or args.cm_trace or args.decision_margin_trace
