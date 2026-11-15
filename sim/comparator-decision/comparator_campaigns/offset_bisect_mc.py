@@ -57,10 +57,6 @@ class BisectMcResult:
     negctrl: list[BisectCornerResult]
     dut_fragment: Path = DUT_FRAGMENT
 
-    @property
-    def draw_seeds(self) -> list[int]:
-        return [self.seed + i for i in range(self.n)]
-
 
 def _bounded_offsets(results: list[BisectCornerResult]) -> list[float]:
     return [r.offset_mv for r in results if r.bounded and r.offset_mv is not None]
