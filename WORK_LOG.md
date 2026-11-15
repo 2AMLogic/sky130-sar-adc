@@ -8,6 +8,10 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-15
 
+- **PR #957**: docs: drop stale private-visibility note from proposal licensing bullet
+- **Issue #953** (closed): challenge-4-proposal.md's 'README is stale' parenthetical is now itself stale (README was fixed by #936)
+- **PR #956**: fix(check:ci): run the cheap check:* gates before the full sim selftest
+- **Issue #925** (closed): check:ci: the full sim/selftest.sh now runs before 11 cheap gates, losing fast-fail on PDK hosts
 - **PR #954**: harness: remove write-only CornerPointResult.log_path and PdkInfo.xschem_rc
 - **Issue #945** (closed): Remove write-only CornerPointResult.log_path and PdkInfo.xschem_rc from the sim harness
 - **PR #952**: docs: correct stale private-visibility claims in CLAUDE.md to public
