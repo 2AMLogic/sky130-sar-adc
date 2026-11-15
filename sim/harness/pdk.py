@@ -29,7 +29,6 @@ class PdkInfo:
     variant: str
     variant_dir: Path
     ngspice_lib: Path
-    xschem_rc: Path
     open_pdks_commit_expected: str
     found: bool
     error: str = ""
@@ -58,7 +57,6 @@ def resolve() -> PdkInfo:
                     break
     variant_dir = root / variant
     ngspice_lib = variant_dir / cfg["ngspice_lib"]
-    xschem_rc = variant_dir / cfg["xschem_pdk_rc"]
 
     if not variant_dir.is_dir():
         error = f"no PDK variant directory at {variant_dir}"
@@ -72,7 +70,6 @@ def resolve() -> PdkInfo:
         variant=variant,
         variant_dir=variant_dir,
         ngspice_lib=ngspice_lib,
-        xschem_rc=xschem_rc,
         open_pdks_commit_expected=cfg["open_pdks_commit"],
         found=not error,
         error=error,
