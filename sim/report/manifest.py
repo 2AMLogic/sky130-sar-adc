@@ -507,7 +507,7 @@ ROWS: tuple[Row, ...] = (
             "record's own UNITS/scope note, not the array's native step."
         ),
         sim_citations=(
-            "sim/cdac-array-transfer/records/20261001-124049-5207381.md",
+            "sim/cdac-array-transfer/records/20261115-014818-7adcfe77.md",
             "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
         ),
     ),

@@ -146,13 +146,18 @@ class PlotSpec:
 
 ENOB_SAMPLES = "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.samples.json"
 ENOB_YIELD = "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.json"
-CDAC_MC_YIELD = "sim/cdac-array-transfer/yield-reports/20261001-124049-5207381.json"
 
 # The CDAC mismatch Monte Carlo campaign's own committed raw draw logs. Both
 # per-draw statistics the INL/DNL figure plots are re-derived from these by
 # the campaign's own parser, so the logs, that parser and the measure-parsing
 # helper it calls are all hashed inputs of that figure.
-CDAC_MC_RECORD_ID = "20261001-124049-5207381"
+# 20261115-014818-7adcfe77 is the freshness-pinnability re-mint (issue #912)
+# of record 20261001-124049-5207381's envelope: same committed draws re-parsed
+# from its mc-draws/ logs (byte-identical logs under the new record's own
+# mc-draws/ dir), identical statistics, plus a committed .samples.json beside
+# the envelope -- the superseded record stays append-only on disk.
+CDAC_MC_RECORD_ID = "20261115-014818-7adcfe77"
+CDAC_MC_YIELD = f"sim/cdac-array-transfer/yield-reports/{CDAC_MC_RECORD_ID}.json"
 CDAC_MC_DRAW_DIR = f"sim/cdac-array-transfer/mc-draws/{CDAC_MC_RECORD_ID}"
 CDAC_MC_N = 40  # the source record's own stated N; a missing log must fail the gate
 # `run_mc.py` writes `draw_<index>_seed<seed>.log`, seeds running seed..seed+N-1
