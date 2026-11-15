@@ -24,12 +24,17 @@ _None._
 - **#743**: T1 item 3 (DRC): repoint manifest items 3/4/11 from the superseded 2026-10-01 stream to reports/LATEST and regrade
 - **#771**: Re-mint digital item 5/7 evidence on the regenerated sar_sequencer netlist
 - **#785**: layout: re-run sar-adc-top on fully regenerated children and triage DRC met1.space.1 + LVS mismatch
+- **#898**: harness/klt_sim: envelope_from_stderr accepts any JSON dict, so a non-envelope object on stderr could be cached as a report
 
 ## Ready
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-_None._
+- **#875**: Extract the ngspice + sky130 PDK provisioning copied into four ci.yml jobs into one composite action
+- **#898**: harness/klt_sim: envelope_from_stderr accepts any JSON dict, so a non-envelope object on stderr could be cached as a report
+- **#904**: Consolidate the three byte-identical klt sim read_report bodies onto one harness helper
+- **#926**: Remove dead BisectMcResult.draw_seeds: a property no commit has ever read
+- **#927**: Remove NoiseResult.op_din_v, or print it: a measured op-point the record's v(DIP)=v(DIN) row never reads
 
 ## In Progress
 
@@ -41,24 +46,24 @@ Issues currently being built (`loom:building`).
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits"
-- **#877**: Remove dead parse_ac_print() and two other unread leftovers in sim drivers
-- **#884**: Remove dead npm script worktree:return: its target .loom/scripts/worktree-return.sh does not exist
-- **#894**: vcm-drive-budget: full-grid records carry fixed-text sentences their own data and sibling records contradict
+- **#909**: Fold the duplicated Row-1 PFET well-island floorplan into layout/bin/_geometry_common.py
+- **#914**: Consolidate the 13 copied evidence.resolve_provenance stubs in sim/tests onto one shared fixture
+- **#915**: Finish the _flow_common.sh factoring: hoist the duplicated run-flow preamble, per-block DRC fan-out and record tail
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
 - **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
+- **#920**: refactor(layout): share the Row-1 PFET well-island floorplan
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
-- **#899**: refactor: drop three unread leftovers from the sim drivers
-- **#901**: chore: drop dangling worktree:return npm script
-- **#902**: fix(vcm-drive-budget): derive record interpretation sentences from the data
+- **#910**: docs: roadmap as of 2026-11-13
+- **#923**: test: consolidate the 13 inline resolve_provenance stubs onto one fixture
 
 ## Proposed
 
@@ -75,16 +80,20 @@ Issues carrying `loom:curated`.
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report) *(curated)*
 - **#811**: Re-run multi-corner/MC sim records via klt sim under open_pdks f6eeac7 as superseding records (#709 split) *(curated)*
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits" *(curated)*
-- **#894**: vcm-drive-budget: full-grid records carry fixed-text sentences their own data and sibling records contradict *(curated)*
+- **#898**: harness/klt_sim: envelope_from_stderr accepts any JSON dict, so a non-envelope object on stderr could be cached as a report *(curated)*
+- **#911**: README status section is stale: "6 of 22 rows met", "Private for now", and a closed issue cited as open *(curated)*
+- **#913**: sim: converging-range boundary sweep of the current architecture (DR-021 Open items) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off *(architect)*
-- **#875**: Extract the ngspice + sky130 PDK provisioning copied into four ci.yml jobs into one composite action *(hermit)*
-- **#888**: Put digital-partition's run-info read on harness.klt_sim.run_info(): its private copy makes runner_skew() blind to sharded reports *(hermit)*
-- **#889**: check:ci runs the full sim/tests unit suite twice: once via npm run test, again as sim/selftest.sh stage 1 *(hermit)*
 - **#903**: refactor(chipalooza): check_proposal_citations.py is now 6617 lines / 37 checks — take #321's deferred split and registry *(hermit)*
-- **#904**: Consolidate the three byte-identical klt sim read_report bodies onto one harness helper *(hermit)*
+- **#917**: Wire up or remove GND_MESH_MEMBERS: an inert declaration nothing reads *(hermit)*
+- **#921**: Remove GND_MESH_MEMBERS: a declared-but-never-read member list the mesh builder does not consult *(hermit)*
+- **#924**: Remove dead duplicate import os / SETTLE assignment in the two SDF testbenches (needs an evidence re-mint) *(hermit)*
+- **#928**: Collapse the four digital-functional cocotb benches to two: the SDF variants are 296 duplicated lines of the zero-delay originals *(hermit)*
+- **#929**: Execute the #820 follow-up: klt 0.9.2 ships `klt evidence claims`, but the swap is vacuous on this repo's records *(hermit)*
+- **#930**: Remove the three leftover pass-through wrappers in the two schematic-parity gates *(hermit)*
 
 ## Epics
 
@@ -96,12 +105,12 @@ Issues carrying `loom:curated`.
 |------|-------|
 | Operator merge-risk holds | 1 |
 | Very important | 0 |
-| Important | 7 |
-| Ready (`loom:issue`) | 0 |
+| Important | 8 |
+| Ready (`loom:issue`) | 5 |
 | In Progress (`loom:building`) | 9 |
-| PRs awaiting review | 1 |
-| Approved PRs awaiting merge | 4 |
-| Curated | 12 |
-| Architect / Hermit proposals | 6 |
+| PRs awaiting review | 2 |
+| Approved PRs awaiting merge | 3 |
+| Curated | 14 |
+| Architect / Hermit proposals | 8 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
