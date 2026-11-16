@@ -6,6 +6,8 @@
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
+- **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
+- **#989**: chore(loom): resync installed Loom to v0.19.1305
 
 ## Very Important
 
@@ -29,7 +31,8 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#940**: test_flow_common.sh does not cover drc_blocks_fanout's `|| true` violation-tolerance guard
+- **#984**: Spread-axis typo in a harness tb.json is silently ungraded (ported hole; fixed upstream in sky130-comparator)
+- **#990**: Re-evaluate the .loom/resync-ignore pin on worktree.sh: upstream now resets against origin/<branch>, not BASE_REF
 
 ## In Progress
 
@@ -41,26 +44,21 @@ Issues currently being built (`loom:building`).
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits"
-- **#905**: vcm-drive-budget: marginal_r_source_shape_note()'s match branch denies the identity it just asserted, and its legacy reference quotes a ratio that record withheld
-- **#913**: sim: converging-range boundary sweep of the current architecture (DR-021 Open items)
-- **#925**: check:ci: the full sim/selftest.sh now runs before 11 cheap gates, losing fast-fail on PDK hosts
-- **#953**: challenge-4-proposal.md's 'README is stale' parenthetical is now itself stale (README was fixed by #936)
+- **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
 - **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
-- **#949**: sim: converging-range input sweep as one klt sim request (--input-sweep)
-- **#955**: fix(sim): shape note no longer denies its exact-match identity claim or quotes a ratio over the legacy reference's censored span
-- **#957**: docs: drop stale private-visibility note from proposal licensing bullet
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
-- **#956**: fix(check:ci): run the cheap check:* gates before the full sim selftest
+- **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
+- **#989**: chore(loom): resync installed Loom to v0.19.1305
 
 ## Proposed
 
@@ -77,11 +75,9 @@ Issues carrying `loom:curated`.
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report) *(curated)*
 - **#811**: Re-run multi-corner/MC sim records via klt sim under open_pdks f6eeac7 as superseding records (#709 split) *(curated)*
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits" *(curated)*
-- **#905**: vcm-drive-budget: marginal_r_source_shape_note()'s match branch denies the identity it just asserted, and its legacy reference quotes a ratio that record withheld *(curated)*
-- **#913**: sim: converging-range boundary sweep of the current architecture (DR-021 Open items) *(curated)*
-- **#925**: check:ci: the full sim/selftest.sh now runs before 11 cheap gates, losing fast-fail on PDK hosts *(curated)*
-- **#940**: test_flow_common.sh does not cover drc_blocks_fanout's `|| true` violation-tolerance guard *(curated)*
-- **#953**: challenge-4-proposal.md's 'README is stale' parenthetical is now itself stale (README was fixed by #936) *(curated)*
+- **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST *(curated)*
+- **#984**: Spread-axis typo in a harness tb.json is silently ungraded (ported hole; fixed upstream in sky130-comparator) *(curated)*
+- **#990**: Re-evaluate the .loom/resync-ignore pin on worktree.sh: upstream now resets against origin/<branch>, not BASE_REF *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -102,14 +98,14 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 3 |
 | Very important | 0 |
 | Important | 7 |
-| Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 10 |
-| PRs awaiting review | 4 |
-| Approved PRs awaiting merge | 2 |
-| Curated | 16 |
+| Ready (`loom:issue`) | 2 |
+| In Progress (`loom:building`) | 7 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 3 |
+| Curated | 14 |
 | Architect / Hermit proposals | 8 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
