@@ -781,6 +781,20 @@ fix; it is out of scope for issue #405 and any future issue doing it should
 say so explicitly rather than mint a pointer that silences one of these two
 flows' rows by accident.
 
+**Docs prose citing a record must name the pointer in the same bullet.**
+Where `README.md` or `docs/ROADMAP.md` cites a
+`sim/<campaign>/records/<stamp>.md` record in a top-level bullet, that bullet
+must also name that campaign's `records/LATEST` pointer, and at least one
+stamp the bullet cites must be what the pointer resolves to — informational
+or superseded records may be cited additionally (this is
+`docs/citation-gate.md` check 3's shape), campaigns publishing no pointer are
+exempt, and `layout/<block>/reports/` citations are out of its scope. The
+gate is `sim/tests/test_doc_pointer_claims.py`: a bullet citing only a stamp
+id fails `npm run test:unit`, so "the newest record" prose cannot go stale
+silently. Issue #974 was filed on exactly that defect — `docs/ROADMAP.md`'s
+Conversion bullet named a record id and never the pointer — and PR #973's
+hand correction is the shape this convention now imposes mechanically.
+
 ## The aggregated characterization report (issue #30)
 
 `records/*.md` are the append-only evidence trail; `docs/characterization-
