@@ -117,9 +117,13 @@ BOUNDARY_TOLERANCE_LSB = 1
 
 #: Per-UNIT kill (`options.timeout_s`). 2.5x reference-drive-budget's
 #: conservative per-unit budget for a deck a third this long: one unit is a
-#: ~2.3 us whole-ADC transient (the 6.3 us DC deck measured 485 s locally,
-#: ~164 s on the reference toolchain), so 1200 s leaves room for an
-#: ss/-40C-style slow point without one stuck unit eating a shard.
+#: ~2.3 us whole-ADC transient, and the 6.3 us DC deck it is sized against
+#: ran 219-1290 s per corner point, median ~399 s (n=72), across the
+#: committed pre-DR-023 corner logs (campaigns `20260910-190240-2d1d196` ..
+#: `20261001-105439-c324f80`, 2026-09-10 to 2026-10-01, shared dispatch
+#: hosts, ngspice-47 pin; `Total elapsed time (seconds)` line in each
+#: corner log), so 1200 s leaves room for an ss/-40C-style slow point
+#: without one stuck unit eating a shard.
 DEFAULT_TIMEOUT_S = 1200.0
 #: Serial wall-clock budget allowed per unit when sizing shards -- the same
 #: sizing rule reference-drive-budget.shard_count() documents: the fleet's

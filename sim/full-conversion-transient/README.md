@@ -100,14 +100,19 @@ python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragm
 python3 -m unittest discover -s sim/tests -t sim/tests                   # PDK-free unit tests
 ```
 
-**Runtime.** One corner point is a ~6.3 µs transient over the whole ADC and
-takes roughly 3–6 minutes on the reference toolchain (longer on a contended
-machine; about 2 minutes on a GitHub-hosted runner under the DR-023 solver
-policy, 1.66x the old ngspice-default time -- see "Transient solver policy"
-below), so the 120 s `sim/harness` default timeout is far too small —
-`SIM_NGSPICE_TIMEOUT_S` must be raised, as above. `--jobs N` runs N corner
-points concurrently (independent ngspice processes; it changes runtime only,
-never results).
+**Runtime.** One corner point is a ~6.3 µs transient over the whole ADC. The
+committed corner logs carry per-point wall-clock (`Total elapsed time (seconds)`):
+219–1290 s per point, median ~399 s (n=72), across the eight pre-DR-023 PVT
+campaigns `20260910-190240-2d1d196` .. `20261001-105439-c324f80`
+(2026-09-10 to 2026-10-01, shared dispatch hosts, pinned ngspice-47), so a
+point is typically several minutes and contention stretches it further — the
+120 s `sim/harness` default timeout is far too small, and
+`SIM_NGSPICE_TIMEOUT_S` must be raised, as above. Under the DR-023 solver
+policy, re-mint campaign `20261011-112119-188e94c` (CI run 38134032661,
+2026-10-11) measured 124–135 s per point on a GitHub-hosted runner, 1.66x
+the old ngspice-default time -- see "Transient solver policy" below.
+`--jobs N` runs N corner points concurrently (independent ngspice processes;
+it changes runtime only, never results).
 
 ## Timing schedule (DR-006)
 
