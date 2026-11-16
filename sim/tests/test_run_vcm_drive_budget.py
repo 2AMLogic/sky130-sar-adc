@@ -1273,6 +1273,24 @@ class TestMarginalRSourceShapeNote(unittest.TestCase):
         self.assertIn("figure for figure", note)
         self.assertNotIn("not the two columns' identity", note)
 
+    def test_a_censored_reference_withholds_the_reproduces_claim(self):
+        """Issue #960: the legacy reference's top figure is right-censored
+        in that record's own table, so coincidence with it is not exact
+        figure-for-figure agreement. The exact-match branch must not claim
+        the shape was reproduced and must name the censoring instead --
+        `bare_budget_spread_note()`'s convention."""
+        points = [
+            self._pt("a", fallback=False, marginal=10e3),
+            self._pt("b", fallback=False, marginal=100e3),
+        ]
+        note = self._note(points, window="legacy")
+        self.assertNotIn("figure for figure", note)
+        self.assertNotIn("reproduces", note)
+        self.assertIn("right-censored lower bound", note)
+        self.assertIn("at the largest swept value", note)
+        self.assertIn("not a measured equality", note)
+        self.assertIn("not established either way", note)
+
     def test_varying_values_that_differ_do_not_say_reproduces(self):
         points = [
             self._pt("a", fallback=False, marginal=300.0),
