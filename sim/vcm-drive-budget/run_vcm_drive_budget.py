@@ -949,7 +949,12 @@ def marginal_r_source_shape_note(points: list[dict], window: str,
       caveat is therefore omitted in the exact-match branch: its claim is
       shape agreement, not column identity, so appending a denial of an
       identity it never asserted would contradict the sentence it lands
-      in (issue #905).
+      in (issue #905). When the reference's own top figure is
+      right-censored, "reproduces" is withheld altogether: agreement with
+      a >= lower bound is not exact, so the branch reports the
+      coincidence, names the censoring, and states that figure-for-figure
+      agreement is not established either way -- the module's one
+      censoring convention, `bare_budget_spread_note()`'s (issue #960).
     - **Same window only.** `PER_CORNER_SHAPE_REFERENCE` is keyed by
       window.
 
@@ -1073,11 +1078,19 @@ def marginal_r_source_shape_note(points: list[dict], window: str,
             "so the bare drive impedance that matters IS corner-dependent "
             "here"
         )
-        if exact_shape_match:
+        if exact_shape_match and not ref_censored:
             comparison = (
                 f" -- figure for figure the same set {ref_link} reports "
                 "for the same window, so this run reproduces that "
                 "campaign's own per-corner shape."
+            )
+        elif exact_shape_match:
+            comparison = (
+                f" -- the figures coincide with what {ref_link} reports "
+                "for the same window, but that record's top figure is a "
+                "right-censored lower bound at the largest swept value, "
+                "not a measured equality, so figure-for-figure agreement "
+                "is not established either way here."
             )
         else:
             comparison = (
