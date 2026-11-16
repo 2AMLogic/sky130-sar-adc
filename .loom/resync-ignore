@@ -27,12 +27,15 @@
 # no `2AMLogic/loom` fork to push a branch to). So this repo takes move (b):
 # apply the fix locally and pin the path, with the divergence declared here.
 #
-# RETIRING THIS PIN: once the same fix lands upstream in
-# `rjwalters/loom`'s `defaults/scripts/worktree.sh`, delete both lines below
-# and let the next `chore: resync installed Loom surfaces` pass take the
-# upstream copy. Until then a resync would silently revert the fix and delete
-# its regression test.
-scripts/worktree.sh
+# RETIRED 2026-11-16 (issue #990): the fix DID land upstream — the stale_ref
+# logic behind `rjwalters/loom`'s `defaults/scripts/worktree.sh` now uses
+# `origin/<branch>` as its reset reference (never the base ref), fast-forwarding
+# a parked branch to its own pushed tip. Measured with the repo-owned oracle
+# below against upstream v0.19.1305: every behavioral assertion passes (the
+# only old failures were Test 1's output-wording checks, since replaced with a
+# behavioral acceptance of both mechanisms). `scripts/worktree.sh` is unpinned
+# and the resync takes the upstream copy. The TEST below stays pinned as a
+# repo-owned regression suite (Loom does not ship it), like the #615 entry.
 scripts/tests/test-worktree-stale-reset-preserves-pushed-tip.sh
 
 # ---------------------------------------------------------------------------
