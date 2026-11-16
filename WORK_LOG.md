@@ -8,6 +8,14 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-16
 
+- **PR #980**: test: gate README/ROADMAP record citations against sim/*/records/LATEST
+- **Issue #974** (closed): Guard the hand-kept 'newest record' pointers in README.md / docs/ROADMAP.md against sim/*/records/LATEST drift
+- **PR #979**: fix(sim): attribute full-conversion runtime figures to committed corner logs
+- **Issue #972** (closed): sim: two remaining "reference toolchain" runtime figures carry no hardware or date attribution
+- **PR #978**: fix(sim): shape note withholds "reproduces" when the reference is censored
+- **Issue #960** (closed): vcm-drive-budget: marginal_r_source_shape_note()'s exact-match branch claims figure-for-figure agreement with a right-censored reference value
+- **PR #975**: refactor: drop write-only Draw.dnl_lsb/inl_lsb fields from cdac MC parser
+- **Issue #971** (closed): Remove write-only Draw.dnl_lsb / Draw.inl_lsb fields from cdac-array-transfer run_mc.py
 - **PR #970**: fix(sim): key fresh-run Claim bullet on the actual target limit
 - **Issue #948** (closed): run_mc.py: fresh-run Claim bullet is not limit-keyed, so a non-default --target-limit-lsb mints a self-contradicting record
 
