@@ -25,7 +25,6 @@ class Row:
     id: str
     spec_row: str
     status: str  # verbatim from spec/target-spec.md's own Status column
-    spec_anchor: str
     conditions: str
     verdict: str
     notes: str
@@ -38,7 +37,6 @@ ROWS: tuple[Row, ...] = (
         id="architecture",
         spec_row="Architecture",
         status="DRAFT",
-        spec_anchor="spec/target-spec.md#target-table",
         conditions="N/A -- descriptive/topology row, not a numeric pass/fail claim.",
         verdict="N/A (DRAFT, descriptive row)",
         notes=(
@@ -55,7 +53,6 @@ ROWS: tuple[Row, ...] = (
         id="resolution-n",
         spec_row="Resolution `N`",
         status="RATIFIED",
-        spec_anchor="spec/target-spec.md#numeric-rows--ratified-2026-08-19",
         conditions=(
             "Full ratified corner set: process {ff, fs, sf, ss, tt} x "
             "temperature {-40, 27, 125} C x supply {1.62, 1.8, 1.98} V, "
@@ -78,7 +75,6 @@ ROWS: tuple[Row, ...] = (
         id="sample-rate",
         spec_row="Sample rate",
         status="DRAFT",
-        spec_anchor="spec/target-spec.md#target-table",
         conditions=(
             "All four constituent mechanisms have now been probed "
             "individually; none of these campaigns is a sample-rate "
@@ -425,7 +421,6 @@ ROWS: tuple[Row, ...] = (
         id="enob",
         spec_row="ENOB",
         status="DRAFT (target value)",
-        spec_anchor="spec/target-spec.md#target-table",
         conditions=(
             "Behavioral-accelerated composite (NOT a dynamic-test/FFT "
             "measurement): comparator noise term taken from the RATIFIED full-"
@@ -486,7 +481,6 @@ ROWS: tuple[Row, ...] = (
         id="inl-dnl",
         spec_row="INL / DNL",
         status="DRAFT (target value)",
-        spec_anchor="spec/target-spec.md#target-table",
         conditions=(
             "Monte Carlo: `tt_mm` corner, N=40, base seed=1, PVT point "
             "tt/27C/1.8V, 22-code reduced set covering every major-carry "
@@ -515,7 +509,6 @@ ROWS: tuple[Row, ...] = (
         id="vref",
         spec_row="`V_REF`",
         status="RATIFIED",
-        spec_anchor="spec/target-spec.md#numeric-rows--ratified-2026-08-19",
         conditions=(
             "Full ratified corner set, 9 OAT points. V_REF is a fixed design "
             "constant per DR-003's own scope table, not itself a simulated "
@@ -532,7 +525,6 @@ ROWS: tuple[Row, ...] = (
         id="lsb",
         spec_row="LSB (differential)",
         status="RATIFIED",
-        spec_anchor="spec/target-spec.md#numeric-rows--ratified-2026-08-19",
         conditions="Full ratified corner set, 9 OAT points (same record as `V_REF` above).",
         verdict="PASS (structural + functional/monotonicity check, 9/9 corners)",
         notes=(
@@ -545,7 +537,6 @@ ROWS: tuple[Row, ...] = (
         id="sampling-cap",
         spec_row="Sampling cap (CDAC unit × array)",
         status="RATIFIED",
-        spec_anchor="spec/target-spec.md#numeric-rows--ratified-2026-08-19",
         conditions=(
             "sim: structural check (unit-cap geometry + per-side weight totals) "
             "at every corner of the ratified sim record. layout: drawn/extracted "
@@ -583,7 +574,6 @@ ROWS: tuple[Row, ...] = (
         id="comparator-noise",
         spec_row="Comparator input-referred noise",
         status="RATIFIED",
-        spec_anchor="spec/target-spec.md#numeric-rows--ratified-2026-08-19",
         conditions=(
             "Full ratified corner set, 9 OAT points, `ac-based` noise "
             "methodology, integration bandwidth 1 kHz - 1 GHz. REDUCED SUB-"
@@ -606,7 +596,6 @@ ROWS: tuple[Row, ...] = (
         id="kickback",
         spec_row="Kickback",
         status="DRAFT",
-        spec_anchor="spec/target-spec.md#target-table",
         conditions=(
             "SINGLE CORNER ONLY: process {tt} x temperature {27} C x supply "
             "{1.8} V, 1 PVT point -- a first-pass, nominal-corner-only probe, "
@@ -669,7 +658,6 @@ ROWS: tuple[Row, ...] = (
         id="gain-error-systematic",
         spec_row="Gain error, systematic",
         status="DRAFT (new row, DR-022 candidate)",
-        spec_anchor="spec/target-spec.md#target-table",
         conditions=(
             "TWO CORNERS ONLY, schematic netlist: process {tt} x temperature "
             "{27} C x supply {1.62, 1.80} V -- a targeted mechanism trace, not "
@@ -710,7 +698,6 @@ ROWS: tuple[Row, ...] = (
         id="power",
         spec_row="Power",
         status="DRAFT",
-        spec_anchor="spec/target-spec.md#target-table",
         conditions=(
             "Issue #254's `sim/full-conversion-transient/` campaign, full "
             "ratified OAT grid (9 one-at-a-time points): average supply/"
@@ -836,7 +823,6 @@ ROWS: tuple[Row, ...] = (
         id="corners",
         spec_row="Corners",
         status="RATIFIED",
-        spec_anchor="spec/target-spec.md#numeric-rows--ratified-2026-08-19",
         conditions=(
             "The -40/27/125 C x +-10% supply x sky130 process-corner set "
             "itself, as exercised by every deterministic-row campaign below."
