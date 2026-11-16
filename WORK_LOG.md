@@ -8,6 +8,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-16
 
+- **PR #987**: remove write-only Row.spec_anchor field from report manifest
+- **Issue #985** (closed): Remove or render write-only Row.spec_anchor in sim/report/manifest.py
 - **PR #981**: refactor: drop seven never-read fields from comparator-campaign result dataclasses
 - **Issue #977** (closed): Remove seven write-only dataclass fields in the comparator-decision campaigns
 - **PR #980**: test: gate README/ROADMAP record citations against sim/*/records/LATEST
