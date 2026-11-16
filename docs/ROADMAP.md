@@ -32,10 +32,11 @@ in [`signoff/README.md`](../signoff/README.md). Counts below are copied from it.
   DR-022 is accepted as a DRAFT row; DR-007, DR-011, DR-018, DR-020, DR-021,
   DR-023, DR-024 and DR-025 are `proposed`.
 - **Conversion: overall FAIL.** The newest full-conversion record
-  (`sim/full-conversion-transient/records/20261011-112119-188e94c.md`) resolves
-  3 of 5 inputs within ±1 LSB at each of the nine ratified corners; the two
-  near-full-scale inputs do not converge. DR-021 proposes the fix and DR-025
-  the gain-error closure path; neither is ratified or implemented.
+  (`sim/full-conversion-transient/records/LATEST`, pointing at
+  `20261011-112119-188e94c.md`) resolves 3 of 5 inputs within ±1 LSB at each
+  of the nine ratified corners; the two near-full-scale inputs do not
+  converge. DR-021 proposes the fix and DR-025 the gain-error closure path;
+  neither is ratified or implemented.
 - **Pins and freshness.** `layout/requirements.txt` is `klayout-tools==0.6.0`;
   the grader in `signoff/requirements.txt` is `0.8.0`. `sim/pdk.json` pins
   open_pdks `f6eeac7`, superseding `c6d73a3`. The manifest cites top-level run
