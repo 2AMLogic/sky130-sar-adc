@@ -6,8 +6,19 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-16
+
+- **PR #970**: fix(sim): key fresh-run Claim bullet on the actual target limit
+- **Issue #948** (closed): run_mc.py: fresh-run Claim bullet is not limit-keyed, so a non-default --target-limit-lsb mints a self-contradicting record
+
 ### 2026-11-15
 
+- **PR #969**: docs: fix the #913 provenance-census entry's record total and stale census clause
+- **Issue #964** (closed): Follow-on: Work identified in PR #949 — two stale figures in the proposal's provenance-census narrative
+- **PR #967**: docs: attribute harness ngspice timing figures to their measured runner
+- **Issue #958** (closed): sim/selftest.sh header's "~5 minutes / 15-20s per ngspice invocation" is ~4x slower than a measured pdk-smoke run
+- **PR #966**: docs: retire finished rows from ROADMAP's Now table, bump the status stamp
+- **Issue #961** (closed): docs/ROADMAP.md lists the already-finished README status refresh under "## Now"
 - **PR #962**: test: catch a dropped `|| true` on `klt drc` in the flow-common self-test
 - **Issue #940** (closed): test_flow_common.sh does not cover drc_blocks_fanout's `|| true` violation-tolerance guard
 - **PR #955**: fix(sim): shape note no longer denies its exact-match identity claim or quotes a ratio over the legacy reference's censored span
