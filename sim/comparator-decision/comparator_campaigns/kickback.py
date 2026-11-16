@@ -170,13 +170,12 @@ def _kickback_deck(
 class KickbackRecoveryPoint:
     """One later pick-off of the common-mode / differential deviations.
 
-    `requested_ns` is the pick-off the caller asked for; `time_ns` is the
-    actual transient sample used (the nearest one, since ngspice's adaptive
-    timestep does not land exactly on a requested instant). `label` is what
-    the record's recovery table prints in its first column."""
+    `time_ns` is the actual transient sample used (the nearest one, since
+    ngspice's adaptive timestep does not land exactly on the pick-off the
+    caller asked for). `label` is what the record's recovery table prints
+    in its first column."""
 
     label: str
-    requested_ns: float
     time_ns: float
     cm_dev_v: float
     diff_dev_v: float
@@ -185,8 +184,6 @@ class KickbackRecoveryPoint:
 @dataclass
 class KickbackPoint:
     vindiff_mv: float
-    target_p_v: float
-    target_n_v: float
     # Peak signed deviation of EITHER pin's actual voltage from its own
     # ideal-source target, over the full transient -- `peak_pos_*` is the
     # largest positive excursion, `peak_neg_*` the largest negative one
@@ -352,12 +349,12 @@ def run_kickback_sweep(
             for label, req_ns in pickoffs:
                 i = _nearest_sample(t, req_ns)
                 recovery.append(KickbackRecoveryPoint(
-                    label=label, requested_ns=req_ns, time_ns=t[i] * 1e9,
+                    label=label, time_ns=t[i] * 1e9,
                     cm_dev_v=cm_series[i], diff_dev_v=diff_series[i],
                 ))
 
             points.append(KickbackPoint(
-                vindiff_mv=vindiff_mv, target_p_v=target_p, target_n_v=target_n,
+                vindiff_mv=vindiff_mv,
                 peak_pos_dev_v=best_pos_dev, peak_pos_time_ns=best_pos_ns,
                 peak_pos_pin=best_pos_pin,
                 peak_neg_dev_v=best_neg_dev, peak_neg_time_ns=best_neg_ns,
