@@ -41,6 +41,35 @@ from . import pdk
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 
+#: The PVT axes the grading path computes a per-axis spread for
+#: (runner.run builds axis_spreads with exactly these keys). Load-time
+#: validation (see _validate_spread_checks) rejects any spread-check axis
+#: key outside this set; runner.run builds its spread dicts FROM this
+#: constant, and the test suite pins the two together, so a new graded
+#: axis must land in both places or nothing grades.
+SPREAD_AXES = ("process", "temperature", "supply")
+
+
+def _validate_spread_checks(tb_json_path: Path, raw: dict) -> None:
+    """Raise ValueError if any min/max_spread_pct_by_axis key names an axis
+    outside SPREAD_AXES.
+
+    runner._evaluate_checks looks an axis up with `axis_spreads.get(axis)`
+    and silently skips one it has no spread for, so a typo'd key in a
+    manifest would silently ungrade a ratified spread floor -- indistinguishable
+    from a passing run (issue #984; same hole fixed upstream in
+    sky130-comparator #274). Called from load() before anything expensive
+    runs, so a typo'd manifest fails in milliseconds instead of grading a
+    campaign with the floor silently gone."""
+    for name, checks in raw.get("checks", {}).items():
+        for key in ("min_spread_pct_by_axis", "max_spread_pct_by_axis"):
+            for axis in (checks or {}).get(key, {}):
+                if axis not in SPREAD_AXES:
+                    raise ValueError(
+                        f"{tb_json_path}: checks.{name}.{key}: unknown spread "
+                        f"axis {axis!r} -- valid axes: {', '.join(SPREAD_AXES)}"
+                    )
+
 
 def pwl(points: list[tuple[float, float]]) -> str:
     """ngspice `pwl(...)` source value from (time_ns, volts) points, e.g.
@@ -85,6 +114,7 @@ def load_experiment(experiment: str) -> Manifest:
 def load(tb_json_path: Path) -> Manifest:
     with tb_json_path.open() as f:
         raw = json.load(f)
+    _validate_spread_checks(tb_json_path, raw)
     experiment_dir = tb_json_path.parent.parent  # .../<experiment>/testbench/tb.json
     fragment = tb_json_path.parent / raw["netlist_fragment"]
     if not fragment.is_file():
