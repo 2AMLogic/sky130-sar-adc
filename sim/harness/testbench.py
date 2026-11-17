@@ -49,6 +49,55 @@ SIM_DIR = Path(__file__).resolve().parent.parent
 #: axis must land in both places or nothing grades.
 SPREAD_AXES = ("process", "temperature", "supply")
 
+#: Keys a checks.<name> entry may carry: every key any reader of the
+#: checks dicts looks up -- runner._evaluate_checks reads min / max /
+#: min_spread_pct_by_axis / max_spread_pct_by_axis, and
+#: mc_runner.positive_control_ok reads min_stdev -- plus the "description"
+#: annotation key (sim/README.md documents it as "why this check exists";
+#: the committed harness-corner-smoke manifest carries it on every check;
+#: the ratified gf180-sar-adc harness recognizes it in CHECK_KEYS for the
+#: same reason). Load-time validation (see _validate_check_keys) rejects
+#: any other key, because a typo'd block key (e.g. min_spread_pct_by_axi)
+#: would otherwise load fine and silently ungrade a ratified floor -- the
+#: same failure mode as a typo'd spread axis (#984), one level up (#997).
+#: The test suite pins the constant to the readers' source: every reader
+#: key must be recognized (a new reader without a constant bump fails),
+#: and every non-reader key in the constant must be the blessed
+#: "description" annotation (a reader that disappears leaves no stale
+#: entry behind).
+RECOGNIZED_CHECK_KEYS = (
+    "min",
+    "max",
+    "min_spread_pct_by_axis",
+    "max_spread_pct_by_axis",
+    "min_stdev",
+    "description",
+)
+
+
+def _validate_check_keys(tb_json_path: Path, raw: dict) -> None:
+    """Raise ValueError if any checks.<name> entry carries a key outside
+    RECOGNIZED_CHECK_KEYS.
+
+    Every reader of a checks entry looks its keys up by exact name
+    (runner._evaluate_checks, mc_runner.positive_control_ok), so a typo'd
+    block key would load fine and simply never grade -- indistinguishable
+    from a passing run, one level up from #984's typo'd axis (#997). The
+    closed set is the measured trade-off: beyond the five reader keys it
+    recognizes only the "description" annotation key that sim/README.md
+    documents and the committed manifests carry, so it forbids nothing
+    that exists. Called from load() next to _validate_spread_checks,
+    before anything expensive runs, so a typo'd manifest fails in
+    milliseconds instead of grading a campaign with the floor gone."""
+    for name, entry in raw.get("checks", {}).items():
+        for key in (entry or {}):
+            if key not in RECOGNIZED_CHECK_KEYS:
+                raise ValueError(
+                    f"{tb_json_path}: checks.{name}.{key}: unknown check "
+                    f"key {key!r} -- valid keys: "
+                    f"{', '.join(RECOGNIZED_CHECK_KEYS)}"
+                )
+
 
 def _validate_spread_checks(tb_json_path: Path, raw: dict) -> None:
     """Raise ValueError if any min/max_spread_pct_by_axis key names an axis
@@ -115,6 +164,7 @@ def load(tb_json_path: Path) -> Manifest:
     with tb_json_path.open() as f:
         raw = json.load(f)
     _validate_spread_checks(tb_json_path, raw)
+    _validate_check_keys(tb_json_path, raw)
     experiment_dir = tb_json_path.parent.parent  # .../<experiment>/testbench/tb.json
     fragment = tb_json_path.parent / raw["netlist_fragment"]
     if not fragment.is_file():
