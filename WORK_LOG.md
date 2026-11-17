@@ -6,6 +6,12 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-17
+
+- **PR #992**: Retire the #475 worktree.sh resync pin; accept upstream stale_ref fast-forward in the pushed-tip guard
+- **Issue #990** (closed): Re-evaluate the .loom/resync-ignore pin on worktree.sh: upstream now resets against origin/<branch>, not BASE_REF
+- **PR #994**: chore(loom): resync installed Loom to v0.19.1306
+
 ### 2026-11-16
 
 - **PR #987**: remove write-only Row.spec_anchor field from report manifest

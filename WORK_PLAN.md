@@ -7,8 +7,6 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
-- **#989**: chore(loom): resync installed Loom to v0.19.1305
-- **#992**: Retire the #475 worktree.sh resync pin; accept upstream stale_ref fast-forward in the pushed-tip guard
 
 ## Very Important
 
@@ -45,7 +43,6 @@ Issues currently being built (`loom:building`).
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits"
 - **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST
-- **#990**: Re-evaluate the .loom/resync-ignore pin on worktree.sh: upstream now resets against origin/<branch>, not BASE_REF
 
 ## PRs Awaiting Review
 
@@ -59,8 +56,6 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
-- **#989**: chore(loom): resync installed Loom to v0.19.1305
-- **#992**: Retire the #475 worktree.sh resync pin; accept upstream stale_ref fast-forward in the pushed-tip guard
 
 ## Proposed
 
@@ -79,7 +74,6 @@ Issues carrying `loom:curated`.
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits" *(curated)*
 - **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST *(curated)*
 - **#984**: Spread-axis typo in a harness tb.json is silently ungraded (ported hole; fixed upstream in sky130-comparator) *(curated)*
-- **#990**: Re-evaluate the .loom/resync-ignore pin on worktree.sh: upstream now resets against origin/<branch>, not BASE_REF *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -100,14 +94,14 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 4 |
+| Operator merge-risk holds | 2 |
 | Very important | 0 |
 | Important | 7 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 8 |
+| In Progress (`loom:building`) | 7 |
 | PRs awaiting review | 1 |
-| Approved PRs awaiting merge | 4 |
-| Curated | 14 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 13 |
 | Architect / Hermit proposals | 8 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
