@@ -8,6 +8,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-17
 
+- **PR #996**: fix: reject unknown spread-axis keys at tb.json load instead of silently ungrading
+- **Issue #984** (closed): Spread-axis typo in a harness tb.json is silently ungraded (ported hole; fixed upstream in sky130-comparator)
 - **PR #992**: Retire the #475 worktree.sh resync pin; accept upstream stale_ref fast-forward in the pushed-tip guard
 - **Issue #990** (closed): Re-evaluate the .loom/resync-ignore pin on worktree.sh: upstream now resets against origin/<branch>, not BASE_REF
 - **PR #994**: chore(loom): resync installed Loom to v0.19.1306
