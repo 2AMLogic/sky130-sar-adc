@@ -8,6 +8,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-17
 
+- **PR #999**: fix: reject unknown checks block keys at tb.json load
+- **Issue #997** (closed): A typo in a tb.json spread *block key* name (min_spread_pct_by_axi) is still silently ungraded
 - **PR #996**: fix: reject unknown spread-axis keys at tb.json load instead of silently ungrading
 - **Issue #984** (closed): Spread-axis typo in a harness tb.json is silently ungraded (ported hole; fixed upstream in sky130-comparator)
 - **PR #992**: Retire the #475 worktree.sh resync pin; accept upstream stale_ref fast-forward in the pushed-tip guard
