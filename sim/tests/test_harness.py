@@ -760,6 +760,121 @@ class TestTestbenchManifest(unittest.TestCase):
             self.assertIn(".temp 125", netlist)
 
 
+def _write_tb_manifest(tb_dir: Path, checks: dict) -> Path:
+    """A minimal load()-able manifest fixture with the given checks dict."""
+    tb_dir.mkdir(parents=True, exist_ok=True)
+    (tb_dir / "fake.spice").write_text("R1 vdd 0 1k\n")
+    manifest_json = tb_dir / "tb.json"
+    manifest_json.write_text(
+        json.dumps(
+            {
+                "name": "fake",
+                "netlist_fragment": "fake.spice",
+                "nominal_supply_v": 1.8,
+                "measure": {"v": "v(vdd)"},
+                "checks": checks,
+            }
+        )
+    )
+    return manifest_json
+
+
+class TestSpreadAxisValidation(unittest.TestCase):
+    """A typo'd spread axis key is silently ungraded at runtime
+    (`_evaluate_checks` skips an axis it has no spread for), so it must be
+    rejected at manifest load instead (issue #984)."""
+
+    def _load_with_checks(self, checks: dict) -> testbench.Manifest:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(Path(tmp) / "fake" / "testbench", checks)
+            return testbench.load(manifest_json)
+
+    def test_unknown_min_spread_axis_raises_with_manifest_check_and_valid_set(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(
+                Path(tmp) / "fake" / "testbench",
+                {"vgs_nfet": {"min_spread_pct_by_axis": {"proces": 1.0}}},
+            )
+            with self.assertRaises(ValueError) as ctx:
+                testbench.load(manifest_json)
+        message = str(ctx.exception)
+        self.assertIn(str(manifest_json), message)
+        self.assertIn("checks.vgs_nfet.min_spread_pct_by_axis", message)
+        self.assertIn("'proces'", message)
+        self.assertIn("process, temperature, supply", message)
+
+    def test_unknown_max_spread_axis_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self._load_with_checks(
+                {"x": {"max_spread_pct_by_axis": {"temp": 0.001}}}
+            )
+        self.assertIn("checks.x.max_spread_pct_by_axis", str(ctx.exception))
+        self.assertIn("'temp'", str(ctx.exception))
+
+    def test_valid_spread_axes_load(self):
+        manifest = self._load_with_checks(
+            {
+                "x": {
+                    "min": 0.3,
+                    "max": 1.2,
+                    "min_spread_pct_by_axis": {"process": 1.0, "temperature": 3.0},
+                    "max_spread_pct_by_axis": {"supply": 0.001},
+                }
+            }
+        )
+        self.assertEqual(manifest.name, "fake")
+
+    def test_checks_without_spread_keys_and_empty_spread_dicts_load(self):
+        manifest = self._load_with_checks(
+            {
+                "x": {"min": 0.3, "max": 1.2},
+                "y": {"min_spread_pct_by_axis": {}, "max_spread_pct_by_axis": {}},
+            }
+        )
+        self.assertEqual(set(manifest.checks), {"x", "y"})
+
+    def test_committed_tb_json_manifests_still_load(self):
+        # The two committed manifests are the load path's live fixtures;
+        # all their spread keys spelled valid axes before validation landed
+        # and must keep loading unchanged.
+        for experiment in ("harness-corner-smoke", "mc-smoke"):
+            manifest = testbench.load(SIM_DIR / experiment / "testbench" / "tb.json")
+            self.assertEqual(manifest.experiment_dir.name, experiment)
+
+    def test_spread_axes_constant_matches_runner_emission(self):
+        # Drift pin: the axes runner.run actually emits a spread for must be
+        # exactly SPREAD_AXES -- the validator rejects anything outside the
+        # constant, so a runner that stopped emitting one of them would
+        # strand a legal manifest with a floor that never grades (and a new
+        # runner-only axis would be rejected at load forever).
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(
+                Path(tmp) / "fake" / "testbench",
+                {"v": {"min_spread_pct_by_axis": {"temperature": 1.0}}},
+            )
+            manifest = testbench.load(manifest_json)
+
+            class FakePdkInfo:
+                found = True
+                error = None
+                ngspice_lib = "/fake/sky130.lib.spice"
+
+            def fake_ngspice(netlist, scratch_dir, cid, **kwargs):
+                temp = float(netlist.split(".temp ")[1].split()[0])
+                return f"v = {0.5 + temp / 1000:.6f}\n"
+
+            with mock.patch.object(runner.pdk, "resolve", return_value=FakePdkInfo()):
+                with mock.patch.object(runner.toolchain, "run_ngspice", fake_ngspice):
+                    result, axis_spreads = runner.run(
+                        manifest, process_corners=["tt"], temperatures_c=[27, 47],
+                        quiet=True,
+                    )
+        self.assertTrue(result.overall_ok)
+        self.assertEqual(set(axis_spreads["v"]), set(testbench.SPREAD_AXES))
+        for name in manifest.measure:
+            self.assertEqual(set(axis_spreads[name]), set(testbench.SPREAD_AXES))
+
+
 class TestMcRunner(unittest.TestCase):
     def test_distribution_stats(self):
         draws = [

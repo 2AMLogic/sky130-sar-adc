@@ -300,7 +300,10 @@ and appends the `.control`/`let`/`print` block built from `measure`.
 asserts a measurement *must* move by at least some amount along a given PVT
 axis. That is what catches the failure mode a corner runner is most prone to —
 silently simulating typical everywhere while printing a plausible-looking
-table. `sim/selftest.sh` stage 4 exercises exactly this (see below).
+table. `sim/selftest.sh` stage 4 exercises exactly this (see below). The axis
+keys of `min_spread_pct_by_axis` / `max_spread_pct_by_axis` are validated at
+manifest load: an axis outside `process` / `temperature` / `supply` raises
+`ValueError` rather than silently grading as if the floor were not there.
 
 ### Corner-grid shape (one-at-a-time, not full factorial)
 
