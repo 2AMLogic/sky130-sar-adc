@@ -224,6 +224,7 @@ on:
     branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, labeled]
+  merge_group:
   schedule:
     # 06:00 UTC daily
     - cron: "0 6 * * *"
@@ -334,6 +335,15 @@ jobs:
       #     merge-base), so a multi-commit push is covered in full and evidence
       #     dropped by a history rewrite is still seen. An all-zero `before`
       #     fails in the checker.
+      #   merge_group (issue #1002, the merge queue; adapted from
+      #     sky130-comparator#332): the queue's trial-merge commit vs the
+      #     event's merge_group.base_sha, directly (the same shape as push --
+      #     the base..head range IS the whole queued change). The queue
+      #     re-runs the gate on the merged result, so evidence cannot land on
+      #     a base it was never checked against. A missing or non-oid base
+      #     fails the step in `is_oid` below; the checker itself treats a
+      #     set-but-empty $APPEND_ONLY_BASE the same way (both sides fail
+      #     closed, never the checker's local default).
       #   schedule / workflow_dispatch: the checker's local default
       #     (merge-base with origin/main). On main that is a zero diff and
       #     checks no history; the PR and push runs are the history guard.
@@ -344,6 +354,8 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_AFTER: ${{ github.sha }}
+          MG_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MG_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
         run: |
           set -euo pipefail
           is_oid() { [[ "$1" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; }
@@ -363,6 +375,10 @@ jobs:
             push)
               export_oid APPEND_ONLY_BASE "$PUSH_BEFORE"
               export_oid APPEND_ONLY_HEAD "$PUSH_AFTER"
+              ;;
+            merge_group)
+              export_oid APPEND_ONLY_BASE "$MG_BASE_SHA"
+              export_oid APPEND_ONLY_HEAD "$MG_HEAD_SHA"
               ;;
             *)
               echo "$EVENT_NAME: using the checker's local default (merge-base with origin/main)"
