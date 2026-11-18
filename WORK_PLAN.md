@@ -28,7 +28,7 @@ _None._
 
 ## Ready
 
-Human-approved issues ready for implementation (`loom:issue`).
+Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
 _None._
 
@@ -54,8 +54,8 @@ PRs waiting on Judge (`loom:review-requested`).
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
-- **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
+- **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal — closes #834
+- **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep — closes #965
 
 ## Proposed
 
@@ -73,7 +73,6 @@ Issues carrying `loom:curated`.
 - **#811**: Re-run multi-corner/MC sim records via klt sim under open_pdks f6eeac7 as superseding records (#709 split) *(curated)* *(held)*
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits" *(curated)*
 - **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST *(curated)*
-- **#1002**: Merge queue: add the merge_group trigger and adapt the PR-metadata gates *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -97,11 +96,11 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 2 |
 | Very important | 0 |
 | Important | 7 |
-| Ready (`loom:issue`) | 0 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
 | In Progress (`loom:building`) | 7 |
 | PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 2 |
-| Curated | 13 |
+| Curated | 12 |
 | Architect / Hermit proposals | 8 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->

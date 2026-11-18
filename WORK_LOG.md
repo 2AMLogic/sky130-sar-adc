@@ -6,6 +6,11 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-18
+
+- **PR #1004**: ci: add the merge_group trigger and resolve the queue base/head for the append-only gate
+- **Issue #1002** (closed): Merge queue: add the merge_group trigger and adapt the PR-metadata gates
+
 ### 2026-11-17
 
 - **PR #999**: fix: reject unknown checks block keys at tb.json load
