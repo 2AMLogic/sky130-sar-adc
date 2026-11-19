@@ -6,6 +6,10 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-19
+
+- **Issue #869** (closed): Merge-sequencing deadlock: PR #788 and stacked child PR #798 block each other
+
 ### 2026-11-18
 
 - **PR #1004**: ci: add the merge_group trigger and resolve the queue base/head for the append-only gate
