@@ -840,6 +840,20 @@ def summarize(searches: dict[str, CornerSearch], units: dict[str, dict[int, Unit
     }
 
 
+def runner_check_posture(camp: dict) -> str:
+    """What the campaign actually requested for `batch.runner_version_check`,
+    read from the recorded `batch options` (never assumed from the flag)."""
+    raw = (camp.get("environment") or {}).get("batch options")
+    try:
+        opts = json.loads(raw) if isinstance(raw, str) else dict(raw or {})
+    except (ValueError, TypeError):
+        return "the recorded batch options could not be read, so the skew-check setting is not stated"
+    if "runner_version_check" in opts:
+        return f"the campaign ran with `batch.runner_version_check: {opts['runner_version_check']}`"
+    return ("the request carried no `batch.runner_version_check` key (`--allow-runner-skew` was not "
+            "passed), so the klt default applied")
+
+
 def runner_skew(probe_log: Sequence[dict], extra_runs: Sequence[dict] = ()) -> list[str]:
     """Distinct 'runner klt X vs client klt Y' statements from the submissions'
     `environment.remote` blocks, for every run whose runner and client

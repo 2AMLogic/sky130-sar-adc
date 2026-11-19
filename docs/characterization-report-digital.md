@@ -57,7 +57,7 @@ Digital rail `VPWR` (positive) against `VGND`; declared interface loads and a de
 - Code coverage: only the codes 811, 212, 682, 341 are exercised; the all-ones and all-zeros codes are NOT exercised.
 - Reset coverage: the power-up reset state, its release and the automatic restart after each conversion. No mid-conversion asynchronous reset is injected, so reset behaviour during a conversion is NOT characterized.
 - Idle/reset power is measured with RST_B asserted and the clock running; clock-stopped static leakage is NOT measured.
-- Execution: fleet runner klt 0.9.0 vs submitting client klt 0.9.1.dev144+g1d4477d34534 (run with `batch.runner_version_check: warn`); see the record's version-skew section.
+- Execution: fleet runner klt 0.9.0 vs submitting client klt 0.9.1.dev144+g1d4477d34534 (the request carried no `batch.runner_version_check` key (`--allow-runner-skew` was not passed), so the klt default applied); see the record's version-skew section.
 - Pass means every sampled check held 0.9 T after each launching edge for every one of the four conversions.
 
 ## Pins
