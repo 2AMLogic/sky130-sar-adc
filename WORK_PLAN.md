@@ -48,12 +48,13 @@ Issues currently being built (`loom:building`).
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
+_None._
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
+- **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal — closes #834
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep — closes #965
 
@@ -98,8 +99,8 @@ Issues carrying `loom:curated`.
 | Important | 7 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
 | In Progress (`loom:building`) | 7 |
-| PRs awaiting review | 1 |
-| Approved PRs awaiting merge | 2 |
+| PRs awaiting review | 0 |
+| Approved PRs awaiting merge | 3 |
 | Curated | 12 |
 | Architect / Hermit proposals | 8 |
 | Active epics | 1 |
