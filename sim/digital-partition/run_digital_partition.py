@@ -292,8 +292,7 @@ def render_record(rec_id: str, camp: dict, supersedes: str, written_by: str) -> 
         a("### Runner / client version skew (disclosed)")
         a("")
         for m in skew:
-            a(f"- {m}; the campaign ran with `batch.runner_version_check: warn` "
-              "(`--allow-runner-skew`) because the fleet image lags the client. The request uses only "
+            a(f"- {m}; {dc.runner_check_posture(camp)}. The fleet image lags the client. The request uses only "
               "features present in both (circuit-body netlist, `.meas` cards, supply `alter`, `exclude`); "
               "every probe is graded by this repository's own checks rather than by the runner's status "
               "(the per-probe `report.json` measurements under `corners/<record>/`), and the negative "

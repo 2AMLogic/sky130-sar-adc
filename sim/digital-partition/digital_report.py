@@ -189,7 +189,7 @@ def render(repo: Path) -> str:
     a("- Idle/reset power is measured with RST_B asserted and the clock running; clock-stopped "
       "static leakage is NOT measured.")
     for m in dc.runner_skew(camp.get("probe_log", []), [camp.get("negative_control_run") or {}]):
-        a(f"- Execution: {m} (run with `batch.runner_version_check: warn`); see the record's "
+        a(f"- Execution: {m} ({dc.runner_check_posture(camp)}); see the record's "
           "version-skew section.")
     a("- Pass means every sampled check held 0.9 T after each launching edge for every one of the four conversions.")
     a("")

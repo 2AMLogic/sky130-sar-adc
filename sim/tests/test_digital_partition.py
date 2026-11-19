@@ -659,6 +659,13 @@ class TestRecordRendering(unittest.TestCase):
         for cid in CORNERS:
             self.assertIn(f"`{cid}`", text)
 
+    def test_runner_check_posture_follows_recorded_batch_options(self):
+        none = {"environment": {"batch options": json.dumps({"capacity_wait_s": 3600.0})}}
+        self.assertIn("no `batch.runner_version_check` key", dc.runner_check_posture(none))
+        self.assertNotIn("batch.runner_version_check: warn", dc.runner_check_posture(none))
+        warn = {"environment": {"batch options": json.dumps({"runner_version_check": "warn"})}}
+        self.assertIn("`batch.runner_version_check: warn`", dc.runner_check_posture(warn))
+
 
 class TestReportAndEnvelope(unittest.TestCase):
     def make_repo(self, td: Path, meets=True):

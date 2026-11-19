@@ -1,0 +1,1884 @@
+{
+  "environment": {
+    "12 MHz tt deck netlist sha256": "faab644936395dadf30eea0d81d4331823ad647f44f0c029c65cbb22ded7cd99",
+    "backend": "batch",
+    "batch options": "{\"capacity_wait_s\": 3600.0}",
+    "engine (from reports)": "ngspice 46",
+    "klt": "klt 0.9.1.dev144+g1d4477d34534",
+    "local ngspice (informational; simulations ran on the backend)": "ngspice-46",
+    "ngspice line": "ngspice-46",
+    "remote jobs": "{'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-13c5d415c372', 'region': 'us-east-1', 'instance_id': 'i-0534009d8f888a9ae', 'instance_type': 'm7i.4xlarge', 'availability_zone': 'us-east-1b', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 141, 'client_submitted_at': '2026-11-05T21:52:14.900423Z', 'client_launched_at': '2026-11-05T21:55:10.046314Z', 'client_status_terminal_at': '2026-11-05T21:57:44.021541Z', 'client_collected_at': '2026-11-05T21:57:44.865371Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 9, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 64920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-1a0917a751b4', 'region': 'us-east-1', 'instance_id': 'i-06a84aadcae1dac38', 'instance_type': 'm6i.4xlarge', 'availability_zone': 'us-east-1d', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 246, 'client_submitted_at': '2026-11-05T21:47:19.332709Z', 'client_launched_at': '2026-11-05T21:47:37.180284Z', 'client_status_terminal_at': '2026-11-05T21:52:13.661318Z', 'client_collected_at': '2026-11-05T21:52:14.481237Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 9, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 64920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-1e40eb85856b', 'region': 'us-east-1', 'instance_id': 'i-06a24c68af5298060', 'instance_type': 'm7i.4xlarge', 'availability_zone': 'us-east-1a', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 115, 'client_submitted_at': '2026-11-05T22:03:44.360264Z', 'client_launched_at': '2026-11-05T22:04:35.923230Z', 'client_status_terminal_at': '2026-11-05T22:07:10.131502Z', 'client_collected_at': '2026-11-05T22:07:11.086693Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 9, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 64920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-2e53c150301b', 'region': 'us-east-1', 'instance_id': 'i-0e23f5e57205f891c', 'instance_type': 'm6i.4xlarge', 'availability_zone': 'us-east-1d', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 63, 'client_submitted_at': '2026-11-05T22:10:22.376593Z', 'client_launched_at': '2026-11-05T22:21:33.231337Z', 'client_status_terminal_at': '2026-11-05T22:23:05.864500Z', 'client_collected_at': '2026-11-05T22:23:06.657409Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 4, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 28920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 28920s (options.timeout_s 7200s x 4 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-3116d927ce86', 'region': 'us-east-1', 'instance_id': 'i-0bfef4747335f1ad8', 'instance_type': 'm6i.4xlarge', 'availability_zone': 'us-east-1d', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 43, 'client_submitted_at': '2026-11-05T22:28:01.374993Z', 'client_launched_at': '2026-11-05T22:28:20.799926Z', 'client_status_terminal_at': '2026-11-05T22:29:22.702301Z', 'client_collected_at': '2026-11-05T22:29:23.393953Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 1, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 7320.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 7320s (options.timeout_s 7200s x 1 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-5f338489b3e3', 'region': 'us-east-1', 'instance_id': 'i-069d6ca6bea5acae9', 'instance_type': 'm7i.4xlarge', 'availability_zone': 'us-east-1b', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 56, 'client_submitted_at': '2026-11-05T22:07:11.612003Z', 'client_launched_at': '2026-11-05T22:08:11.707833Z', 'client_status_terminal_at': '2026-11-05T22:09:44.432025Z', 'client_collected_at': '2026-11-05T22:09:45.293869Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 4, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 28920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 28920s (options.timeout_s 7200s x 4 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-7696716de751', 'region': 'us-east-1', 'instance_id': 'i-083b3fbbcfd1547a1', 'instance_type': 'm7i.4xlarge', 'availability_zone': 'us-east-1c', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 59, 'client_submitted_at': '2026-11-05T22:07:11.618443Z', 'client_launched_at': '2026-11-05T22:08:48.393659Z', 'client_status_terminal_at': '2026-11-05T22:10:21.115384Z', 'client_collected_at': '2026-11-05T22:10:21.950254Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 5, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 36120.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 36120s (options.timeout_s 7200s x 5 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-865854bfcb32', 'region': 'us-east-1', 'instance_id': 'i-06bc5c0017df697ba', 'instance_type': 'm7i.4xlarge', 'availability_zone': 'us-east-1a', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 54, 'client_submitted_at': '2026-11-05T22:23:07.091659Z', 'client_launched_at': '2026-11-05T22:26:27.547540Z', 'client_status_terminal_at': '2026-11-05T22:28:00.237877Z', 'client_collected_at': '2026-11-05T22:28:00.973291Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 2, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 14520.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 14520s (options.timeout_s 7200s x 2 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-ae2a280d3ba5', 'region': 'us-east-1', 'instance_id': 'i-04f4ddfb4ae22e1b6', 'instance_type': 'm6i.4xlarge', 'availability_zone': 'us-east-1c', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 73, 'client_submitted_at': '2026-11-05T22:24:57.975411Z', 'client_launched_at': '2026-11-05T22:25:51.291097Z', 'client_status_terminal_at': '2026-11-05T22:27:23.925374Z', 'client_collected_at': '2026-11-05T22:27:24.802904Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 4, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 28920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 28920s (options.timeout_s 7200s x 4 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-c01e31561826', 'region': 'us-east-1', 'instance_id': 'i-0de8ef3a7258b62ce', 'instance_type': 'm7i.4xlarge', 'availability_zone': 'us-east-1a', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 109, 'client_submitted_at': '2026-11-05T22:00:43.192610Z', 'client_launched_at': '2026-11-05T22:01:39.019921Z', 'client_status_terminal_at': '2026-11-05T22:03:42.856003Z', 'client_collected_at': '2026-11-05T22:03:43.833687Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 9, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 64920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-c6fd092306f9', 'region': 'us-east-1', 'instance_id': 'i-0221d309f6a4e7206', 'instance_type': 'c7i.8xlarge', 'availability_zone': 'us-east-1a', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '2', 'physical_cores': '16', 'elapsed_seconds': 56, 'client_submitted_at': '2026-11-05T22:23:07.077863Z', 'client_launched_at': '2026-11-05T22:23:24.179991Z', 'client_status_terminal_at': '2026-11-05T22:24:56.754080Z', 'client_collected_at': '2026-11-05T22:24:57.551261Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 3, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 21720.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 21720s (options.timeout_s 7200s x 3 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-e459e35fffa9', 'region': 'us-east-1', 'instance_id': 'i-0c063a703091e4de7', 'instance_type': 'm7i.4xlarge', 'availability_zone': 'us-east-1a', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 66, 'client_submitted_at': '2026-11-05T22:10:22.374029Z', 'client_launched_at': '2026-11-05T22:12:57.240512Z', 'client_status_terminal_at': '2026-11-05T22:14:30.244914Z', 'client_collected_at': '2026-11-05T22:14:31.189553Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 5, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 36120.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 36120s (options.timeout_s 7200s x 5 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-ed084c923916', 'region': 'us-east-1', 'instance_id': 'i-0881d1402c58f6c76', 'instance_type': 'c7i.8xlarge', 'availability_zone': 'us-east-1a', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '2', 'physical_cores': '16', 'elapsed_seconds': 371, 'client_submitted_at': '2026-11-05T21:32:16.254352Z', 'client_launched_at': '2026-11-05T21:34:36.531453Z', 'client_status_terminal_at': '2026-11-05T21:41:15.997100Z', 'client_collected_at': '2026-11-05T21:41:16.819379Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 9, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 64920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-f1c497af2912', 'region': 'us-east-1', 'instance_id': 'i-0b4b012b16c9bac3e', 'instance_type': 'm7i.4xlarge', 'availability_zone': 'us-east-1c', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 323, 'client_submitted_at': '2026-11-05T21:41:17.247012Z', 'client_launched_at': '2026-11-05T21:41:40.139172Z', 'client_status_terminal_at': '2026-11-05T21:47:18.088894Z', 'client_collected_at': '2026-11-05T21:47:18.894900Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 9, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 64920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-f9f7562a764b', 'region': 'us-east-1', 'instance_id': 'i-08169eeeec2b4c39c', 'instance_type': 'm7i.4xlarge', 'availability_zone': 'us-east-1c', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 115, 'client_submitted_at': '2026-11-05T21:57:45.294326Z', 'client_launched_at': '2026-11-05T21:58:07.749989Z', 'client_status_terminal_at': '2026-11-05T22:00:41.745469Z', 'client_collected_at': '2026-11-05T22:00:42.698416Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8488C', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 9, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 64920.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}, {'provider': 'aws-batch-fleet', 'job_id': 'klt-sim-fe21fb561165', 'region': 'us-east-1', 'instance_id': 'i-0c223df64d95c44ab', 'instance_type': 'm6i.4xlarge', 'availability_zone': 'us-east-1d', 'ami_id': 'ami-04591566329422a44', 'lifecycle': 'spot', 'spot': True, 'state': 'done', 'exit_code': '0', 'concurrency': '1', 'physical_cores': '8', 'elapsed_seconds': 60, 'client_submitted_at': '2026-11-05T22:28:01.374433Z', 'client_launched_at': '2026-11-05T22:28:23.186932Z', 'client_status_terminal_at': '2026-11-05T22:29:55.788462Z', 'client_collected_at': '2026-11-05T22:29:56.515852Z', 'runner_klt_version': '0.9.0', 'client_klt_version': '0.9.1.dev144+g1d4477d34534', 'runner_compatibility': 'match', 'worker_environment': {'capture': 'ok', 'simulator': {'requested_binary': 'ngspice', 'binary_source': 'PATH', 'selected_path': '/usr/local/bin/ngspice', 'version_banner': '******\\n** ngspice-46 : Circuit level simulation program\\n** Compiled with KLU Direct Linear Solver\\n** The U. C. Berkeley CAD Group\\n** Copyright 1985-1994, Regents of the University of California.\\n** Copyright 2001-2025, The ngspice team.\\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\\n******\\n', 'version_probe': 'ok'}, 'pdk': {'variant': 'sky130A', 'root': '/opt/pdk', 'stamp_scheme': 'sources-sha256', 'stamp_sha256': 'd5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b', 'stamp_text': 'open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b', 'models_staged': False, 'stamp_scope': 'executed'}, 'cpu_model': 'Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz', 'omp_num_threads': None, 'image_manifest': None, 'model_inputs': None, 'diagnostics': [], 'pdk_stamp_comparison': {'status': 'mismatch', 'warning': \"the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)\"}, 'engine_build_comparison': {'status': 'match'}}, 'runner_model_inputs': None, 'job_ceiling': {'basis': 'conservative_serial_bound', 'unit_count': 3, 'per_unit_timeout_s': 7200.0, 'overhead_s': 120.0, 'job_bound_s': 21720.0, 'max_job_seconds': 3600.0, 'max_job_seconds_source': 'fleet_config', 'exceeds_ceiling': True, 'check': 'warn', 'max_units_per_job': 0, 'recommended_hosts': None, 'warning': \"batch job bound 21720s (options.timeout_s 7200s x 3 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s\"}}"
+  },
+  "negative_control_run": {
+    "backend": "batch",
+    "remote": {
+      "ami_id": "ami-04591566329422a44",
+      "availability_zone": "us-east-1c",
+      "client_collected_at": "2026-11-05T21:36:40.292795Z",
+      "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+      "client_launched_at": "2026-11-05T21:34:35.877135Z",
+      "client_status_terminal_at": "2026-11-05T21:36:39.296897Z",
+      "client_submitted_at": "2026-11-05T21:32:16.254347Z",
+      "concurrency": "1",
+      "elapsed_seconds": 83,
+      "exit_code": "0",
+      "instance_id": "i-0603eb44741b1a503",
+      "instance_type": "m7i.4xlarge",
+      "job_ceiling": {
+        "basis": "conservative_serial_bound",
+        "check": "warn",
+        "exceeds_ceiling": true,
+        "job_bound_s": 64920.0,
+        "max_job_seconds": 3600.0,
+        "max_job_seconds_source": "fleet_config",
+        "max_units_per_job": 0,
+        "overhead_s": 120.0,
+        "per_unit_timeout_s": 7200.0,
+        "recommended_hosts": null,
+        "unit_count": 9,
+        "warning": "batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+      },
+      "job_id": "klt-sim-be28b54b9ccb",
+      "lifecycle": "spot",
+      "physical_cores": "8",
+      "provider": "aws-batch-fleet",
+      "region": "us-east-1",
+      "runner_compatibility": "match",
+      "runner_klt_version": "0.9.0",
+      "runner_model_inputs": null,
+      "spot": true,
+      "state": "done",
+      "worker_environment": {
+        "capture": "ok",
+        "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+        "diagnostics": [],
+        "engine_build_comparison": {
+          "status": "match"
+        },
+        "image_manifest": null,
+        "model_inputs": null,
+        "omp_num_threads": null,
+        "pdk": {
+          "models_staged": false,
+          "root": "/opt/pdk",
+          "stamp_scheme": "sources-sha256",
+          "stamp_scope": "executed",
+          "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+          "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+          "variant": "sky130A"
+        },
+        "pdk_stamp_comparison": {
+          "status": "mismatch",
+          "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+        },
+        "simulator": {
+          "binary_source": "PATH",
+          "requested_binary": "ngspice",
+          "selected_path": "/usr/local/bin/ngspice",
+          "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+          "version_probe": "ok"
+        }
+      }
+    },
+    "request": "f6000.0000MHz_e8028608",
+    "status": "pass"
+  },
+  "pins": {
+    "PDK": "sky130A @ f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+    "design/sar_adc_top.sch sha256": "sha256:fbd3643f1988a5ed243a1f14d67251640272dd8ca2d923b69bc907179e0b9fc8",
+    "design/sar_adc_top.spice sha256 (informational; whole file incl. analog)": "sha256:3a519b41e0bea4e82ec20828066ea31d123fe6879d922077ab0c0c5eec0d83e6",
+    "design/sar_sequencer.sch sha256": "sha256:9d76813255ceb43a7f2dcde6cba04d6396cb9e7767c3e0f2cce178b5db849999",
+    "digital deck generator sha256 (informational)": "sha256:5541401c356c3c8fbf06f800af295becea3cf5f9578b5a0b222f48091a48877f",
+    "digital partition netlist sha256": "sha256:31e3fa2611279013e630c589eeda151b278b6ab0ece7729242e684121df1fdfc",
+    "frequency grid": "12 MHz x 2^(i/8), ceiling index 56",
+    "netlist-snapshot sha256": "sha256:faab644936395dadf30eea0d81d4331823ad647f44f0c029c65cbb22ded7cd99"
+  },
+  "probe_log": [
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "ss_27c_1.80v",
+        "ff_27c_1.80v",
+        "sf_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_-40c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.62v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 12.0,
+      "index": 0,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1a",
+          "client_collected_at": "2026-11-05T21:41:16.819379Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T21:34:36.531453Z",
+          "client_status_terminal_at": "2026-11-05T21:41:15.997100Z",
+          "client_submitted_at": "2026-11-05T21:32:16.254352Z",
+          "concurrency": "2",
+          "elapsed_seconds": 371,
+          "exit_code": "0",
+          "instance_id": "i-0881d1402c58f6c76",
+          "instance_type": "c7i.8xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 64920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 9,
+            "warning": "batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-ed084c923916",
+          "lifecycle": "spot",
+          "physical_cores": "16",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0012.0000MHz_e8028608",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "ss_27c_1.80v",
+        "ff_27c_1.80v",
+        "sf_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_-40c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.62v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 24.0,
+      "index": 8,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1c",
+          "client_collected_at": "2026-11-05T21:47:18.894900Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T21:41:40.139172Z",
+          "client_status_terminal_at": "2026-11-05T21:47:18.088894Z",
+          "client_submitted_at": "2026-11-05T21:41:17.247012Z",
+          "concurrency": "1",
+          "elapsed_seconds": 323,
+          "exit_code": "0",
+          "instance_id": "i-0b4b012b16c9bac3e",
+          "instance_type": "m7i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 64920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 9,
+            "warning": "batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-f1c497af2912",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0024.0000MHz_e8028608",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "ss_27c_1.80v",
+        "ff_27c_1.80v",
+        "sf_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_-40c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.62v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 48.0,
+      "index": 16,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1d",
+          "client_collected_at": "2026-11-05T21:52:14.481237Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T21:47:37.180284Z",
+          "client_status_terminal_at": "2026-11-05T21:52:13.661318Z",
+          "client_submitted_at": "2026-11-05T21:47:19.332709Z",
+          "concurrency": "1",
+          "elapsed_seconds": 246,
+          "exit_code": "0",
+          "instance_id": "i-06a84aadcae1dac38",
+          "instance_type": "m6i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 64920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 9,
+            "warning": "batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-1a0917a751b4",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0048.0000MHz_e8028608",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "ss_27c_1.80v",
+        "ff_27c_1.80v",
+        "sf_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_-40c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.62v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 96.0,
+      "index": 24,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1b",
+          "client_collected_at": "2026-11-05T21:57:44.865371Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T21:55:10.046314Z",
+          "client_status_terminal_at": "2026-11-05T21:57:44.021541Z",
+          "client_submitted_at": "2026-11-05T21:52:14.900423Z",
+          "concurrency": "1",
+          "elapsed_seconds": 141,
+          "exit_code": "0",
+          "instance_id": "i-0534009d8f888a9ae",
+          "instance_type": "m7i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 64920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 9,
+            "warning": "batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-13c5d415c372",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0096.0000MHz_e8028608",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "ss_27c_1.80v",
+        "ff_27c_1.80v",
+        "sf_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_-40c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.62v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 192.0,
+      "index": 32,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1c",
+          "client_collected_at": "2026-11-05T22:00:42.698416Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T21:58:07.749989Z",
+          "client_status_terminal_at": "2026-11-05T22:00:41.745469Z",
+          "client_submitted_at": "2026-11-05T21:57:45.294326Z",
+          "concurrency": "1",
+          "elapsed_seconds": 115,
+          "exit_code": "0",
+          "instance_id": "i-08169eeeec2b4c39c",
+          "instance_type": "m7i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 64920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 9,
+            "warning": "batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-f9f7562a764b",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0192.0000MHz_e8028608",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "ss_27c_1.80v",
+        "ff_27c_1.80v",
+        "sf_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_-40c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.62v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 384.0,
+      "index": 40,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1a",
+          "client_collected_at": "2026-11-05T22:03:43.833687Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:01:39.019921Z",
+          "client_status_terminal_at": "2026-11-05T22:03:42.856003Z",
+          "client_submitted_at": "2026-11-05T22:00:43.192610Z",
+          "concurrency": "1",
+          "elapsed_seconds": 109,
+          "exit_code": "0",
+          "instance_id": "i-0de8ef3a7258b62ce",
+          "instance_type": "m7i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 64920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 9,
+            "warning": "batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-c01e31561826",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0384.0000MHz_e8028608",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "ss_27c_1.80v",
+        "ff_27c_1.80v",
+        "sf_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_-40c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.62v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 768.0,
+      "index": 48,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1a",
+          "client_collected_at": "2026-11-05T22:07:11.086693Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:04:35.923230Z",
+          "client_status_terminal_at": "2026-11-05T22:07:10.131502Z",
+          "client_submitted_at": "2026-11-05T22:03:44.360264Z",
+          "concurrency": "1",
+          "elapsed_seconds": 115,
+          "exit_code": "0",
+          "instance_id": "i-06a24c68af5298060",
+          "instance_type": "m7i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 64920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 9,
+            "warning": "batch job bound 64920s (options.timeout_s 7200s x 9 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-1e40eb85856b",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0768.0000MHz_e8028608",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "ss_27c_1.80v",
+        "sf_27c_1.80v",
+        "tt_-40c_1.80v",
+        "tt_27c_1.62v"
+      ],
+      "f_mhz": 543.0580079512686,
+      "index": 44,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1c",
+          "client_collected_at": "2026-11-05T22:10:21.950254Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:08:48.393659Z",
+          "client_status_terminal_at": "2026-11-05T22:10:21.115384Z",
+          "client_submitted_at": "2026-11-05T22:07:11.618443Z",
+          "concurrency": "1",
+          "elapsed_seconds": 59,
+          "exit_code": "0",
+          "instance_id": "i-083b3fbbcfd1547a1",
+          "instance_type": "m7i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 36120.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 5,
+            "warning": "batch job bound 36120s (options.timeout_s 7200s x 5 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-7696716de751",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0543.0580MHz_660db2b3",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "ff_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 1536.0,
+      "index": 56,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1b",
+          "client_collected_at": "2026-11-05T22:09:45.293869Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:08:11.707833Z",
+          "client_status_terminal_at": "2026-11-05T22:09:44.432025Z",
+          "client_submitted_at": "2026-11-05T22:07:11.612003Z",
+          "concurrency": "1",
+          "elapsed_seconds": 56,
+          "exit_code": "0",
+          "instance_id": "i-069d6ca6bea5acae9",
+          "instance_type": "m7i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 28920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 4,
+            "warning": "batch job bound 28920s (options.timeout_s 7200s x 4 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-5f338489b3e3",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f1536.0000MHz_2cb55a8a",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "ss_27c_1.80v",
+        "sf_27c_1.80v",
+        "tt_-40c_1.80v",
+        "tt_27c_1.62v"
+      ],
+      "f_mhz": 645.8084469148528,
+      "index": 46,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1a",
+          "client_collected_at": "2026-11-05T22:14:31.189553Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:12:57.240512Z",
+          "client_status_terminal_at": "2026-11-05T22:14:30.244914Z",
+          "client_submitted_at": "2026-11-05T22:10:22.374029Z",
+          "concurrency": "1",
+          "elapsed_seconds": 66,
+          "exit_code": "0",
+          "instance_id": "i-0c063a703091e4de7",
+          "instance_type": "m7i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 36120.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 5,
+            "warning": "batch job bound 36120s (options.timeout_s 7200s x 5 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-e459e35fffa9",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0645.8084MHz_660db2b3",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "ff_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 1086.1160159025371,
+      "index": 52,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1d",
+          "client_collected_at": "2026-11-05T22:23:06.657409Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:21:33.231337Z",
+          "client_status_terminal_at": "2026-11-05T22:23:05.864500Z",
+          "client_submitted_at": "2026-11-05T22:10:22.376593Z",
+          "concurrency": "1",
+          "elapsed_seconds": 63,
+          "exit_code": "0",
+          "instance_id": "i-0e23f5e57205f891c",
+          "instance_type": "m6i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 28920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 4,
+            "warning": "batch job bound 28920s (options.timeout_s 7200s x 4 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-2e53c150301b",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f1086.1160MHz_2cb55a8a",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "ss_27c_1.80v",
+        "tt_27c_1.62v"
+      ],
+      "f_mhz": 592.2089569566492,
+      "index": 45,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1a",
+          "client_collected_at": "2026-11-05T22:28:00.973291Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:26:27.547540Z",
+          "client_status_terminal_at": "2026-11-05T22:28:00.237877Z",
+          "client_submitted_at": "2026-11-05T22:23:07.091659Z",
+          "concurrency": "1",
+          "elapsed_seconds": 54,
+          "exit_code": "0",
+          "instance_id": "i-06bc5c0017df697ba",
+          "instance_type": "m7i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 14520.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 2,
+            "warning": "batch job bound 14520s (options.timeout_s 7200s x 2 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-865854bfcb32",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0592.2090MHz_bdc3aa0a",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "tt_27c_1.80v",
+        "sf_27c_1.80v",
+        "tt_-40c_1.80v"
+      ],
+      "f_mhz": 704.2591051811875,
+      "index": 47,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1a",
+          "client_collected_at": "2026-11-05T22:24:57.551261Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:23:24.179991Z",
+          "client_status_terminal_at": "2026-11-05T22:24:56.754080Z",
+          "client_submitted_at": "2026-11-05T22:23:07.077863Z",
+          "concurrency": "2",
+          "elapsed_seconds": 56,
+          "exit_code": "0",
+          "instance_id": "i-0221d309f6a4e7206",
+          "instance_type": "c7i.8xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 21720.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 3,
+            "warning": "batch job bound 21720s (options.timeout_s 7200s x 3 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-c6fd092306f9",
+          "lifecycle": "spot",
+          "physical_cores": "16",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0704.2591MHz_f3851fdf",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "ff_27c_1.80v",
+        "fs_27c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 913.3110643220898,
+      "index": 50,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1c",
+          "client_collected_at": "2026-11-05T22:27:24.802904Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:25:51.291097Z",
+          "client_status_terminal_at": "2026-11-05T22:27:23.925374Z",
+          "client_submitted_at": "2026-11-05T22:24:57.975411Z",
+          "concurrency": "1",
+          "elapsed_seconds": 73,
+          "exit_code": "0",
+          "instance_id": "i-04f4ddfb4ae22e1b6",
+          "instance_type": "m6i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 28920.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 4,
+            "warning": "batch job bound 28920s (options.timeout_s 7200s x 4 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-ae2a280d3ba5",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0913.3111MHz_2cb55a8a",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "fs_27c_1.80v",
+        "tt_125c_1.80v",
+        "tt_27c_1.98v"
+      ],
+      "f_mhz": 837.5099386869178,
+      "index": 49,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1d",
+          "client_collected_at": "2026-11-05T22:29:56.515852Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:28:23.186932Z",
+          "client_status_terminal_at": "2026-11-05T22:29:55.788462Z",
+          "client_submitted_at": "2026-11-05T22:28:01.374433Z",
+          "concurrency": "1",
+          "elapsed_seconds": 60,
+          "exit_code": "0",
+          "instance_id": "i-0c223df64d95c44ab",
+          "instance_type": "m6i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 21720.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 3,
+            "warning": "batch job bound 21720s (options.timeout_s 7200s x 3 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-fe21fb561165",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0837.5099MHz_424c8193",
+        "status": "pass"
+      }
+    },
+    {
+      "corners": [
+        "ff_27c_1.80v"
+      ],
+      "f_mhz": 995.9727779719753,
+      "index": 51,
+      "run": {
+        "backend": "batch",
+        "remote": {
+          "ami_id": "ami-04591566329422a44",
+          "availability_zone": "us-east-1d",
+          "client_collected_at": "2026-11-05T22:29:23.393953Z",
+          "client_klt_version": "0.9.1.dev144+g1d4477d34534",
+          "client_launched_at": "2026-11-05T22:28:20.799926Z",
+          "client_status_terminal_at": "2026-11-05T22:29:22.702301Z",
+          "client_submitted_at": "2026-11-05T22:28:01.374993Z",
+          "concurrency": "1",
+          "elapsed_seconds": 43,
+          "exit_code": "0",
+          "instance_id": "i-0bfef4747335f1ad8",
+          "instance_type": "m6i.4xlarge",
+          "job_ceiling": {
+            "basis": "conservative_serial_bound",
+            "check": "warn",
+            "exceeds_ceiling": true,
+            "job_bound_s": 7320.0,
+            "max_job_seconds": 3600.0,
+            "max_job_seconds_source": "fleet_config",
+            "max_units_per_job": 0,
+            "overhead_s": 120.0,
+            "per_unit_timeout_s": 7200.0,
+            "recommended_hosts": null,
+            "unit_count": 1,
+            "warning": "batch job bound 7320s (options.timeout_s 7200s x 1 units + 120s; a conservative fully-serial upper bound, not a runtime estimate) exceeds the fleet's whole-job ceiling of 3600s (max_job_seconds from fleet_config); a job still running at the ceiling is killed and every unit is reported batch_job_timeout. No remote.hosts value fits: a single unit's bound exceeds the ceiling -- lower options.timeout_s to at most 3480s"
+          },
+          "job_id": "klt-sim-3116d927ce86",
+          "lifecycle": "spot",
+          "physical_cores": "8",
+          "provider": "aws-batch-fleet",
+          "region": "us-east-1",
+          "runner_compatibility": "match",
+          "runner_klt_version": "0.9.0",
+          "runner_model_inputs": null,
+          "spot": true,
+          "state": "done",
+          "worker_environment": {
+            "capture": "ok",
+            "cpu_model": "Intel(R) Xeon(R) Platinum 8375C CPU @ 2.90GHz",
+            "diagnostics": [],
+            "engine_build_comparison": {
+              "status": "match"
+            },
+            "image_manifest": null,
+            "model_inputs": null,
+            "omp_num_threads": null,
+            "pdk": {
+              "models_staged": false,
+              "root": "/opt/pdk",
+              "stamp_scheme": "sources-sha256",
+              "stamp_scope": "executed",
+              "stamp_sha256": "d5ac52956829da3fee35d0b307d4e6cb83ae0e6535b56dba2eefed61cdffaf9b",
+              "stamp_text": "open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b",
+              "variant": "sky130A"
+            },
+            "pdk_stamp_comparison": {
+              "status": "mismatch",
+              "warning": "the worker's PDK revision stamp for sky130A differs from the one the submitter resolved locally; results may differ from a local run (a matching stamp would not prove identical models)"
+            },
+            "simulator": {
+              "binary_source": "PATH",
+              "requested_binary": "ngspice",
+              "selected_path": "/usr/local/bin/ngspice",
+              "version_banner": "******\n** ngspice-46 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2025, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Thu Oct  1 23:51:59 UTC 2026\n******\n",
+              "version_probe": "ok"
+            }
+          }
+        },
+        "request": "f0995.9728MHz_75ebfa43",
+        "status": "pass"
+      }
+    }
+  ],
+  "record_id": "20261105-222956-b179ecb5",
+  "summary": {
+    "area": {
+      "bbox_um": [
+        21.12,
+        -150.0,
+        155.61,
+        -78.145
+      ],
+      "cells": {
+        "sar_sequencer": {
+          "logic_cell_area_um2": 695.6672,
+          "logic_cell_count": 40,
+          "physical_only_area_um2": 654.3776,
+          "physical_only_count": 123,
+          "placed_cell_area_um2": 1350.0448
+        },
+        "top_glue": {
+          "logic_cell_area_um2": 230.2208,
+          "logic_cell_count": 33,
+          "physical_only_area_um2": 4153.984,
+          "physical_only_count": 580,
+          "placed_cell_area_um2": 4384.2048
+        }
+      },
+      "composed_footprint_um2": 9663.779,
+      "disjoint": true,
+      "lef_sha256": "sha256:3a3ea4e9d0973402702764d897659e52fe3d413eb48c306cd811de40a75264fa",
+      "logic_cell_area_um2": 925.888,
+      "macro_area_um2": 6975.3459,
+      "macros": {
+        "sar_sequencer": {
+          "component_count": 163,
+          "die_um": [
+            42.57,
+            42.57
+          ],
+          "macro_area_um2": 1812.2049,
+          "origin_um": [
+            21.12,
+            -150.0
+          ]
+        },
+        "top_glue": {
+          "component_count": 613,
+          "die_um": [
+            71.855,
+            71.855
+          ],
+          "macro_area_um2": 5163.141,
+          "origin_um": [
+            83.755,
+            -150.0
+          ]
+        }
+      },
+      "metric_notes": [
+        "macro_area_um2 = sum of the two routed macros' DEF DIEAREA (MACRO area, includes core margin and unused sites)",
+        "composed_footprint_um2 = bounding box of the two macros as placed in the composed top (FOOTPRINT, includes the gap between them)",
+        "placed_cell_area_um2 = sum of LEF cell footprints of every routed DEF component (CELL area, incl. fill/tap); logic_cell_area_um2 excludes physical-only cells",
+        "the digital decap macros placed in the composed top are physical-only and are NOT part of the partition's logic area",
+        "area is geometry-derived and is not varied by electrical corner"
+      ],
+      "placed_cell_area_um2": 5734.2496,
+      "sources": {
+        "composition": {
+          "compose_request": "layout/sar-adc-top/reports/20261027-193335-4433671f/compose.request.json",
+          "compose_request_sha256": "sha256:99c1df410bcab5dc8c92c06c0607e7222e5ea0d774062ea18cb4a891968319df",
+          "origins_um": {
+            "sar_sequencer": {
+              "x": 21.12,
+              "y": -150.0
+            },
+            "top_glue": {
+              "x": 83.755,
+              "y": -150.0
+            }
+          }
+        },
+        "sar_sequencer": {
+          "def": "layout/sar-sequencer/reports/20261105-191625-bf27ff9d/sar_sequencer.def",
+          "def_sha256": "sha256:b7ac3e122527c9fe0f91138d8369f401375defe55257ef8ec4a570ddee90c1f7",
+          "gds": "layout/sar-sequencer/reports/20261105-191625-bf27ff9d/sar_sequencer.gds",
+          "gds_sha256": "sha256:c5923f446b04af16804cd0840da77007cf08bcc0be1eddbfeb73e39854689ba5",
+          "report": "layout/sar-sequencer/reports/20261105-191625-bf27ff9d"
+        },
+        "top_glue": {
+          "def": "layout/top-glue/reports/20261021-104637-ddc1d72/top_glue.def",
+          "def_sha256": "sha256:63c71901379a73dc908886a7f7f1ad91a4bf4f98c80ad242831526819ba5d124",
+          "gds": "layout/top-glue/reports/20261021-104637-ddc1d72/top_glue.gds",
+          "gds_sha256": "sha256:9bece6739c73b3917dc553a0ec8ea8827b7ea530840bffda6684c70d36328c10",
+          "report": "layout/top-glue/reports/20261021-104637-ddc1d72"
+        }
+      },
+      "sum_of_macro_areas_um2": 6975.3459
+    },
+    "checklist": {
+      "meets": true,
+      "reasons": []
+    },
+    "negative_control": {
+      "f_mhz": 6000.0,
+      "ok": true,
+      "per_corner": {
+        "ff_27c_1.80v": {
+          "n_failures": 107,
+          "n_invalid": 0,
+          "passed": false
+        },
+        "fs_27c_1.80v": {
+          "n_failures": 108,
+          "n_invalid": 0,
+          "passed": false
+        },
+        "sf_27c_1.80v": {
+          "n_failures": 108,
+          "n_invalid": 0,
+          "passed": false
+        },
+        "ss_27c_1.80v": {
+          "n_failures": 102,
+          "n_invalid": 0,
+          "passed": false
+        },
+        "tt_-40c_1.80v": {
+          "n_failures": 108,
+          "n_invalid": 0,
+          "passed": false
+        },
+        "tt_125c_1.80v": {
+          "n_failures": 108,
+          "n_invalid": 0,
+          "passed": false
+        },
+        "tt_27c_1.62v": {
+          "n_failures": 107,
+          "n_invalid": 0,
+          "passed": false
+        },
+        "tt_27c_1.80v": {
+          "n_failures": 108,
+          "n_invalid": 0,
+          "passed": false
+        },
+        "tt_27c_1.98v": {
+          "n_failures": 107,
+          "n_invalid": 0,
+          "passed": false
+        }
+      }
+    },
+    "power": {
+      "ff_27c_1.80v": {
+        "energy_per_conversion_j": 1.0978199999999999e-11,
+        "f_mhz": 12.0,
+        "functional_at_op": true,
+        "p_active_w": 1.0978200000000001e-05,
+        "p_reset_w": 6.722856e-06,
+        "vdd_v": 1.8
+      },
+      "fs_27c_1.80v": {
+        "energy_per_conversion_j": 1.04445e-11,
+        "f_mhz": 12.0,
+        "functional_at_op": true,
+        "p_active_w": 1.04445e-05,
+        "p_reset_w": 6.299244e-06,
+        "vdd_v": 1.8
+      },
+      "sf_27c_1.80v": {
+        "energy_per_conversion_j": 1.0719774e-11,
+        "f_mhz": 12.0,
+        "functional_at_op": true,
+        "p_active_w": 1.0719774e-05,
+        "p_reset_w": 6.623874e-06,
+        "vdd_v": 1.8
+      },
+      "ss_27c_1.80v": {
+        "energy_per_conversion_j": 1.0188e-11,
+        "f_mhz": 12.0,
+        "functional_at_op": true,
+        "p_active_w": 1.0188e-05,
+        "p_reset_w": 6.192162e-06,
+        "vdd_v": 1.8
+      },
+      "tt_-40c_1.80v": {
+        "energy_per_conversion_j": 1.0275858e-11,
+        "f_mhz": 12.0,
+        "functional_at_op": true,
+        "p_active_w": 1.0275858000000001e-05,
+        "p_reset_w": 6.2766720000000005e-06,
+        "vdd_v": 1.8
+      },
+      "tt_125c_1.80v": {
+        "energy_per_conversion_j": 1.1076551999999999e-11,
+        "f_mhz": 12.0,
+        "functional_at_op": true,
+        "p_active_w": 1.1076552e-05,
+        "p_reset_w": 6.779106000000001e-06,
+        "vdd_v": 1.8
+      },
+      "tt_27c_1.62v": {
+        "energy_per_conversion_j": 8.332648199999999e-12,
+        "f_mhz": 12.0,
+        "functional_at_op": true,
+        "p_active_w": 8.3326482e-06,
+        "p_reset_w": 5.0731434e-06,
+        "vdd_v": 1.62
+      },
+      "tt_27c_1.80v": {
+        "energy_per_conversion_j": 1.0548072e-11,
+        "f_mhz": 12.0,
+        "functional_at_op": true,
+        "p_active_w": 1.0548072e-05,
+        "p_reset_w": 6.441174e-06,
+        "vdd_v": 1.8
+      },
+      "tt_27c_1.98v": {
+        "energy_per_conversion_j": 1.3130548199999999e-11,
+        "f_mhz": 12.0,
+        "functional_at_op": true,
+        "p_active_w": 1.31305482e-05,
+        "p_reset_w": 8.0426412e-06,
+        "vdd_v": 1.98
+      }
+    },
+    "results": {
+      "ff_27c_1.80v": {
+        "corner_id": "ff_27c_1.80v",
+        "f_fail_mhz": 995.9727779719753,
+        "f_pass_mhz": 913.3110643220898,
+        "n_probes": 11,
+        "non_monotone": false,
+        "probes": {
+          "0": true,
+          "16": true,
+          "24": true,
+          "32": true,
+          "40": true,
+          "48": true,
+          "50": true,
+          "51": false,
+          "52": false,
+          "56": false,
+          "8": true
+        },
+        "state": "bracket"
+      },
+      "fs_27c_1.80v": {
+        "corner_id": "fs_27c_1.80v",
+        "f_fail_mhz": 837.5099386869178,
+        "f_pass_mhz": 768.0,
+        "n_probes": 11,
+        "non_monotone": false,
+        "probes": {
+          "0": true,
+          "16": true,
+          "24": true,
+          "32": true,
+          "40": true,
+          "48": true,
+          "49": false,
+          "50": false,
+          "52": false,
+          "56": false,
+          "8": true
+        },
+        "state": "bracket"
+      },
+      "sf_27c_1.80v": {
+        "corner_id": "sf_27c_1.80v",
+        "f_fail_mhz": 704.2591051811875,
+        "f_pass_mhz": 645.8084469148528,
+        "n_probes": 10,
+        "non_monotone": false,
+        "probes": {
+          "0": true,
+          "16": true,
+          "24": true,
+          "32": true,
+          "40": true,
+          "44": true,
+          "46": true,
+          "47": false,
+          "48": false,
+          "8": true
+        },
+        "state": "bracket"
+      },
+      "ss_27c_1.80v": {
+        "corner_id": "ss_27c_1.80v",
+        "f_fail_mhz": 592.2089569566492,
+        "f_pass_mhz": 543.0580079512686,
+        "n_probes": 10,
+        "non_monotone": false,
+        "probes": {
+          "0": true,
+          "16": true,
+          "24": true,
+          "32": true,
+          "40": true,
+          "44": true,
+          "45": false,
+          "46": false,
+          "48": false,
+          "8": true
+        },
+        "state": "bracket"
+      },
+      "tt_-40c_1.80v": {
+        "corner_id": "tt_-40c_1.80v",
+        "f_fail_mhz": 768.0,
+        "f_pass_mhz": 704.2591051811875,
+        "n_probes": 10,
+        "non_monotone": false,
+        "probes": {
+          "0": true,
+          "16": true,
+          "24": true,
+          "32": true,
+          "40": true,
+          "44": true,
+          "46": true,
+          "47": true,
+          "48": false,
+          "8": true
+        },
+        "state": "bracket"
+      },
+      "tt_125c_1.80v": {
+        "corner_id": "tt_125c_1.80v",
+        "f_fail_mhz": 837.5099386869178,
+        "f_pass_mhz": 768.0,
+        "n_probes": 11,
+        "non_monotone": false,
+        "probes": {
+          "0": true,
+          "16": true,
+          "24": true,
+          "32": true,
+          "40": true,
+          "48": true,
+          "49": false,
+          "50": false,
+          "52": false,
+          "56": false,
+          "8": true
+        },
+        "state": "bracket"
+      },
+      "tt_27c_1.62v": {
+        "corner_id": "tt_27c_1.62v",
+        "f_fail_mhz": 645.8084469148528,
+        "f_pass_mhz": 592.2089569566492,
+        "n_probes": 10,
+        "non_monotone": false,
+        "probes": {
+          "0": true,
+          "16": true,
+          "24": true,
+          "32": true,
+          "40": true,
+          "44": true,
+          "45": true,
+          "46": false,
+          "48": false,
+          "8": true
+        },
+        "state": "bracket"
+      },
+      "tt_27c_1.80v": {
+        "corner_id": "tt_27c_1.80v",
+        "f_fail_mhz": 768.0,
+        "f_pass_mhz": 704.2591051811875,
+        "n_probes": 10,
+        "non_monotone": false,
+        "probes": {
+          "0": true,
+          "16": true,
+          "24": true,
+          "32": true,
+          "40": true,
+          "44": true,
+          "46": true,
+          "47": true,
+          "48": false,
+          "8": true
+        },
+        "state": "bracket"
+      },
+      "tt_27c_1.98v": {
+        "corner_id": "tt_27c_1.98v",
+        "f_fail_mhz": 913.3110643220898,
+        "f_pass_mhz": 837.5099386869178,
+        "n_probes": 11,
+        "non_monotone": false,
+        "probes": {
+          "0": true,
+          "16": true,
+          "24": true,
+          "32": true,
+          "40": true,
+          "48": true,
+          "49": true,
+          "50": false,
+          "52": false,
+          "56": false,
+          "8": true
+        },
+        "state": "bracket"
+      }
+    }
+  }
+}
