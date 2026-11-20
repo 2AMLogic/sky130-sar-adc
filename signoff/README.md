@@ -70,7 +70,7 @@ saying, because the grader cannot.
 | 3 | DRC clean | **`met`** (both) | `klt drc` on the composed top-level stream: `status: clean`, 0 violations, deck `sky130` @ `sha256:a1d90e06…` (see the cited `drc.json` for the authoritative deck hash and counts). Covers both partitions because the stream it ran on contains both partitions' geometry. **Coverage gaps are disclosed below — read them; a `met` here is not evidence they were disclosed.** |
 | 4 | LVS clean | `unmet` / `check_failed` (both) | Cited deliberately even though it fails. `klt lvs` reports `status: "mismatch"` against the full-block reference; the authoritative mismatch, net, device and pin counts are in the cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` (`mismatch_count`, `category_counts`, `counts`) — read them there. Summary retained at that record only: 67 mismatches / 66 errors, 519/555 reference nets and 1046/1095 reference devices matched; categories 49 `device.unmatched`, 9 `net.merged`, 8 `net.split`, 1 `topology.flattened`. Pins read 21 layout / 22 reference / 22 matched: the reference carries `GND` and `VGND` as two ports of what the layout extracts as one net — the shared p-substrate (`GND\|VGND\|VSS`) — so one promoted layout pin answers both, which is why `layout < reference` here is not a missing pin; see [DR-012](../spec/decision-records/DR-012-analog-ground-pad.md). *Historical comparison, superseded:* the 2026-09-24 record (`reports/20260924-234053-66dca3c/`) read 88 mismatches / 87 errors, 411/444 nets and 803/869 devices; before issue #355 it read 98/97. Root cause is an upstream extraction-hierarchy gap, not a design defect — filed generically as klayout-tools#1878; see `layout/sar-adc-top/README.md`'s "LVS device/topology blocker". The full-block LVS still does not match. |
 | 5 | Full corner verification | analog: `unmet` / `no_evidence`; digital: **`met`** (provisional) | Digital: the manifest's `5.digital` cites a `klt sta` report (routed `sar_sequencer`, four stock Liberty corners at 12 MHz, all `constrained`, no setup/hold violations). Under `klt 0.8.0` the row is compound: the manifest cites four reports (STA and `klt functional-verification` for each of `sar_sequencer` and `top_glue`), each graded `met`; citing the STA alone renders `unmet` / `partial_coverage` (`missing_kinds: functional-verification`). **`met` is the grader's verdict on those four reports; the spec table is DRAFT, 8 of the nine PVT points have no Liberty file, and the STA covers the digital partition's own boundary only — see "Item 5, digital" below.** Analog: no `klt sim` envelope exists — `sim/` campaigns mint this repo's own Markdown records — and the ENOB / INL-DNL **target values** are still DRAFT. |
-| 6 | Statistical claims | `unmet` / `no_evidence` (both) | Six `klt yield` envelopes **do** exist and all report `status: "fail"` — see "Item 6" below for what they say and why none is cited. |
+| 6 | Statistical claims | analog `unmet` / `check_failed`; digital `unmet` / `no_evidence` | Cited since issue #1015: the manifest declares the block's statistical rows under `spec_rows."6.analog"` (ENOB and INL/DNL, both `ratified: false` — their target values are DRAFT; comparator offset/dead-band as a declared `gap` per DR-020) and cites the two freshness-pinnable `klt yield` envelopes, each pinned by `content_hash` to its committed `.samples.json`. Both envelopes report `status: "fail"`, so the grader renders `check_failed` with both under `failed_citations`, `failed_rows: [enob, inl_dnl]`, `unratified_rows: [enob, inl_dnl]` and the DR-020 row under `declared_gaps` — see "Item 6" below for what each envelope says, which limit it was graded against versus what the spec row reads today, and what would turn each row `met`. |
 | 7 | Post-layout verification | analog `unmet` / `no_evidence`; digital `met` | **Analog:** no `klt pex` report exists for the composed top level or any partition; three comparator-level `pex.json` envelopes exist under `layout/comparator/reports/` but are not cited, because they cover the comparator block only and do not prove post-layout behaviour of the composed block. The analog half is blocked on item 4 (the top-level LVS mismatch, issue #103), mirroring `layout/sar-adc-top/README.md`. Item 7 on the analog partition accepts nothing else: a clean DRC or a pre-layout sim renders `wrong_kind`. Nothing to disclose about `body_bias` yet — that field is reported on a `pex` citation, and there is no `pex` citation in the manifest. **Digital:** cited since issue #679 — a `klt functional-verification` report with `options.sdf` set and `environment.sdf.annotated: true` on the routed `sar_sequencer`; see "Item 7, digital" below for what `met` does and does not assert. |
 | 8 | Characterization report | **`met`** (both partitions, by two separate citations) | `8.analog`: `docs/characterization-report.md`; `8.digital`: `docs/characterization-report-digital.md` (frequency bracket, rail power and routed area at the nine ratified corners); each wrapped in its own `generic` envelope (the only kind item 8 accepts). **What `met` asserts is narrow — read "Item 8" below before quoting it.** The digital row is schematic-level and does not borrow the analog row's pass, nor the reverse. |
 | 9 | Testbenches shipped | **`met`** (both) | One bare citation: the inventory of every testbench `sim/spec-coverage.json` indexes, the cold start and the PDK/tool pins. See "What the item 1, 2, 9 and 10 citations assert" for what was and was not executed when the envelope was minted.
@@ -113,11 +113,15 @@ The three lists are also carried verbatim in the report itself
 envelope — but nothing compares them against what this section says, so read
 both.
 
-### Item 6: what the Monte Carlo evidence says, and why it is not cited
+### Item 6: the declared statistical rows, the two cited envelopes, and what still fails
 
-Status as of 2026-11-15 (issues #625, #803, #912). Seven `klt yield` envelopes
-exist — six current, plus the 2026-10-01 CDAC envelope that the newest CDAC
-entry supersedes — all `status: "fail"`:
+Status as of 2026-11-20 (issues #625, #803, #912, #1015). Item 6 analog is
+**cited**: on the pinned 0.8.0 grader (klayout-tools#2908) the item takes the
+multi-citation form, so the manifest declares the block's statistical rows
+under `spec_rows."6.analog"` and cites one `klt yield` envelope per row, each
+with a `content_hash` pin on its committed samples document. Seven `klt yield`
+envelopes exist — six current, plus the 2026-10-01 CDAC envelope that the
+newest CDAC entry supersedes — all `status: "fail"`:
 
 - `sim/cdac-array-transfer/yield-reports/20260828-005006-0c70212.json` and
   `20261001-124049-5207381.json` — DNL/INL. The first: `dnl_max_lsb` over
@@ -172,28 +176,102 @@ its per-draw values from the committed `mc-draws/` logs with no ngspice
 invocation, and it was re-minted that way on 2026-11-15 (issue #912) — the
 DNL/INL entry above.
 
-None is cited, for reasons about the **citation**, not about the campaign:
+None of the four older current envelopes is cited, for a reason about the
+**citation**, not about the campaign:
 
 1. **Four of the six current envelopes cannot be freshness-pinned.** `klt
    yield`'s report carries no `provenance` block, so `klt signoff` hashes the
-   samples document the report names instead. Each of those four names a
-   `/tmp/tmp*.json` path that no longer exists and was never committed (the
-   persisted `.samples.json` convention post-dates them); the other two —
-   the 2026-10-08 ENOB envelope and the 2026-11-15 CDAC re-mint — cite
-   committed samples files, so this reason does not bar them, but reason 2
-   does. (The superseded `20261001-124049-5207381.json` CDAC envelope is not
+   samples document the report names instead — and a citation's `content_hash`
+   pin is matched against that computed hash (klayout-tools#870/#2197). Each
+   of those four names a `/tmp/tmp*.json` path that no longer exists and was
+   never committed (the persisted `.samples.json` convention post-dates
+   them); the two that DO name committed samples files are the ones cited
+   below. (The superseded `20261001-124049-5207381.json` CDAC envelope is not
    one of the six: it names a `/tmp` path too, and the re-mint displaces it.)
-   A pinned entry would render `unverifiable_provenance`; an unpinned one
-   would be a citation with no freshness claim at all, which is what this
-   manifest exists to avoid.
-2. **One entry cannot represent two rows.** Item 6 accepts a single evidence
-   entry, and this block has two statistical spec rows split across separate
-   reports. Citing either alone would misstate the coverage. (Upstream
-   klayout-tools#2467 additionally concerns graders rendering undersized yield
-   as met.)
+   An unpinned entry would be a citation with no freshness claim at all, which
+   is what this manifest exists to avoid.
 
-So item 6 renders `no_evidence` and the actual verdicts are recorded here. The
-underlying campaign is issue #29's; its Markdown records stand unedited.
+The old second reason — **"one entry cannot represent two rows"** — no longer
+holds on the grader this repo pins and is retired by issue #1015: since
+klayout-tools 0.8.0 (klayout-tools#2908) item 6 accepts a list of citations
+beside a `spec_rows."6"` declaration, one envelope per row, with per-row
+`ratified` flags and declared gaps.
+
+**What is declared and cited.** `spec_rows."6.analog"` declares three rows:
+
+- `enob`, `ratified: false` — its target value is DRAFT (DR-007 candidate,
+  `> 7.5 bit` baseline / `> 8.0` stretch, unratified). Cited:
+  `sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.json` (issue #803),
+  pinned to the committed `.samples.json` beside it.
+- `inl_dnl`, `ratified: false` — its target value is DRAFT (DR-007 candidate,
+  `≤ ±2.0 LSB`, unratified). Cited:
+  `sim/cdac-array-transfer/yield-reports/20261115-014818-7adcfe77.json`
+  (issue #912), pinned to the committed `.samples.json` beside it.
+  `check_evidence_hashes.py`'s yield leg re-derives both samples pins on every
+  push (the grader itself re-hashes the samples document only at signoff
+  time).
+- `comparator_offset`, a declared `gap` — DR-020 (via #515) decides there is
+  **no comparator offset/dead-band spec row yet**: the systematic decision
+  offset and the non-decision band are measured below `0.06 mV`, and the term
+  that would need a row (random/mismatch offset) has no allocation derived
+  from DR-003 Item 4's error budget. A gap row is reported under
+  `declared_gaps`, never counted as coverage, and no citation names it.
+
+**What the pinned grader renders** for 6 analog: `unmet` / `check_failed` —
+`citations_graded` shows both citations `unmet` / `check_failed`;
+`detail.failed_citations` names both envelopes; `failed_rows: ["enob",
+"inl_dnl"]`; `uncovered_rows: []`; `unratified_rows: ["enob", "inl_dnl"]`;
+`declared_gaps` carries the DR-020 row. That is the honest state and the
+expected outcome: the campaigns ran, were read, and their own verdicts fail —
+the DNL/INL yields fall short of the 0.99 target (0.825 / 0.925 empirical at
+n=40), and the ENOB sample is undersized for the claim its pass rate hints at
+(the tool says n=368 would be needed to claim 0.99 at 95% confidence at that
+rate). The met count does not move — 13/22 before and after — because
+`check_failed` is a different, more informative reason than `no_evidence`,
+not a different verdict. The underlying campaign is issue #29's; its Markdown
+records stand unedited.
+
+**Graded limit vs. the spec row today, per cited envelope** — the envelopes
+are cited AS MINTED; neither was re-minted for this citation, and no limit,
+sample count or row was chosen to move the verdict:
+
+- **CDAC envelope → `inl_dnl`:** graded at `±1 LSB`, `target_yield 0.99` —
+  the DRAFT spec row's own candidate value at mint time. The spec row today
+  reads `≤ ±2.0 LSB` (DR-007's revised candidate, proposed via #129,
+  unratified). The envelope says nothing measured about ±2.0 LSB: every yield
+  figure in it was computed against ±1.0 only, and while wider limits can
+  only raise a pass rate, no claim here rests on that arithmetic — an
+  `inl_dnl` claim would rest on a new mint at the ratified limit.
+- **ENOB envelope → `enob`:** graded at `min 7.5 bit`, `target_yield 0.99` —
+  numerically today's DR-007 baseline candidate (`> 7.5 bit`). The row is
+  still DRAFT, hence `ratified: false`: evidence against an unratified limit
+  is provisional by the grader's own rule (`unratified_rows` never grades
+  `met`), independent of the numbers.
+
+**What would turn each row `met`.** For `enob` and `inl_dnl`, all of: (1) the
+target value ratified (DR-007's open ratification, issue #1), which removes
+the row from `unratified_rows`; (2) a cited `klt yield` envelope reporting
+`status: "pass"` at that ratified limit and `target_yield` — which per the
+campaign-discipline gate (klayout-tools#2467) needs a sample-size verdict
+other than `insufficient` (today n=40, where claiming 0.99 for ENOB at its
+observed rate would take 368 samples at 95% confidence, and resolving
+DNL/INL to the campaigns' requested ±0.01 half-width would take 5547/2666)
+and a declared negative control that detects its seeded
+degradation (neither campaign declared one); and (3) every declared row
+covered — `comparator_offset` must first become a real row with its own
+evidence, or be retired by a new decision record. An open upstream question
+on the unratified-row rule is klayout-tools#5490 (an unratified row with no
+`target_yield` contributes no coverage). For `comparator_offset`: derive the
+offset allocation from DR-003 Item 4's error budget and add the row (DR-020's
+own "Consequences" path); until then it stays a declared gap.
+
+**6.digital** cites nothing and renders `no_evidence`. The block's
+statistical rows are analog rows; the grader's legitimate exit for a digital
+partition with no statistical row of its own — the `not_applicable` form
+(klayout-tools#2865) — requires a **ratified** spec (`Status:`) plus a
+committed statement accounting for every spec row, both bound by content
+hash. That is what the digital half waits on: not new evidence, but issue
+#1's ratification of the spec table.
 
 ### Item 5, digital: what `met` asserts, and what it does not
 

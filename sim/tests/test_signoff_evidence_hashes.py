@@ -590,6 +590,105 @@ class AnchoredGenericCitationTests(unittest.TestCase):
         self.assertIn("stale", failures[0])
 
 
+class YieldCitationTests(unittest.TestCase):
+    """Item 6's `klt yield` citations (issue #1015).
+
+    A `klt yield` envelope carries no `provenance` block at all, so the
+    grader's own freshness claim for this kind is a LIVE re-hash of the
+    samples document the report names (`envelope["samples"]`) -- and the
+    manifest's `content_hash` pin is compared against that computed hash
+    (klayout-tools `_yield_samples_content_hash`). Neither half of that
+    comparison reads the envelope's bytes; both read the samples document.
+    So the headless obligation here is the same one legs 2/3 carry for the
+    self-reporting kinds, transposed: the pin must match the samples file on
+    disk, and a samples document that does not resolve inside the repo is
+    exactly the un-pinnable `/tmp` shape that kept item 6 uncited before
+    issue #1015 (signoff/README.md, "Item 6").
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.samples = json.dumps(
+            {"measurement": "enob_bit", "draws": [8.1, 8.4, 8.6]}
+        ).encode()
+        self.tree.write("sim/enob-estimate/yield-reports/r.samples.json", self.samples)
+        self.envelope = {
+            "schema_version": 1,
+            "samples": "sim/enob-estimate/yield-reports/r.samples.json",
+            "source": {"kind": "sample-set", "sample_count": 3},
+            "measurement_count": 1,
+            "measurements": [{"name": "enob_bit", "status": "fail"}],
+            "status": "fail",
+        }
+        self.tree.write_json(
+            "sim/enob-estimate/yield-reports/r.json", self.envelope
+        )
+        self.manifest = {
+            "block": "fixture",
+            "kind": "mixed-signal",
+            "evidence": {
+                "6.analog": [
+                    {
+                        "file": "sim/enob-estimate/yield-reports/r.json",
+                        "content_hash": sha256_bytes(self.samples),
+                        "rows": ["enob"],
+                    }
+                ]
+            },
+        }
+
+    def test_classifies_a_yield_envelope(self):
+        """Mirror of the grader's own recognition rule: `measurements` list +
+        `measurement_count` + a `source` object, and never a `corner_count`
+        (that is `sim`)."""
+        self.assertEqual(checker.classify(self.envelope), "yield")
+
+    def test_passes_when_the_pinned_hash_matches_the_samples_document(self):
+        self.assertEqual(self.tree.check(self.manifest), [])
+
+    def test_fails_when_the_samples_document_changed_underneath_the_pin(self):
+        """The hole this leg exists to close: the grader re-hashes the samples
+        document only at signoff time; this check holds the same freshness
+        claim headlessly on every push."""
+        self.tree.write(
+            "sim/enob-estimate/yield-reports/r.samples.json",
+            json.dumps({"measurement": "enob_bit", "draws": [8.1, 8.4, 8.7]}).encode(),
+        )
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("samples", failures[0])
+        self.assertIn("The samples changed under the evidence", failures[0])
+
+    def test_fails_when_the_pin_disagrees_with_the_samples_re_hash(self):
+        self.manifest["evidence"]["6.analog"][0]["content_hash"] = sha256_bytes(b"other")
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("manifest pin", failures[0])
+
+    def test_fails_when_the_samples_document_does_not_resolve(self):
+        """The pre-#1015 shape: a `/tmp/tmp*.json` samples path that no longer
+        exists. Such a citation has no freshness claim at all and must not
+        pass silently -- that is the reason the four older envelopes stay
+        uncited."""
+        self.envelope["samples"] = "/tmp/tmp-dead-samples.json"
+        self.tree.write_json(
+            "sim/enob-estimate/yield-reports/r.json", self.envelope
+        )
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("does not resolve to a committed file", failures[0])
+
+    def test_fails_when_a_yield_citation_carries_no_pin(self):
+        """This repo's discipline for yield citations (the whole point of
+        issue #1015's re-mints): the samples pin IS the freshness claim, so an
+        unpinned yield citation is a citation with no freshness claim -- what
+        this manifest exists to avoid -- not a note."""
+        del self.manifest["evidence"]["6.analog"][0]["content_hash"]
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("pins no content_hash", failures[0])
+
+
 class MintedAttestationTests(unittest.TestCase):
     """The committed inventories and envelopes are exactly what the mint script
     derives, so an envelope's `status` cannot be edited by hand."""
