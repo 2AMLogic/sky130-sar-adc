@@ -915,18 +915,25 @@ Both are labelled on the figure, so the two conventions cannot be read as one.
 
 ### What is plotted
 
-| Figure | Spec row | Source record | What it shows |
-| --- | --- | --- | --- |
-| `enob-distribution.svg` | ENOB | `sim/enob-estimate/records/20261008-233032-8bc3d1f.md` | per-draw achieved ENOB (N=40) against the DRAFT lower limit |
-| `cdac-inl-distribution.svg` | INL / DNL | `sim/cdac-array-transfer/records/20261001-124049-5207381.md` | per-draw worst-case \|INL\| and \|DNL\| (N=40, one panel each) against the DRAFT ±1 LSB target |
-| `cdac-transfer-spot-check.svg` | Sampling cap | `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` | measured differential level at each of 5 codes, all 9 corners, plus the per-corner monotonicity margin |
-| `bit-trial-settling-corners.svg` | Sample rate | `sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md` | worst-case `t_settle_99%` per corner against the DR-006 phase budget |
-| `coherent-sine-spectrum.svg` | ENOB | `sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md` | single-sided spectrum of the captured 32-code record, measured vs ideal quantizer |
+| Figure | Spec row | What it shows |
+| --- | --- | --- |
+| `enob-distribution.svg` | ENOB | per-draw achieved ENOB (N=40) against the DRAFT lower limit |
+| `cdac-inl-distribution.svg` | INL / DNL | per-draw worst-case \|INL\| and \|DNL\| (N=40, one panel each) against the DRAFT ±1 LSB target |
+| `cdac-transfer-spot-check.svg` | Sampling cap | measured differential level at each of 5 codes, all 9 corners, plus the per-corner monotonicity margin |
+| `bit-trial-settling-corners.svg` | Sample rate | worst-case `t_settle_99%` per corner against the DR-006 phase budget |
+| `coherent-sine-spectrum.svg` | ENOB | single-sided spectrum of the captured 32-code record, measured vs ideal quantizer |
+
+The exact inputs of each figure — its source record and every raw file it
+reads — are pinned per figure in the committed manifest
+[`docs/plots/manifest.json`](../docs/plots/manifest.json), which is the copy
+`--check` actually gates; `python3 sim/report/plots.py --list` prints the same
+from the rendering configuration. This table deliberately does not repeat the
+record IDs or draw-log paths: a hand-maintained second copy of them here went
+stale the moment a source record was superseded (#1010).
 
 Both CDAC Monte Carlo series are re-derived from that campaign's own 40
-committed raw draw logs
-(`sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_*.log`) by its
-own `run_mc._parse_draw()` — the same pure parser `run_mc.reanalyze_from_logs()`
+committed raw draw logs (paths pinned in the manifest) by its own
+`run_mc._parse_draw()` — the same pure parser `run_mc.reanalyze_from_logs()`
 and `sim/enob-estimate/run_enob.py` use, and the same computation that minted
 the record's table. Those logs, that parser and `sim/harness/measure.py` are
 hashed inputs of the figure, so a change to any of them fails `--check`. The
