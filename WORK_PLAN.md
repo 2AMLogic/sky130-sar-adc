@@ -1,7 +1,7 @@
 # Work Plan
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-20T06:24:20Z (snapshot; compare against live labels)_
+_Generated: 2026-11-20T20:08:54Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -13,7 +13,7 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 `loom:very-important` (one counts per workspace); every stage takes these first.
 
-_None._
+- **#1015**: T1 item 6: declare the statistical rows in spec_rows and cite the two freshness-pinnable klt yield envelopes
 
 ## Important
 
@@ -27,12 +27,19 @@ _None._
 - **#771**: Re-mint digital item 5/7 evidence on the regenerated sar_sequencer netlist *(held)*
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#785**: layout: re-run sar-adc-top on fully regenerated children and triage DRC met1.space.1 + LVS mismatch *(held)*
+- **#1013**: Isolate the ff_27c_1.80v 3e-5 V delta that parks #811 (klt sim batch vs baseline 20261001-120402-d24f700)
+- **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry
 
 ## Ready
 
 Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
+- **#1013**: Isolate the ff_27c_1.80v 3e-5 V delta that parks #811 (klt sim batch vs baseline 20261001-120402-d24f700)
+- **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry
+- **#1015**: T1 item 6: declare the statistical rows in spec_rows and cite the two freshness-pinnable klt yield envelopes
+- **#1016**: CDAC linearity: design iteration toward INL/DNL <= +-1 LSB at 0.99 yield (the redesign path DR-007 left as future work)
+- **#1017**: T1 item 7 (analog): klt pex records for the LVS-matching analog sub-blocks (cdac_array, sampling_frontend, refreshed comparator)
 
 ## In Progress
 
@@ -41,7 +48,6 @@ Issues currently being built (`loom:building`).
 - **#121**: [Epic #542] 4B — Chipalooza Challenge #4 (Sky130) brief document + sign-off
 - **#680**: layout/sar-sequencer: sar_sequencer.v is stale against design/sar_sequencer.sch (since #263); regenerate and re-run flows
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772)
-- **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits"
 - **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST
 
@@ -55,7 +61,7 @@ _None._
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
+- **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer — implements #790 on the branch for PR #788
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal — closes #834
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep — closes #965
 
@@ -75,6 +81,11 @@ Issues carrying `loom:curated`.
 - **#811**: Re-run multi-corner/MC sim records via klt sim under open_pdks f6eeac7 as superseding records (#709 split) *(curated)* *(held)*
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits" *(curated)*
 - **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST *(curated)*
+- **#1013**: Isolate the ff_27c_1.80v 3e-5 V delta that parks #811 (klt sim batch vs baseline 20261001-120402-d24f700) *(curated)*
+- **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry *(curated)*
+- **#1015**: T1 item 6: declare the statistical rows in spec_rows and cite the two freshness-pinnable klt yield envelopes *(curated)*
+- **#1016**: CDAC linearity: design iteration toward INL/DNL <= +-1 LSB at 0.99 yield (the redesign path DR-007 left as future work) *(curated)*
+- **#1017**: T1 item 7 (analog): klt pex records for the LVS-matching analog sub-blocks (cdac_array, sampling_frontend, refreshed comparator) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -96,13 +107,13 @@ Issues carrying `loom:curated`.
 | Bucket | Count |
 |------|-------|
 | Operator merge-risk holds | 2 |
-| Very important | 0 |
-| Important | 8 |
-| Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
-| In Progress (`loom:building`) | 6 |
+| Very important | 1 |
+| Important | 10 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 6 |
+| In Progress (`loom:building`) | 5 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 3 |
-| Curated | 12 |
+| Curated | 17 |
 | Architect / Hermit proposals | 8 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
