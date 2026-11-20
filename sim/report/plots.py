@@ -5,88 +5,18 @@
     python3 sim/report/plots.py --check    # staleness gate (CI); stdlib only
     python3 sim/report/plots.py --render   # (re)write docs/plots/*.svg + manifest.json
 
-## Why this module exists
+`--render` draws a small set of reader-facing SVG figures under `docs/plots/`
+from files that are already committed -- no simulation, no network, no
+display -- using the matplotlib pin in `sim/report/plots-requirements.txt`.
+`--check` (stdlib-only, reached from `sim/report/generate.py --check` inside
+`npm run check:ci`) re-hashes every committed input, this script and each
+committed SVG against `docs/plots/manifest.json`, and re-derives each
+record's own stated figures from the raw artifacts, failing on mismatch or
+on a source record a sibling has superseded.
 
-The published Chipalooza brief (`rules-4.html`, quoted in issue #835) asks
-that "simulation results should be summarized in plots, not raw data", while
-also requiring that the raw data stay reproducible from the repository. This
-repository over-met the second half and did not meet the first at all: every
-result is an append-only Markdown record with its per-corner raw artifacts
-committed beside it (`sim/README.md` "Append-only rule"), and before this
-module `git ls-files` matched no image file anywhere in the tree.
-
-This module adds the summary half *without* touching the evidence half. It
-renders a small set of reader-facing figures from files that are **already
-committed** -- it runs no simulation, opens no network socket, and needs no
-display. Every number a figure shows was measured by a run that already
-minted a record; this module only draws it.
-
-## The three decisions this module settles (`sim/README.md` "Summary plots")
-
-1. **Location: `docs/plots/`, regenerable, outside every evidence gate.**
-   A plot is a *derived view* of evidence, not evidence itself: it is
-   overwritten on regeneration and is never cited by
-   `signoff/block-manifest.json`. `sim/check_append_only.py` protects
-   `sim/<experiment>/records/*.md` plus the `corners`, `mc-draws`,
-   `netlist-snapshots`, `diagnostics`, `runs` and `yield-reports` artifact
-   directories; `docs/plots/` is outside that set (that script's own docstring
-   names `docs/characterization-report.md` as similarly outside), so a
-   re-render can never churn an evidence hash. No plot is ever written inside
-   a `records/` tree.
-2. **Format: SVG**, written head-less (matplotlib's SVG backend, no display)
-   by this committed script. SVG is reviewable text rather than an opaque
-   binary diff, and `svg.fonttype = "none"` keeps the labels as greppable
-   text instead of glyph outlines.
-3. **Gate: input-hash staleness, stdlib only.** `--render` records, per plot,
-   the SHA-256 of every committed file it read, of this script itself, and of
-   the SVG it wrote, into `docs/plots/manifest.json`. `--check` re-hashes
-   those and fails on any mismatch, on a committed SVG with no manifest entry,
-   and on a manifest entry with no file. It imports no matplotlib, so it runs
-   inside `npm run check:ci` as-is (reached from `sim/report/generate.py
-   --check`) on a checkout with no rendering dependency installed.
-
-   `--check` deliberately does **not** re-render and compare bytes. SVG output
-   is not expected to be stable across matplotlib and font versions, so a
-   byte-comparison gate would have to pin matplotlib into CI and would still
-   be fragile. What is gated is the thing that actually rots: a figure drawn
-   from evidence that has since changed, or from a script that has since
-   changed.
-
-## The second half of `--check`: provenance cross-checks
-
-Hashes alone prove only that nothing moved. Each loader below additionally
-re-derives, from the raw artifact, a number the *record* states in prose, and
-raises `ProvenanceError` if the two disagree -- the coherent-sine FFT's
-SNDR/ENOB/SFDR, the transfer bench's per-corner minimum adjacent-code gap,
-the Monte Carlo max|INL| *and* max|DNL| mean/stdev/min/max. Those loaders are
-stdlib-only, so `--check` runs them too. The effect is that a figure cannot
-claim a record's authority unless this module can still reproduce that
-record's own stated numbers from the committed artifacts.
-
-A number a record states with a particular estimator is drawn with *that*
-estimator (the Monte Carlo sigmas are the population values `run_mc.py`
-prints into the record's own table, not the yield report's sample (n-1)
-ones), and every sigma a figure prints names the estimator it is -- a plot
-must not assert a number its own record does not, and two differently
-estimated sigmas across the figure set must not look like one convention.
-
-Each figure also prints its source **Record ID** and the record's own corner
-set / statistical convention into the figure itself, so a plot cannot outlive
-the PVT context it was measured in.
-
-## What is NOT here, and why
-
-* **No new evidence.** Nothing under `sim/<experiment>/` is written, and no
-  verdict in `spec/` or `docs/characterization-report.md` moves. A figure
-  showing a DRAFT row's measurement says DRAFT on its face.
-* **No linearity derived from the 5-code transfer spot-check.** That bench
-  measures 5 codes; its own record states that DR-003 defers the formal
-  DNL/INL budget to the Monte Carlo campaign. The transfer figure therefore
-  plots the measured levels and the monotonicity margin only -- INL/DNL comes
-  from the Monte Carlo draws, in its own figure.
-* **Rendering is not in CI.** matplotlib is pinned in
-  `sim/report/plots-requirements.txt` and installed by whoever regenerates;
-  CI only runs the stdlib `--check`.
+The plot policy -- location, SVG format, the gate's design, the estimator
+conventions and what is deliberately not plotted -- lives in one place:
+`sim/README.md` "Summary plots".
 """
 
 from __future__ import annotations
