@@ -6032,7 +6032,7 @@ tracker already owns.
     verdict moves because of it. The earlier "Three of twenty-two" bullet below
     describes an earlier grade and is left as written.
 
-    **Update (2026-11-20, issue #1015): the failed list gains a fifth cited
+    **Update (2026-11-20, issue #1015): the failed list gains a sixth cited
     row, `6 analog`.** The manifest now declares the block's statistical rows
     under `spec_rows."6.analog"` and cites the two freshness-pinnable
     `klt yield` envelopes (ENOB `20261008-233032-8bc3d1f`, CDAC DNL/INL
@@ -6047,7 +6047,7 @@ tracker already owns.
     [`signoff/README.md`](../../signoff/README.md) "Item 6". The
     "`check_failed` is not `no_evidence`" bullet below said "four rows" and
     "the other fifteen unmet rows cite nothing at all"; as of this update
-    five rows cite evidence that was read and failed, and fourteen cite
+    six rows cite evidence that was read and failed, and three cite
     nothing. The bullet is left as written for the same reason as the
     "Three of twenty-two" one.
 
