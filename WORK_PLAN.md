@@ -1,7 +1,7 @@
 # Work Plan
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-19T19:51:42Z (snapshot; compare against live labels)_
+_Generated: 2026-11-20T06:24:20Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -25,6 +25,7 @@ _None._
 - **#734**: Bump layout/requirements.txt to klt 0.8.0 and re-run layout flows *(held)*
 - **#743**: T1 item 3 (DRC): repoint manifest items 3/4/11 from the superseded 2026-10-01 stream to reports/LATEST and regrade *(held)*
 - **#771**: Re-mint digital item 5/7 evidence on the regenerated sar_sequencer netlist *(held)*
+- **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#785**: layout: re-run sar-adc-top on fully regenerated children and triage DRC met1.space.1 + LVS mismatch *(held)*
 
 ## Ready
@@ -96,7 +97,7 @@ Issues carrying `loom:curated`.
 |------|-------|
 | Operator merge-risk holds | 2 |
 | Very important | 0 |
-| Important | 7 |
+| Important | 8 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
 | In Progress (`loom:building`) | 6 |
 | PRs awaiting review | 0 |
