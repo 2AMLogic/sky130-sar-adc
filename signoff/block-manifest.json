@@ -22,6 +22,15 @@
     "          evidence for both partitions' rows; a `\"<id>.<analog|digital>\"`",
     "          key grades only that partition. Both forms are used deliberately",
     "          below -- see the per-item notes.",
+    "  spec_rows  optional, read by the grader since 0.8.0 (klayout-tools#2908/",
+    "          #2959). \"<item>\" or \"<item>.<partition>\" -> a list of the spec",
+    "          rows a multi-citation item (5, 6) declares: {id, ratified?, gap?}.",
+    "          `ratified: false` marks a row whose target value is still DRAFT --",
+    "          evidence against it is provisional and the grader lists it under",
+    "          unratified_rows, never grading the item met. A `gap` row is one no",
+    "          producible envelope can cover yet; the grader reports it under",
+    "          declared_gaps and never counts it as coverage. Used here for item",
+    "          6 analog only.",
     "",
     "WHAT IS CITED, AND WHY EACH CITATION IS HONEST (against this tree)",
     "  3   (bare -- both partitions) layout/sar-adc-top/.../drc.json. `klt drc`",
@@ -131,21 +140,48 @@
     "      `unmet`/`check_failed` when cited in its place (tried while preparing",
     "      this change), so the grader does distinguish a failing run.",
     "",
+    "  6.analog  (partition-qualified, issue #1015) the two freshness-pinnable",
+    "      `klt yield` envelopes, as a LIST entry beside a spec_rows.\"6.analog\"",
+    "      declaration (item 6 takes the multi-citation form on the pinned 0.8.0",
+    "      grader, klayout-tools#2908): the 2026-10-08 ENOB envelope (issue #803)",
+    "      for row `enob`, the 2026-11-15 CDAC re-mint (issue #912) for row",
+    "      `inl_dnl`. Each member's content_hash pin is the sha256 of the",
+    "      committed `.samples.json` its report names -- that IS the grader's",
+    "      content_hash for a yield citation (a live hash of the samples",
+    "      document, klayout-tools#870/#2197) -- and check_evidence_hashes.py's",
+    "      yield leg re-derives it on every push. Cited even though both",
+    "      envelopes report status: \"fail\" -- the row renders",
+    "      unmet/check_failed naming both under failed_citations, which is the",
+    "      point: 'the campaigns ran, were graded, and their yields fall short",
+    "      of the 0.99 target / sample-size bar' is a materially more useful",
+    "      machine-readable statement than no_evidence. Both declared rows are",
+    "      ratified: false -- their target values are DRAFT (DR-007 candidates,",
+    "      unratified), so the grader lists them under unratified_rows and the",
+    "      row can never render met against a draft. The comparator offset /",
+    "      dead-band term is declared a GAP (DR-020: no row yet), reported under",
+    "      declared_gaps and never counted as coverage. THE ENVELOPES ARE CITED",
+    "      AS MINTED: the CDAC envelope was graded at +/-1 LSB (the DRAFT spec",
+    "      row's own candidate value at mint time; DR-007 has since proposed",
+    "      +/-2.0 LSB, unratified) and the ENOB envelope at min 7.5 bit -- see",
+    "      signoff/README.md 'Item 6' for the per-row graded-limit-vs-spec-row",
+    "      statement. 6.digital cites nothing (no_evidence): the block's",
+    "      statistical rows are analog rows, and the grader's not_applicable",
+    "      form for the digital half needs a ratified spec Status (klayout-",
+    "      tools#2865), which the DRAFT table cannot give it.",
+    "",
     "WHAT IS DELIBERATELY NOT CITED (against this tree, 2026-10-17)",
     "  5.analog  no `klt sim` envelope exists: sim/ campaigns mint this repo's own",
     "      Markdown evidence records, not `klt sim` JSON. And the spec half of",
     "      the item is not met either -- spec/target-spec.md's sample-rate and",
     "      ENOB/INL-DNL target rows are still DRAFT.",
-    "  6   two `klt yield` envelopes DO exist (sim/cdac-array-transfer/ and",
-    "      sim/enob-estimate/yield-reports/), and both report status: \"fail\".",
-    "      Neither is cited, for two reasons that are about the citation, not",
-    "      about the campaign: (a) each names its samples document as a",
-    "      /tmp/tmp*.json path that no longer exists, so `klt signoff` cannot",
-    "      hash it and the item can never be freshness-pinned; (b) the item's two",
-    "      statistical spec rows (ENOB, INL/DNL) are split across the two",
-    "      reports and only one entry per item is accepted, so citing either one",
-    "      alone would misrepresent the coverage. signoff/README.md records both",
-    "      verdicts in full instead.",
+    "  6   the four OLDER `klt yield` envelopes (cdac 2026-08-28, enob 2026-08-28",
+    "      and the two enob 2026-10-01 entries) plus the superseded 2026-10-01",
+    "      CDAC envelope stay uncited: each names its samples document as a",
+    "      /tmp/tmp*.json path that no longer exists and was never committed, so",
+    "      `klt signoff` cannot hash it and no pin exists. The two envelopes",
+    "      that DO name committed samples documents are cited -- see 6.analog",
+    "      above (issue #1015 retired the old second reason, \"one entry cannot",
+    "      represent two rows\", on the 0.8.0 grader's list form).",
     "  7.analog  no `klt pex` report exists for the composed top level or any",
     "      partition. Item 7 on the analog partition accepts nothing else -- a clean",
     "      DRC or a pre-layout sim renders wrong_kind by design. Blocked on #103.",
@@ -210,8 +246,8 @@
     "changed turns the build red rather than rotting quietly.",
     "",
     "This `_comment` key is not part of the manifest schema; `klt signoff` reads",
-    "only block/kind/partition_boundary/evidence, so editing this block alone",
-    "re-renders t1-report.json byte-identically."
+    "only block/kind/partition_boundary/evidence/spec_rows, so editing this block",
+    "alone re-renders t1-report.json byte-identically."
   ],
   "block": "sky130-sar-adc",
   "kind": "mixed-signal",
@@ -282,6 +318,34 @@
     "8.digital": {
       "file": "signoff/evidence/digital-characterization.generic.json",
       "content_hash": "sha256:84321265f40157da1ca3d03228d3e01e3816a91215d395293c6bd80be7a15e2b"
-    }
+    },
+    "6.analog": [
+      {
+        "file": "sim/enob-estimate/yield-reports/20261008-233032-8bc3d1f.json",
+        "content_hash": "sha256:ce7015f7724383f07afffc27b385da54252d6294e635af0052379a70fb0378aa",
+        "rows": ["enob"]
+      },
+      {
+        "file": "sim/cdac-array-transfer/yield-reports/20261115-014818-7adcfe77.json",
+        "content_hash": "sha256:ad774396c0b8cd5cc6f82fee0306517053a3cccbd4f440058d2a6cff297bb3f6",
+        "rows": ["inl_dnl"]
+      }
+    ]
+  },
+  "spec_rows": {
+    "6.analog": [
+      {
+        "id": "enob",
+        "ratified": false
+      },
+      {
+        "id": "inl_dnl",
+        "ratified": false
+      },
+      {
+        "id": "comparator_offset",
+        "gap": "DR-020 (via #515): no comparator offset/dead-band row yet -- the random/mismatch offset term has no allocation derived from DR-003 Item 4's error budget"
+      }
+    ]
   }
 }
