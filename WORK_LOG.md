@@ -6,6 +6,11 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-20
+
+- **PR #1011**: docs: point the summary-plot guide at the manifest instead of pinned record IDs
+- **Issue #1010** (closed): Remove duplicate source-record pins from the summary plot guide
+
 ### 2026-11-19
 
 - **Issue #869** (closed): Merge-sequencing deadlock: PR #788 and stacked child PR #798 block each other
@@ -660,35 +665,4 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 ### 2026-09-22
 
 - **Issue #350** (closed): comparator noise: regeneration-inclusive measurement methodology (equivalent-source transient-noise MC) demonstrated on the sky130-comparator canary
-
-### 2026-09-19
-
-- **Issue #333** (closed): layout/sar-sequencer + layout/seln-inverters: 145 place-and-route-generated metal shapes violate sky130A's m1.6/m2.6/m3.6/m5.4 minimum-area rules
-- **PR #340**: docs(layout): waive the 145 place-and-route minimum-area shapes, with a reproducing upstream filing (issue #333)
-- **PR #341**: docs(layout): correct the --abstract-cells LVS collapse diagnosis (issue #103)
-
-### 2026-09-18
-
-- **Issue #322** (closed): layout/sar-sequencer: LVS pin counts are asymmetric (30 layout / 28 reference / 30 matched)
-- **Issue #326** (closed): layout/sar-adc-top: 17 metal shapes violate sky130A's m3.6/m4.4a minimum-area rules, invisible to the deck klt drc runs
-- **Issue #330** (closed): chore(ci): ci.yml's citation-gate inventory comment duplicates docs/citation-gate.md
-- **Issue #331** (closed): layout/comparator/README.md names a stale reports/LATEST, and an unexplained post-pointer record sits beside it
-- **PR #325**: docs: explain the sar-sequencer LVS pin-count asymmetry
-- **PR #328**: docs(chipalooza): gate the Area row's bounding box, the last hand-carried figure (issue #121)
-- **PR #332**: docs(chipalooza): gate what the composed top level is built from (issue #121)
-- **PR #334**: docs: update stale layout/comparator record citations (issue #331)
-- **PR #335**: chore(ci): point ci.yml's citation-gate comment at docs/citation-gate.md
-- **PR #336**: fix(layout): size isolated via pads to clear sky130A's metal minimum-area rules
-- **PR #337**: docs(chipalooza): gate the decision-record statuses the Status column rests on (issue #121)
-
-### 2026-09-17
-
-- **Issue #321** (closed): refactor(chipalooza): check_proposal_citations.py is 1584 lines / 12 checks — consider splitting parsing, evidence readers and rationale
-- **Issue #323** (closed): layout: three sub-block sign-off records still rest on klt 0.4.0 while the pinned build is 0.5.0
-- **PR #318**: docs(chipalooza): gate the sign-off-bar numbers, not just their citation (issue #121)
-- **PR #319**: docs(chipalooza): gate the I/O list against the top-level netlist (issue #121)
-- **PR #320**: docs(chipalooza): gate what a §4 row fails to cite, re-grade the Power row (issue #121)
-- **PR #324**: docs(chipalooza): gate the five sub-block layout verdicts, not just the top level's (issue #121)
-- **PR #327**: layout: re-run cdac-array, sar-sequencer, seln-inverters under klt 0.5.0
-- **PR #329**: refactor(chipalooza): move the citation gate's rationale into a sibling document
 
