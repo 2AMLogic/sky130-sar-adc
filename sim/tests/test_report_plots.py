@@ -20,7 +20,9 @@ import json
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = SIM_DIR.parent
@@ -321,8 +323,6 @@ class TestCommittedPlots(unittest.TestCase):
         provenance error naming that missing data, not pass silently because
         the loader re-selected its old record on the side.
         """
-        from dataclasses import replace
-
         figures = {p.key: p for p in plots.PLOTS}
         settling = figures["bit-trial-settling-corners"]
         enob_record = figures["enob-distribution"].source_record
@@ -340,6 +340,34 @@ class TestCommittedPlots(unittest.TestCase):
             f"a figure whose cited record lacks its data must fail provenance: "
             f"{problems}",
         )
+
+    def test_transfer_rejects_a_record_without_its_gap_table(self):
+        figures = {p.key: p for p in plots.PLOTS}
+        transfer = figures["cdac-transfer-spot-check"]
+        enob_record = figures["enob-distribution"].source_record
+        swapped = replace(transfer, source_record=enob_record)
+
+        problems = plots.provenance_problems((swapped,))
+
+        self.assertEqual(len(problems), 1, problems)
+        for detail in (transfer.key, enob_record, "min adjacent-code gap", *plots.TRANSFER_CORNERS):
+            with self.subTest(detail=detail):
+                self.assertIn(detail, problems[0])
+
+    def test_transfer_rejects_a_gap_table_missing_one_corner(self):
+        transfer = next(spec for spec in plots.PLOTS if spec.key == "cdac-transfer-spot-check")
+        record = (REPO_ROOT / transfer.source_record).read_text()
+        rows = plots._markdown_table(record, "min adjacent-code gap")
+        missing_corner = rows[0][0].strip("`")
+        with patch.object(plots, "_markdown_table", return_value=rows[1:]):
+            with self.assertRaises(plots.ProvenanceError) as raised:
+                plots.load_cdac_transfer(transfer.source_record)
+
+        message = str(raised.exception)
+        self.assertIn(transfer.source_record, message)
+        self.assertIn(missing_corner, message)
+        for row in rows[1:]:
+            self.assertNotIn(row[0].strip("`"), message)
 
 
 class TestCdacMonteCarloDistributions(unittest.TestCase):

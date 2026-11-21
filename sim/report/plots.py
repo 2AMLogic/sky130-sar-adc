@@ -493,6 +493,21 @@ def load_cdac_transfer(rel_record: str) -> dict:
         if len(cells) >= 4:
             stated[cells[0].strip("`")] = cells[3]
 
+    plotted = set(TRANSFER_CORNERS)
+    missing = sorted(plotted - stated.keys())
+    if missing:
+        raise ProvenanceError(
+            f"{rel_record}: missing min adjacent-code gap rows for plotted corners: "
+            f"{', '.join(missing)}"
+        )
+    extra = sorted(stated.keys() - plotted)
+    if extra:
+        raise ProvenanceError(
+            f"{rel_record} states corner(s) {extra} that this figure does not read -- "
+            "add their logs to the figure's inputs or the plot would show fewer "
+            "corners than the record grades"
+        )
+
     corners: dict[str, dict] = {}
     for corner in TRANSFER_CORNERS:
         log = REPO_ROOT / TRANSFER_CORNER_DIR / f"{corner}.log"
@@ -507,23 +522,15 @@ def load_cdac_transfer(rel_record: str) -> dict:
             )
         vdiff = [measures[f"vtop_p_{code}"] - measures[f"vtop_n_{code}"] for code in codes]
         gaps = [later - earlier for earlier, later in zip(vdiff, vdiff[1:])]
-        if corner in stated:
-            _agree(
-                f"{corner} min adjacent-code gap",
-                round(min(gaps), 5),
-                float(stated[corner]),
-                tolerance=1e-9,
-                where=f"{log.relative_to(REPO_ROOT)} vs {record_path.relative_to(REPO_ROOT)}",
-            )
+        _agree(
+            f"{corner} min adjacent-code gap",
+            round(min(gaps), 5),
+            float(stated[corner]),
+            tolerance=1e-9,
+            where=f"{log.relative_to(REPO_ROOT)} vs {rel_record}",
+        )
         corners[corner] = {"codes": codes, "vdiff": vdiff, "min_gap": min(gaps)}
 
-    missing = sorted(set(stated) - set(corners))
-    if missing:
-        raise ProvenanceError(
-            f"{record_path.relative_to(REPO_ROOT)} states corner(s) {missing} that this "
-            "figure does not read -- add their logs to the figure's inputs or the plot "
-            "would show fewer corners than the record grades"
-        )
     return {"corners": corners, "n_codes": len(next(iter(corners.values()))["codes"])}
 
 
