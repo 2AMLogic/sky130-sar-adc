@@ -44,11 +44,12 @@ DRAFT clock-rate row. This script tests BOTH the DR-006-derived worst-case
 window (83.33 ns) and the repo's existing 400 ns testbench convention, so the
 two are for the first time shown side by side.
 
-No claim here is graded against a ratified spec row: `spec/target-spec.md`
-is entirely DRAFT (#1/#27), `LSB_DIFF_MV_PROVISIONAL` is quoted only as a
-reference scale (same convention `run_hold_kick.py` already established), and
-the DR-006 timing window is itself downstream of the DRAFT sample-rate row
-(the gap `docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2 already
+This campaign states its own limits: budgets are quoted where the
+differential error crosses 1 LSB and 0.1 LSB, `LSB_DIFF_MV_PROVISIONAL`
+is quoted only as a reference scale (same convention `run_hold_kick.py`
+already established), never a pass/fail gate, and the DR-006 timing
+window is itself downstream of the DRAFT sample-rate row (the gap
+`docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2 already
 names). What this DOES produce, for the first time, is a concrete R_source /
 C_decouple relationship the design can be checked against once any of those
 upstream numbers ratify.
@@ -1830,9 +1831,9 @@ def write_corners_decouple_record(points: list[dict], point: str,
         "invocation) rather than a value borrowed from tt/27C/1.8V, so "
         "that a borrowed resistance cannot silently stand in for the "
         f"marginal case at corners where it is not one. {shape_note_brief} "
-        "No claim here is "
-        "graded against a ratified spec row: `spec/target-spec.md` is "
-        "entirely DRAFT (#1/#27); `LSB_DIFF_MV_PROVISIONAL` is a reference "
+        "Thresholds and timing here are the campaign's own: budgets are "
+        "the 1-LSB and 0.1-LSB crossings of the differential error, with "
+        "`LSB_DIFF_MV_PROVISIONAL` as a reference "
         "scale, never a pass/fail gate; the DR-006 acquisition window is "
         "itself downstream of the DRAFT sample-rate row (Section 7 Item 2)."
     )
@@ -2096,9 +2097,10 @@ def write_corners_record(points: list[dict], point: str,
         "unmodified), identical R_source sweep list, identical diff_err "
         "definition (referenced to that same corner's own R_source=0 "
         "point) as the single-corner record -- only the `.lib` corner, "
-        "`.temp`, and supply voltage vary per point. No claim here is "
-        "graded against a ratified spec row: `spec/target-spec.md` is "
-        "entirely DRAFT (#1/#27); `LSB_DIFF_MV_PROVISIONAL` is a reference "
+        "`.temp`, and supply voltage vary per point. Thresholds and timing "
+        "here are the campaign's own: budgets are the 1-LSB and 0.1-LSB "
+        "crossings of the differential error, with "
+        "`LSB_DIFF_MV_PROVISIONAL` as a reference "
         "scale, never a pass/fail gate; the DR-006 acquisition window is "
         "itself downstream of the DRAFT sample-rate row (Section 7 Item 2)."
     )
@@ -2386,13 +2388,13 @@ def write_record(all_results: dict, supersedes: str = "") -> None:
         "that bound -- answering "
         "`docs/chipalooza/challenge-4-proposal.md` Section 7 Item 5 (every "
         "existing testbench drives `VCM` ideally; no drive-impedance/"
-        "decoupling budget existed). No claim against a ratified spec row: "
-        "`spec/target-spec.md` is entirely DRAFT (#1/#27); the DR-006 "
-        "acquisition-window figures used here are themselves downstream of "
-        "the DRAFT sample-rate row (Section 7 Item 2); "
-        "`LSB_DIFF_MV_PROVISIONAL` is quoted only as a reference scale, "
-        "never a pass/fail gate, matching "
-        "`sim/sampling-frontend/run_hold_kick.py`'s own convention."
+        "decoupling budget existed). Thresholds and timing here are the "
+        "campaign's own: budgets are the 1-LSB and 0.1-LSB crossings of "
+        "the differential error, with `LSB_DIFF_MV_PROVISIONAL` quoted "
+        "only as a reference scale, never a pass/fail gate, matching "
+        "`sim/sampling-frontend/run_hold_kick.py`'s own convention; the "
+        "DR-006 acquisition-window figures used here are themselves "
+        "downstream of the DRAFT sample-rate row (Section 7 Item 2)."
     )
     a(
         "- **Netlist provenance**: unmodified "

@@ -1597,3 +1597,75 @@ class TestDeletedScopeClauses(TestCornersRecordTtNoteWiring):
             text = self._record_text(100e3, window=window)
             self.assertNotIn(rt.WINDOW_DESCRIPTION[other], text,
                              f"{window} record names the {other} window")
+
+
+class TestBlanketSpecStatusClaimRemoved(unittest.TestCase):
+    """Issue #1029: the "entirely DRAFT" blanket spec-status claim is gone.
+
+    `spec/target-spec.md` owns the row-by-row ratification status itself
+    (it already separates the ratified numeric rows from the draft
+    sample-rate row), so a campaign record asserting the status of the
+    WHOLE spec both duplicates that ownership and contradicts the writers'
+    own references to the "FULL ratified PVT corner set". Each writer now
+    states the campaign's own limits instead: the 1-LSB / 0.1-LSB
+    thresholds and the DR-006 timing assumption. Existing records are
+    append-only and keep the old wording; these tests pin the writers that
+    mint FUTURE records."""
+
+    def _single_corner_text(self) -> str:
+        rows = [
+            {"r_source_ohm": 0.0, "vcm_end": 0.9,
+             "diff_err_mv": 0.0, "diff_err_lsb": 0.0},
+            {"r_source_ohm": 1e3, "vcm_end": 0.8999,
+             "diff_err_mv": -0.1, "diff_err_lsb": -0.028},
+        ]
+        dec_rows = [
+            {"c_decouple_f": 0.0, "vcm_end": 0.8999,
+             "diff_err_mv": -0.1, "diff_err_lsb": -0.028},
+            {"c_decouple_f": 1e-12, "vcm_end": 0.9,
+             "diff_err_mv": 0.0, "diff_err_lsb": 0.0},
+        ]
+        all_results = {
+            "sweeps": [("worst-case (12 MHz)", rt.T_SAMPLE_WORST_NS,
+                        rows, [0.0, 1e3])],
+            "decouple_sweeps": [("worst-case (12 MHz)", rt.T_SAMPLE_WORST_NS,
+                                 1e3, dec_rows)],
+            "notes": ["synthetic single-corner note"],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            with provenance_fixture.fake_provenance(rt, Path(tmp)):
+                rt.write_record(all_results)
+                return (Path(tmp) / "records"
+                        / f"{provenance_fixture.RECORD_ID}.md").read_text()
+
+    def _bare_grid_text(self) -> str:
+        return TestCornersRecordTtNoteWiring()._record_text(100e3)
+
+    def _decouple_grid_text(self) -> str:
+        return TestCornersDecoupleRecordPortSections()._record_text(
+            [TestCornersDecoupleRecordPortSections._point("tt_27c_1.80v")]
+        )
+
+    def _texts(self) -> dict[str, str]:
+        return {
+            "module docstring": rt.__doc__ or "",
+            "single-corner writer": self._single_corner_text(),
+            "bare full-grid writer": self._bare_grid_text(),
+            "decouple full-grid writer": self._decouple_grid_text(),
+        }
+
+    def test_no_copy_asserts_the_whole_spec_is_entirely_draft(self):
+        for where, text in self._texts().items():
+            self.assertNotIn("entirely DRAFT", text, where)
+
+    def test_each_writer_states_the_thresholds_and_timing_itself(self):
+        for where, text in self._texts().items():
+            self.assertIn("LSB_DIFF_MV_PROVISIONAL", text, where)
+            self.assertIn("reference scale", text, where)
+            self.assertIn("DR-006", text, where)
+            self.assertIn("DRAFT sample-rate row", text, where)
+
+    def test_each_record_writer_names_the_threshold_crossings(self):
+        for where in ("single-corner writer", "bare full-grid writer",
+                      "decouple full-grid writer"):
+            self.assertIn("1-LSB and 0.1-LSB", self._texts()[where], where)
