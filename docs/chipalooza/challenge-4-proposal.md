@@ -6317,9 +6317,9 @@ and is not claimed to be met.
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
   > **117** of the **122** records under `sim/*/records/` name both an `ngspice`
-  > version and a 40-hex `open_pdks` commit, while of the **114** records under
-  > `layout/*/reports/` and `layout/*/erc-reports/` **113** name a `klt`
-  > version and **76** name the `open_pdks` commit
+  > version and a 40-hex `open_pdks` commit, while of the **117** records under
+  > `layout/*/reports/` and `layout/*/erc-reports/` **116** name a `klt`
+  > version and **79** name the `open_pdks` commit
 
   **Update (2026-11-15, merge of issue #912's PR #938):** merging origin/main
   into this branch brings in
