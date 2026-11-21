@@ -1,0 +1,6 @@
+set num_threads=1
+set ngbehavior=hsa
+set skywaterpdk
+set ng_nomodcheck
+option noinit
+option sparse

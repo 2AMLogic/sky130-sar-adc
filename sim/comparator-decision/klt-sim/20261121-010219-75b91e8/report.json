@@ -1,0 +1,596 @@
+{
+  "schema_version": 3,
+  "netlist": {
+    "path": "sim/comparator-decision/testbench/klt/tb_body.spice",
+    "scope": "repo"
+  },
+  "status": "pass",
+  "corner_count": 9,
+  "passed": 9,
+  "failed": 0,
+  "errored": 0,
+  "inconclusive": 0,
+  "diagnostic_counts": {
+    "by_code": {},
+    "by_severity": {},
+    "corners_with_diagnostics": 0
+  },
+  "metrics": {
+    "sim__corner__count": 9,
+    "sim__corner__passed_count": 9,
+    "sim__corner__failed_count": 0,
+    "sim__corner__errored_count": 0,
+    "sim__corner__inconclusive_count": 0
+  },
+  "environment": {
+    "engine": "ngspice",
+    "engine_version": "47",
+    "ngspice_binary": "/usr/local/bin/ngspice",
+    "engine_build": {
+      "version_banner": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Fri Nov 13 23:19:32 UTC 2026\n******",
+      "binary_sha256": "39ca1adb826660324c3626f72bd946ec40704f0f3fc8e243c623f76e24b3eee2",
+      "probe": "ok",
+      "reason": null
+    },
+    "models_lib": {
+      "path": null,
+      "scope": "external"
+    },
+    "models_lib_sha256": "48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+    "models_lib_sha256_scope": "client",
+    "netlist_sha256": "6bfd21b5e2e27c02e903d2a77b9023c862519325b04c6e97f2023a781f22847b",
+    "netlist_closure": [
+      {
+        "path": "sim/comparator-decision/testbench/klt/tb_body.spice",
+        "scope": "repo",
+        "sha256": "6bfd21b5e2e27c02e903d2a77b9023c862519325b04c6e97f2023a781f22847b"
+      }
+    ],
+    "netlist_identity": "sha256:b4dce4b293fe82c915188a1913b7e4274e320e524e2deb8784aed544779a59f9",
+    "remote": {
+      "provider": "aws-batch-fleet",
+      "job_id": "klt-sim-96524467ec36",
+      "region": "us-east-1",
+      "instance_id": "i-06ddf1a188a9fdeb8",
+      "instance_type": "m7i.4xlarge",
+      "availability_zone": "us-east-1b",
+      "ami_id": "ami-09c14f55df4958cbd",
+      "lifecycle": "spot",
+      "spot": true,
+      "state": "done",
+      "exit_code": "0",
+      "concurrency": "1",
+      "physical_cores": "8",
+      "elapsed_seconds": 14,
+      "client_submitted_at": "2026-11-21T01:02:36.722262Z",
+      "client_launched_at": "2026-11-21T01:03:40.251211Z",
+      "client_status_terminal_at": "2026-11-21T01:04:12.001128Z",
+      "client_collected_at": "2026-11-21T01:04:13.630523Z",
+      "runner_klt_version": "0.9.0",
+      "client_klt_version": "0.9.0",
+      "runner_compatibility": "match",
+      "runner_request_features": {
+        "required": [
+          "measurements[].expr",
+          "options.ngspice_init",
+          "corners.params"
+        ],
+        "missing": [],
+        "status": "supported"
+      },
+      "worker_environment": {
+        "capture": "ok",
+        "simulator": {
+          "requested_binary": "ngspice",
+          "binary_source": "PATH",
+          "selected_path": "/usr/local/bin/ngspice",
+          "version_banner": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Fri Nov 13 23:19:32 UTC 2026\n******\n",
+          "version_probe": "ok"
+        },
+        "pdk": {
+          "variant": "sky130A",
+          "root": "/opt/pdk",
+          "stamp_scheme": "sources-sha256",
+          "stamp_sha256": "4ca10280ae9f293aa1ff69f0060a52e0026929111bda881503717469b429ce67",
+          "stamp_text": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+          "models_staged": false,
+          "stamp_scope": "executed"
+        },
+        "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+        "omp_num_threads": null,
+        "image_manifest": null,
+        "model_inputs": null,
+        "diagnostics": [],
+        "pdk_stamp_comparison": {
+          "status": "not_comparable",
+          "reason": "client_stamp_unavailable"
+        },
+        "engine_build_comparison": {
+          "status": "match"
+        }
+      },
+      "runner_model_inputs": null,
+      "job_ceiling": {
+        "basis": "conservative_serial_bound",
+        "unit_count": 9,
+        "per_unit_timeout_s": 120,
+        "overhead_s": 120.0,
+        "job_bound_s": 1200.0,
+        "max_job_seconds": 3600.0,
+        "max_job_seconds_source": "fleet_config",
+        "exceeds_ceiling": false,
+        "check": "warn",
+        "max_units_per_job": 29,
+        "recommended_hosts": 1
+      }
+    },
+    "engine_host": "worker",
+    "client_ngspice_binary": "/home/ubuntu/.local/bin/ngspice",
+    "backend": {
+      "resolved": "batch",
+      "source": "flag",
+      "requested": "batch"
+    }
+  },
+  "coverage": {
+    "corners_simulated": 9,
+    "measurements_declared": 2,
+    "measurements_with_limits": 1,
+    "unrecognized_limit_keys": [],
+    "schema_version": 1,
+    "known": true,
+    "checked": [
+      "limit:[0,\"tt/novdd/-40C/params:vdd_val=1.8\",\"inoise_diff_rms\",\"max\"]",
+      "limit:[1,\"tt/novdd/27C/params:vdd_val=1.62\",\"inoise_diff_rms\",\"max\"]",
+      "limit:[2,\"tt/novdd/27C/params:vdd_val=1.8\",\"inoise_diff_rms\",\"max\"]",
+      "limit:[3,\"tt/novdd/27C/params:vdd_val=1.98\",\"inoise_diff_rms\",\"max\"]",
+      "limit:[4,\"tt/novdd/125C/params:vdd_val=1.8\",\"inoise_diff_rms\",\"max\"]",
+      "limit:[5,\"ss/novdd/27C/params:vdd_val=1.8\",\"inoise_diff_rms\",\"max\"]",
+      "limit:[6,\"ff/novdd/27C/params:vdd_val=1.8\",\"inoise_diff_rms\",\"max\"]",
+      "limit:[7,\"sf/novdd/27C/params:vdd_val=1.8\",\"inoise_diff_rms\",\"max\"]",
+      "limit:[8,\"fs/novdd/27C/params:vdd_val=1.8\",\"inoise_diff_rms\",\"max\"]",
+      "measurement:[0,\"tt/novdd/-40C/params:vdd_val=1.8\",\"inoise_se_rms\"]/observation",
+      "measurement:[1,\"tt/novdd/27C/params:vdd_val=1.62\",\"inoise_se_rms\"]/observation",
+      "measurement:[2,\"tt/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/observation",
+      "measurement:[3,\"tt/novdd/27C/params:vdd_val=1.98\",\"inoise_se_rms\"]/observation",
+      "measurement:[4,\"tt/novdd/125C/params:vdd_val=1.8\",\"inoise_se_rms\"]/observation",
+      "measurement:[5,\"ss/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/observation",
+      "measurement:[6,\"ff/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/observation",
+      "measurement:[7,\"sf/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/observation",
+      "measurement:[8,\"fs/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/observation"
+    ],
+    "skipped": [],
+    "inapplicable": [
+      {
+        "id": "measurement:[0,\"tt/novdd/-40C/params:vdd_val=1.8\",\"inoise_se_rms\"]/limits",
+        "reason": "characterization_without_limits"
+      },
+      {
+        "id": "measurement:[1,\"tt/novdd/27C/params:vdd_val=1.62\",\"inoise_se_rms\"]/limits",
+        "reason": "characterization_without_limits"
+      },
+      {
+        "id": "measurement:[2,\"tt/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/limits",
+        "reason": "characterization_without_limits"
+      },
+      {
+        "id": "measurement:[3,\"tt/novdd/27C/params:vdd_val=1.98\",\"inoise_se_rms\"]/limits",
+        "reason": "characterization_without_limits"
+      },
+      {
+        "id": "measurement:[4,\"tt/novdd/125C/params:vdd_val=1.8\",\"inoise_se_rms\"]/limits",
+        "reason": "characterization_without_limits"
+      },
+      {
+        "id": "measurement:[5,\"ss/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/limits",
+        "reason": "characterization_without_limits"
+      },
+      {
+        "id": "measurement:[6,\"ff/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/limits",
+        "reason": "characterization_without_limits"
+      },
+      {
+        "id": "measurement:[7,\"sf/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/limits",
+        "reason": "characterization_without_limits"
+      },
+      {
+        "id": "measurement:[8,\"fs/novdd/27C/params:vdd_val=1.8\",\"inoise_se_rms\"]/limits",
+        "reason": "characterization_without_limits"
+      }
+    ],
+    "unknown": [],
+    "nothing_checked": false,
+    "nothing_checked_reasons": []
+  },
+  "provenance": {
+    "klt_version": "0.9.0",
+    "klt_git_commit": "5dbbad05ff42265c92a6f3d2f20d1bbcd2957d49",
+    "klt_reinstall_spec": "klayout-tools==0.9.0",
+    "klayout_version": "0.30.13",
+    "pdk": {
+      "name": "sky130A",
+      "source": "search root: ~/.ciel",
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+    },
+    "deck": {
+      "name": "sky130.lib.spice",
+      "content_hash": "sha256:48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+      "released": false
+    },
+    "input": {
+      "content_hash": "sha256:6bfd21b5e2e27c02e903d2a77b9023c862519325b04c6e97f2023a781f22847b",
+      "role": "netlist"
+    }
+  },
+  "measurements": [
+    {
+      "name": "inoise_se_rms",
+      "unit": "V",
+      "limits": null,
+      "status": "pass",
+      "worst_case": {
+        "corner_id": "tt/novdd/-40C/params:vdd_val=1.8",
+        "value": 0.0004275923,
+        "margin": null
+      }
+    },
+    {
+      "name": "inoise_diff_rms",
+      "unit": "V",
+      "limits": {
+        "max": 0.0010148
+      },
+      "status": "pass",
+      "worst_case": {
+        "corner_id": "tt/novdd/125C/params:vdd_val=1.8",
+        "value": 0.0009051237,
+        "margin": 0.00010967629999999995
+      },
+      "spec_row": "comparator_noise"
+    }
+  ],
+  "corners": [
+    {
+      "corner_id": "tt/novdd/-40C/params:vdd_val=1.8",
+      "process": "tt",
+      "supply_v": {},
+      "temperature_c": -40,
+      "params": {
+        "vdd_val": 1.8
+      },
+      "status": "pass",
+      "runtime_s": 3.526,
+      "peak_rss_bytes": 185073664,
+      "engine_exit_code": 0,
+      "engine_killed_by_signal": null,
+      "measurements": [
+        {
+          "name": "inoise_se_rms",
+          "value": 0.0004275923,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "inoise_diff_rms",
+          "value": 0.0006047068,
+          "unit": "V",
+          "status": "pass",
+          "margin": 0.0004100931999999999
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_n40C_params_ebf5c875b4b0732fbaaf1fdf0ee32c6836d65c8e23c57eccb79a583a4d13432a/ngspice.log",
+        "raw": null,
+        "waveform": null,
+        "deck": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_n40C_params_ebf5c875b4b0732fbaaf1fdf0ee32c6836d65c8e23c57eccb79a583a4d13432a/corner.cir"
+      },
+      "monte_carlo": null
+    },
+    {
+      "corner_id": "tt/novdd/27C/params:vdd_val=1.62",
+      "process": "tt",
+      "supply_v": {},
+      "temperature_c": 27,
+      "params": {
+        "vdd_val": 1.62
+      },
+      "status": "pass",
+      "runtime_s": 3.517,
+      "peak_rss_bytes": 184991744,
+      "engine_exit_code": 0,
+      "engine_killed_by_signal": null,
+      "measurements": [
+        {
+          "name": "inoise_se_rms",
+          "value": 0.000585068,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "inoise_diff_rms",
+          "value": 0.000827411,
+          "unit": "V",
+          "status": "pass",
+          "margin": 0.00018738899999999994
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_27C_params_771ad6beac72cff85daf86cb1e1dfab5598db52ec8d20e1cd271fa985aafa64d/ngspice.log",
+        "raw": null,
+        "waveform": null,
+        "deck": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_27C_params_771ad6beac72cff85daf86cb1e1dfab5598db52ec8d20e1cd271fa985aafa64d/corner.cir"
+      },
+      "monte_carlo": null
+    },
+    {
+      "corner_id": "tt/novdd/27C/params:vdd_val=1.8",
+      "process": "tt",
+      "supply_v": {},
+      "temperature_c": 27,
+      "params": {
+        "vdd_val": 1.8
+      },
+      "status": "pass",
+      "runtime_s": 3.512,
+      "peak_rss_bytes": 185073664,
+      "engine_exit_code": 0,
+      "engine_killed_by_signal": null,
+      "measurements": [
+        {
+          "name": "inoise_se_rms",
+          "value": 0.0005140535,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "inoise_diff_rms",
+          "value": 0.0007269814,
+          "unit": "V",
+          "status": "pass",
+          "margin": 0.0002878185999999999
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_27C_params_4693f669b3cb8407fd537881bdfc58df3ae9207e558e280261f34e9307a21080/ngspice.log",
+        "raw": null,
+        "waveform": null,
+        "deck": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_27C_params_4693f669b3cb8407fd537881bdfc58df3ae9207e558e280261f34e9307a21080/corner.cir"
+      },
+      "monte_carlo": null
+    },
+    {
+      "corner_id": "tt/novdd/27C/params:vdd_val=1.98",
+      "process": "tt",
+      "supply_v": {},
+      "temperature_c": 27,
+      "params": {
+        "vdd_val": 1.98
+      },
+      "status": "pass",
+      "runtime_s": 3.541,
+      "peak_rss_bytes": 185143296,
+      "engine_exit_code": 0,
+      "engine_killed_by_signal": null,
+      "measurements": [
+        {
+          "name": "inoise_se_rms",
+          "value": 0.0004790482,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "inoise_diff_rms",
+          "value": 0.0006774765,
+          "unit": "V",
+          "status": "pass",
+          "margin": 0.0003373234999999999
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_27C_params_261fd3bcf1a8f99ef541349b91490b3ab43ac249b9ce9c0a933b1cd5de125a32/ngspice.log",
+        "raw": null,
+        "waveform": null,
+        "deck": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_27C_params_261fd3bcf1a8f99ef541349b91490b3ab43ac249b9ce9c0a933b1cd5de125a32/corner.cir"
+      },
+      "monte_carlo": null
+    },
+    {
+      "corner_id": "tt/novdd/125C/params:vdd_val=1.8",
+      "process": "tt",
+      "supply_v": {},
+      "temperature_c": 125,
+      "params": {
+        "vdd_val": 1.8
+      },
+      "status": "pass",
+      "runtime_s": 3.521,
+      "peak_rss_bytes": 185073664,
+      "engine_exit_code": 0,
+      "engine_killed_by_signal": null,
+      "measurements": [
+        {
+          "name": "inoise_se_rms",
+          "value": 0.0006400191,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "inoise_diff_rms",
+          "value": 0.0009051237,
+          "unit": "V",
+          "status": "pass",
+          "margin": 0.00010967629999999995
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_125C_params_d0c092ba092961291e3b6115cb4076baec1c372b043b844282a2db19527e1194/ngspice.log",
+        "raw": null,
+        "waveform": null,
+        "deck": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/tt_novdd_125C_params_d0c092ba092961291e3b6115cb4076baec1c372b043b844282a2db19527e1194/corner.cir"
+      },
+      "monte_carlo": null
+    },
+    {
+      "corner_id": "ss/novdd/27C/params:vdd_val=1.8",
+      "process": "ss",
+      "supply_v": {},
+      "temperature_c": 27,
+      "params": {
+        "vdd_val": 1.8
+      },
+      "status": "pass",
+      "runtime_s": 3.517,
+      "peak_rss_bytes": 185073664,
+      "engine_exit_code": 0,
+      "engine_killed_by_signal": null,
+      "measurements": [
+        {
+          "name": "inoise_se_rms",
+          "value": 0.0005297073,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "inoise_diff_rms",
+          "value": 0.0007491193,
+          "unit": "V",
+          "status": "pass",
+          "margin": 0.00026568069999999993
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/ss_novdd_27C_params_9a74945f70f9890a6cadc632245a4abcd67676031cde6ea7f652be5fd253f8d2/ngspice.log",
+        "raw": null,
+        "waveform": null,
+        "deck": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/ss_novdd_27C_params_9a74945f70f9890a6cadc632245a4abcd67676031cde6ea7f652be5fd253f8d2/corner.cir"
+      },
+      "monte_carlo": null
+    },
+    {
+      "corner_id": "ff/novdd/27C/params:vdd_val=1.8",
+      "process": "ff",
+      "supply_v": {},
+      "temperature_c": 27,
+      "params": {
+        "vdd_val": 1.8
+      },
+      "status": "pass",
+      "runtime_s": 3.512,
+      "peak_rss_bytes": 185073664,
+      "engine_exit_code": 0,
+      "engine_killed_by_signal": null,
+      "measurements": [
+        {
+          "name": "inoise_se_rms",
+          "value": 0.0005001266,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "inoise_diff_rms",
+          "value": 0.0007072858,
+          "unit": "V",
+          "status": "pass",
+          "margin": 0.0003075141999999999
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/ff_novdd_27C_params_201edc86076be37573aa11d2946859a007c24f512187dd05c17b53df726fd3c3/ngspice.log",
+        "raw": null,
+        "waveform": null,
+        "deck": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/ff_novdd_27C_params_201edc86076be37573aa11d2946859a007c24f512187dd05c17b53df726fd3c3/corner.cir"
+      },
+      "monte_carlo": null
+    },
+    {
+      "corner_id": "sf/novdd/27C/params:vdd_val=1.8",
+      "process": "sf",
+      "supply_v": {},
+      "temperature_c": 27,
+      "params": {
+        "vdd_val": 1.8
+      },
+      "status": "pass",
+      "runtime_s": 3.525,
+      "peak_rss_bytes": 185073664,
+      "engine_exit_code": 0,
+      "engine_killed_by_signal": null,
+      "measurements": [
+        {
+          "name": "inoise_se_rms",
+          "value": 0.0005100867,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "inoise_diff_rms",
+          "value": 0.0007213715,
+          "unit": "V",
+          "status": "pass",
+          "margin": 0.00029342849999999994
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/sf_novdd_27C_params_7570d75f5f25912080ea4e0606524d50eb268bb013a3a3f3bc35af83351598f1/ngspice.log",
+        "raw": null,
+        "waveform": null,
+        "deck": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/sf_novdd_27C_params_7570d75f5f25912080ea4e0606524d50eb268bb013a3a3f3bc35af83351598f1/corner.cir"
+      },
+      "monte_carlo": null
+    },
+    {
+      "corner_id": "fs/novdd/27C/params:vdd_val=1.8",
+      "process": "fs",
+      "supply_v": {},
+      "temperature_c": 27,
+      "params": {
+        "vdd_val": 1.8
+      },
+      "status": "pass",
+      "runtime_s": 2.772,
+      "peak_rss_bytes": 185421824,
+      "engine_exit_code": 0,
+      "engine_killed_by_signal": null,
+      "measurements": [
+        {
+          "name": "inoise_se_rms",
+          "value": 0.000533271,
+          "unit": "V",
+          "status": "pass",
+          "margin": null
+        },
+        {
+          "name": "inoise_diff_rms",
+          "value": 0.0007541591,
+          "unit": "V",
+          "status": "pass",
+          "margin": 0.0002606408999999999
+        }
+      ],
+      "diagnostics": [],
+      "artifacts": {
+        "log": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/fs_novdd_27C_params_9354461271267b5d68bbc6a14e3df556e8e5435a392ec2b56d900094d3ea73ae/ngspice.log",
+        "raw": null,
+        "waveform": null,
+        "deck": "/home/ubuntu/GitHub/sky130-sar-adc/.loom/worktrees/issue-1014/sim/comparator-decision/klt-sim/20261121-010219-75b91e8/out/fs_novdd_27C_params_9354461271267b5d68bbc6a14e3df556e8e5435a392ec2b56d900094d3ea73ae/corner.cir"
+      },
+      "monte_carlo": null
+    }
+  ]
+}
