@@ -14,13 +14,10 @@ plausible-looking record rather than an error:
    to `sim/sampling-acquisition-settling/`'s own grid -- the campaign whose
    front-end-only residuals this one is meant to be directly comparable with.
 
-2. **A stimulus that drifts from the campaign being compared against.** The
-   whole point of this mode is that the ONLY difference from
-   `sim/sampling-acquisition-settling/run_acquisition_settling.py` is the load
-   on `TOP_P`/`TOP_N`. The probe-time tests below assert the acquiring edge, the
-   DR-006 budget probe and the confirm read land at the same instants that
-   campaign uses, so a later edit to either script surfaces as a failing test
-   rather than as two records that quietly measure different things.
+2. **A stimulus that drifts from the campaign being compared against.** To
+   compare acquisition with the two loads on `TOP_P`/`TOP_N`, both decks
+   must emit the established input and SAMPLE waveforms and read each top
+   plate at the DR-006 budget and confirm times.
 """
 
 from __future__ import annotations
@@ -71,22 +68,43 @@ class TestCornerGridIsTheSharedRatifiedGrid(unittest.TestCase):
         )
 
 
-class TestProbeTimesMatchTheFrontEndOnlyCampaign(unittest.TestCase):
-    def test_trigger_budget_and_confirm_instants_are_identical(self):
-        self.assertAlmostEqual(rh.TRIG_AT_NS, ras.TRIG_AT_NS, places=9)
-        self.assertAlmostEqual(rh.BUDGET_PROBE_AT_NS, ras.BUDGET_PROBE_AT_NS, places=9)
-        self.assertAlmostEqual(rh.CONFIRM_AT_NS, ras.CONFIRM_AT_NS, places=9)
+class TestAcquisitionStimulus(unittest.TestCase):
+    def test_rendered_waveforms_and_fixed_time_probes(self):
+        bits = rh.CODE_STATES[rh.CORNERS_CODE_STATE]
+        prefixes = (
+            "Vinp ",
+            "Vinn ",
+            "Vsample ",
+            "meas tran budget_",
+            "meas tran confirm_",
+        )
+        for vdd in (1.62, 1.8, 1.98):
+            expected = [
+                "Vinp VINP 0 pwl(0n 0.2 130n 0.2 130.2n 1.6 330n 1.6)",
+                "Vinn VINN 0 pwl(0n 1.6 130n 1.6 130.2n 0.2 330n 0.2)",
+                (
+                    f"Vsample SAMPLE 0 pwl(0n 0 10n 0 10.2n {vdd} 110n {vdd} "
+                    f"110.2n 0 160n 0 160.2n {vdd} 310n {vdd} 310.2n 0 330n 0)"
+                ),
+                "meas tran budget_p find v(TOP_P) at=243.43333333333334n",
+                "meas tran confirm_p find v(TOP_P) at=305.0n",
+                "meas tran budget_n find v(TOP_N) at=243.43333333333334n",
+                "meas tran confirm_n find v(TOP_N) at=305.0n",
+            ]
+            for runner, deck in (
+                ("front end", ras.build_transient("tt", 27.0, vdd)),
+                ("handoff", rh.build_acquisition_netlist(bits, "tt", 27.0, vdd)),
+            ):
+                with self.subTest(runner=runner, vdd=vdd):
+                    actual = [
+                        line for line in deck.splitlines() if line.startswith(prefixes)
+                    ]
+                    self.assertEqual(actual, expected)
 
-    def test_stimulus_shape_and_span_are_identical(self):
-        for name in (
-            "T_SAMPLE1_RISE_NS", "T_SAMPLE1_FALL_NS", "T_INPUT_TOGGLE_NS",
-            "T_SAMPLE2_RISE_NS", "T_SAMPLE2_FALL_NS", "TRAN_STOP_NS",
-            "EDGE_TR_NS", "T_PHASE_WORST_NS", "T_PHASE_SLOW_NS",
-            "V_INITIAL_P", "V_FINAL_P", "V_INITIAL_N", "V_FINAL_N",
-            "VCM", "VDD", "LSB_DIFF_MV_PROVISIONAL",
-        ):
-            with self.subTest(constant=name):
-                self.assertEqual(getattr(rh, name), getattr(ras, name))
+    def test_campaigns_use_the_same_voltage_references(self):
+        self.assertEqual(rh.VCM, ras.VCM)
+        self.assertEqual(rh.VDD, ras.VDD)
+        self.assertEqual(rh.LSB_DIFF_MV_PROVISIONAL, ras.LSB_DIFF_MV_PROVISIONAL)
 
     def test_transient_step_ceiling_is_documented_as_the_one_divergence(self):
         """Deliberately different (see TRAN_STEP_NS's own comment): this mode
@@ -110,16 +128,11 @@ class TestAcquisitionDeck(unittest.TestCase):
         self.assertIn(".temp 27.0", deck)
         self.assertTrue(deck.rstrip().endswith(".end"))
 
-    def test_measures_both_top_plate_nodes_at_the_budget_and_confirm_instants(self):
-        deck = self._deck()
-        for name, node in (("budget", "TOP_P"), ("confirm", "TOP_P")):
-            self.assertIn(f"meas tran {name}_p find v({node})", deck)
-        at_budget = f"at={rh.BUDGET_PROBE_AT_NS}n"
-        at_confirm = f"at={rh.CONFIRM_AT_NS}n"
-        self.assertIn(f"meas tran budget_n find v(TOP_N) {at_budget}", deck)
-        self.assertIn(f"meas tran confirm_n find v(TOP_N) {at_confirm}", deck)
-        self.assertEqual(sorted(rh.BUDGET_MEASURE_NAMES),
-                         ["budget_n", "budget_p", "confirm_n", "confirm_p"])
+    def test_budget_measure_names_cover_both_top_plates(self):
+        self.assertEqual(
+            sorted(rh.BUDGET_MEASURE_NAMES),
+            ["budget_n", "budget_p", "confirm_n", "confirm_p"],
+        )
 
     def test_loads_both_sub_blocks_at_the_same_top_plate_nodes(self):
         """The assembled load is the entire point: the front end's own Csamp
