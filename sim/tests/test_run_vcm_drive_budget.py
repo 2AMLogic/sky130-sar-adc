@@ -1599,37 +1599,29 @@ class TestDeletedScopeClauses(TestCornersRecordTtNoteWiring):
                              f"{window} record names the {other} window")
 
 
-class TestBlanketSpecStatusClaimRemoved(unittest.TestCase):
-    """Issue #1029: the "entirely DRAFT" blanket spec-status claim is gone.
-
-    `spec/target-spec.md` owns the row-by-row ratification status itself
-    (it already separates the ratified numeric rows from the draft
-    sample-rate row), so a campaign record asserting the status of the
-    WHOLE spec both duplicates that ownership and contradicts the writers'
-    own references to the "FULL ratified PVT corner set". Each writer now
-    states the campaign's own limits instead: the 1-LSB / 0.1-LSB
-    thresholds and the DR-006 timing assumption. Existing records are
-    append-only and keep the old wording; these tests pin the writers that
-    mint FUTURE records."""
+class TestCampaignClaims(unittest.TestCase):
+    """Issue #1029: the Claim describes the budgets and timing of its run."""
 
     def _single_corner_text(self) -> str:
         rows = [
             {"r_source_ohm": 0.0, "vcm_end": 0.9,
              "diff_err_mv": 0.0, "diff_err_lsb": 0.0},
-            {"r_source_ohm": 1e3, "vcm_end": 0.8999,
+            {"r_source_ohm": 10e3, "vcm_end": 0.8999,
              "diff_err_mv": -0.1, "diff_err_lsb": -0.028},
         ]
         dec_rows = [
             {"c_decouple_f": 0.0, "vcm_end": 0.8999,
-             "diff_err_mv": -0.1, "diff_err_lsb": -0.028},
+             "diff_err_mv": 0.0, "diff_err_lsb": 0.0},
             {"c_decouple_f": 1e-12, "vcm_end": 0.9,
              "diff_err_mv": 0.0, "diff_err_lsb": 0.0},
         ]
         all_results = {
             "sweeps": [("worst-case (12 MHz)", rt.T_SAMPLE_WORST_NS,
-                        rows, [0.0, 1e3])],
+                        rows, [0.0, 10e3]),
+                       ("legacy (400 ns)", rt.T_SAMPLE_LEGACY_NS,
+                        rows, [0.0, 10e3])],
             "decouple_sweeps": [("worst-case (12 MHz)", rt.T_SAMPLE_WORST_NS,
-                                 1e3, dec_rows)],
+                                 10e3, dec_rows)],
             "notes": ["synthetic single-corner note"],
         }
         with tempfile.TemporaryDirectory() as tmp:
@@ -1638,34 +1630,57 @@ class TestBlanketSpecStatusClaimRemoved(unittest.TestCase):
                 return (Path(tmp) / "records"
                         / f"{provenance_fixture.RECORD_ID}.md").read_text()
 
-    def _bare_grid_text(self) -> str:
-        return TestCornersRecordTtNoteWiring()._record_text(100e3)
+    @staticmethod
+    def _claim(record: str) -> str:
+        return next(line for line in record.splitlines()
+                    if line.startswith("- **Claim**:"))
 
-    def _decouple_grid_text(self) -> str:
-        return TestCornersDecoupleRecordPortSections()._record_text(
-            [TestCornersDecoupleRecordPortSections._point("tt_27c_1.80v")]
-        )
+    def _check_budget_rule(self, claim: str):
+        self.assertIn("largest tested non-control", claim)
+        self.assertIn("absolute differential error", claim)
+        self.assertIn("LSB_DIFF_MV_PROVISIONAL", claim)
+        self.assertIn("reference scale", claim)
+        self.assertNotIn("entirely draft", claim.lower())
+        self.assertNotRegex(claim.lower(), r"\bcross(?:es|ings?)\b")
 
-    def _texts(self) -> dict[str, str]:
-        return {
-            "module docstring": rt.__doc__ or "",
-            "single-corner writer": self._single_corner_text(),
-            "bare full-grid writer": self._bare_grid_text(),
-            "decouple full-grid writer": self._decouple_grid_text(),
-        }
+    def test_single_corner_claim_and_module_describe_both_sweeps(self):
+        for source, text in (("single corner", self._claim(self._single_corner_text())),
+                             ("module", " ".join(rt.__doc__.split()))):
+            with self.subTest(source=source):
+                self._check_budget_rule(text)
+                self.assertIn("1 LSB and 0.1 LSB for `R_source`", text)
+                self.assertIn("1 LSB for `C_decouple`", text)
+                self.assertIn("DR-006", text)
+                self.assertIn("DRAFT sample-rate row", text)
+                self.assertIn("83.333 ns", text)
+                self.assertIn("400 ns", text)
+                self.assertIn("fixed testbench convention", text)
+                self.assertIn("resistance sweep uses both windows", text.lower())
+                self.assertIn("decoupling sweep uses only the DR-006 window", text)
 
-    def test_no_copy_asserts_the_whole_spec_is_entirely_draft(self):
-        for where, text in self._texts().items():
-            self.assertNotIn("entirely DRAFT", text, where)
-
-    def test_each_writer_states_the_thresholds_and_timing_itself(self):
-        for where, text in self._texts().items():
-            self.assertIn("LSB_DIFF_MV_PROVISIONAL", text, where)
-            self.assertIn("reference scale", text, where)
-            self.assertIn("DR-006", text, where)
-            self.assertIn("DRAFT sample-rate row", text, where)
-
-    def test_each_record_writer_names_the_threshold_crossings(self):
-        for where in ("single-corner writer", "bare full-grid writer",
-                      "decouple full-grid writer"):
-            self.assertIn("1-LSB and 0.1-LSB", self._texts()[where], where)
+    def test_grid_claims_describe_only_the_scored_limits_and_selected_window(self):
+        decouple = TestCornersDecoupleRecordPortSections()
+        for window in ("worst", "legacy"):
+            records = {
+                "rsource": TestCornersRecordTtNoteWiring()._record_text(100e3, window),
+                "decouple": decouple._record_text([decouple._point("tt_27c_1.80v")], window),
+            }
+            for sweep, record in records.items():
+                with self.subTest(sweep=sweep, window=window):
+                    claim = self._claim(record)
+                    self._check_budget_rule(claim)
+                    if sweep == "rsource":
+                        self.assertIn("1 LSB and 0.1 LSB for `R_source`", claim)
+                    else:
+                        self.assertIn("1 LSB for `C_decouple`", claim)
+                        self.assertNotRegex(claim, r"0\.1[- ]LSB")
+                    if window == "worst":
+                        self.assertIn("83.333 ns", claim)
+                        self.assertIn("DR-006", claim)
+                        self.assertIn("DRAFT sample-rate row", claim)
+                        self.assertNotIn("legacy", claim)
+                    else:
+                        self.assertIn("400 ns", claim)
+                        self.assertIn("fixed testbench convention", claim)
+                        self.assertNotIn("DR-006", claim)
+                        self.assertNotIn("sample-rate row", claim)
