@@ -598,6 +598,105 @@ class TestFinite(unittest.TestCase):
             self.assertIs(klt_sim.finite(v), want, v)
 
 
+class TestSplitFragment(unittest.TestCase):
+    """Issue #1030: the fragment split the deck-building campaigns were each
+    re-copying. Synthetic fragments here; each campaign's own suite also
+    drives this parser through its wrapper against its real committed
+    fragment, including the rejection paths below."""
+
+    FRAGMENT = (
+        "* committed stimulus\n"
+        "VSUP SUP 0 DC {vdd_val}\n"
+        ".meas tran v_a avg v(na) from=1n to=2n\n"
+        ".meas tran i_s avg i(vsup) from=1n to=2n\n"
+        ".tran 0.5n 2.5u\n"
+    )
+
+    def test_splits_body_meas_cards_and_tran_args(self):
+        body, meas, tran = klt_sim.split_fragment(self.FRAGMENT, ["i_s", "v_a"])
+        self.assertEqual(body, "* committed stimulus\nVSUP SUP 0 DC {vdd_val}\n")
+        self.assertEqual(meas, [
+            ".meas tran v_a avg v(na) from=1n to=2n",
+            ".meas tran i_s avg i(vsup) from=1n to=2n",
+        ])
+        self.assertEqual(tran, "0.5n 2.5u")
+
+    def test_cards_are_recognized_indented_and_case_insensitive(self):
+        text = self.FRAGMENT.replace(".meas tran i_s", "  .MEAS tran i_s")
+        _body, meas, _tran = klt_sim.split_fragment(text, ["i_s", "v_a"])
+        self.assertEqual(meas[-1], ".MEAS tran i_s avg i(vsup) from=1n to=2n")
+
+    def test_a_second_tran_card_is_refused(self):
+        with self.assertRaises(RuntimeError):
+            klt_sim.split_fragment(self.FRAGMENT + ".tran 1n 2n\n", ["i_s", "v_a"])
+
+    def test_no_tran_card_is_refused(self):
+        text = "\n".join(ln for ln in self.FRAGMENT.splitlines()
+                         if not ln.strip().lower().startswith(".tran")) + "\n"
+        with self.assertRaises(RuntimeError):
+            klt_sim.split_fragment(text, ["i_s", "v_a"])
+
+    def test_a_missing_expected_name_is_refused(self):
+        text = self.FRAGMENT.replace(".meas tran i_s avg i(vsup) from=1n to=2n\n", "")
+        with self.assertRaises(RuntimeError):
+            klt_sim.split_fragment(text, ["i_s", "v_a"])
+
+    def test_an_extra_expected_name_is_refused(self):
+        with self.assertRaises(RuntimeError):
+            klt_sim.split_fragment(self.FRAGMENT, ["i_s", "v_a", "v_b"])
+
+    def test_a_repeated_card_name_is_refused(self):
+        text = self.FRAGMENT + ".meas tran v_a avg v(nb) from=1n to=2n\n"
+        with self.assertRaises(RuntimeError):
+            klt_sim.split_fragment(text, ["i_s", "v_a"])
+
+
+class TestSavedVectors(unittest.TestCase):
+    """Issue #1030: the `.meas`-card save-set scan, shared with
+    split_fragment(). Sorted, de-duplicated, lowercased -- the exact
+    normalization both private copies performed."""
+
+    def test_sorted_deduplicated_and_lowercased(self):
+        cards = [
+            ".meas tran v_a avg V(Dout9) from=1n to=2n",
+            ".meas tran v_a2 avg v(dout9) from=1n to=2n",
+            ".meas tran i_s avg I(VSUP) from=1n to=2n",
+            ".meas tran i_s2 avg i(vsup) from=1n to=2n",
+        ]
+        self.assertEqual(klt_sim.saved_vectors(cards),
+                         ["i(vsup)", "v(dout9)"])
+
+    def test_a_card_without_a_vector_reference_contributes_nothing(self):
+        self.assertEqual(klt_sim.saved_vectors([".meas tran t1 param=1"]), [])
+
+    def test_no_cards_means_no_vectors(self):
+        self.assertEqual(klt_sim.saved_vectors([]), [])
+
+
+class TestNoCampaignModuleKeepsItsOwnFragmentScan(unittest.TestCase):
+    """Issue #1030: the fragment split and the saved-vector scan live in
+    `harness.klt_sim`; a campaign module re-copies them at its own risk.
+    Keyed on the artifacts a private copy necessarily carries: the
+    vector-reference regex (`_VECTOR_RE =`) and the card-classification scan
+    of `.tran` lines. (`common.py`'s legitimate `startswith(".meas")` filter
+    over its own GENERATED measure lines is why `.meas` is not a marker --
+    that is a name filter, not a fragment parser.)"""
+
+    def test_no_campaign_module_rescans_the_fragment_itself(self):
+        for p in sorted(SIM_DIR.glob("*/*.py")) + sorted(SIM_DIR.glob("*/*/*.py")):
+            if p.parent.name in ("harness", "tests") or "harness/" in p.as_posix():
+                continue
+            text = p.read_text()
+            for marker in ('_VECTOR_RE =',
+                           'startswith(".tran")', "startswith('.tran')"):
+                with self.subTest(module=f"{p.parent.name}/{p.name}", marker=marker):
+                    self.assertNotIn(
+                        marker, text,
+                        f"{p.parent.name}/{p.name} re-copies the fragment scan -- "
+                        "call harness.klt_sim.split_fragment() / "
+                        "harness.klt_sim.saved_vectors() instead (issue #1030)")
+
+
 class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
     """Issue #865: the drivers import the submit path, they do not re-copy it.
 
