@@ -20,7 +20,7 @@ regeneration curves -- not an apples-to-apples offset figure. That record's
 "Recommendation" section re-derives a corrected instant, **`PICKOFF_NS`
 =1.2ns / `PICKOFF_AT_NS`=6.3ns**, at which both legs give a clean,
 correctly-signed, non-saturated pick-off (spot-checked at `ss/-40C` and
-`ff/125C` too). `testbench.spice`/`pex_request.json`/`run_pex.py` now use
+`ff/125C` too). `testbench.spice`/the generated `pex_request_{zero,cal}.json`/`run_pex.py` now use
 that corrected instant, and a fresh `run_pex.py --record` run
 (`reports/20260906-152000-eace0b6/record.md`) reproduces AC3/AC4 with it:
 both legs' gains are now positive (schematic +22.7683 V/V, extracted
