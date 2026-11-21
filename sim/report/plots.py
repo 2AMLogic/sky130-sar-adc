@@ -284,7 +284,7 @@ def _split_row(line: str) -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def load_enob_distribution() -> dict:
+def load_enob_distribution(rel_record: str) -> dict:
     """Per-draw achieved ENOB and the DRAFT limit it is graded against.
 
     Source: the persisted `klt yield` samples document, which carries the 40
@@ -297,6 +297,12 @@ def load_enob_distribution() -> dict:
     so nothing is contradicted, but the figure labels which estimator it is
     (the INL/DNL figure labels the population one its record prints) rather
     than leaving two differently-estimated sigmas unmarked across the set.
+
+    `rel_record` is the figure's declared citation, passed in by the loader
+    dispatch like every other loader; this one does not read it, because its
+    series comes from the declared JSON inputs (which the manifest hashes
+    individually) and the record states no distribution numbers of its own
+    to cross-check against.
     """
     samples_doc = json.loads((REPO_ROOT / ENOB_SAMPLES).read_text())
     report = json.loads((REPO_ROOT / ENOB_YIELD).read_text())
@@ -362,7 +368,7 @@ def _cdac_mc_stated_rows(record_path: Path) -> dict[str, list[str]]:
     return stated
 
 
-def load_cdac_inl_distribution() -> dict:
+def load_cdac_inl_distribution(rel_record: str) -> dict:
     """Per-draw worst-case |INL| AND |DNL| from the CDAC mismatch Monte Carlo
     campaign's own committed raw draw logs.
 
@@ -375,6 +381,10 @@ def load_cdac_inl_distribution() -> dict:
     DRAFT limit, the empirical yields and their Clopper-Pearson intervals; its
     persisted `samples` path is a scratch file, but that costs this figure
     nothing, because the per-draw values do not come from it.
+
+    `rel_record` is the figure's declared citation, passed in by the loader
+    dispatch: the table this loader cross-checks against is read out of the
+    record the figure cites, never a second selection made on the side.
 
     Cross-check: for BOTH statistics, the mean / stdev / min / max this module
     derives from the raw logs must reproduce the four the record's own
@@ -402,7 +412,7 @@ def load_cdac_inl_distribution() -> dict:
 
     report = json.loads((REPO_ROOT / CDAC_MC_YIELD).read_text())
     by_name = {m["name"]: m for m in report["measurements"]}
-    record_path = REPO_ROOT / f"sim/cdac-array-transfer/records/{CDAC_MC_RECORD_ID}.md"
+    record_path = REPO_ROOT / rel_record
     stated = _cdac_mc_stated_rows(record_path)
 
     series = {}
@@ -460,7 +470,7 @@ def load_cdac_inl_distribution() -> dict:
     }
 
 
-def load_cdac_transfer() -> dict:
+def load_cdac_transfer(rel_record: str) -> dict:
     """Measured differential top-plate level per code, per corner.
 
     Source: the nine committed ngspice batch logs of the ratified-grid
@@ -468,11 +478,16 @@ def load_cdac_transfer() -> dict:
     results for the bench's 5 spot-check codes; the differential level is
     their difference.
 
+    `rel_record` is the figure's declared citation, passed in by the loader
+    dispatch: the per-corner table this loader cross-checks against is read
+    out of the record the figure cites, never a second selection made on the
+    side.
+
     Cross-check: the smallest adjacent-code gap this module computes per
     corner must reproduce the gap the record's own per-corner table states
     (5 decimals) -- the number that record's monotonicity verdict rests on.
     """
-    record_path = REPO_ROOT / "sim/cdac-array-transfer/records/20261001-120402-d24f700.md"
+    record_path = REPO_ROOT / rel_record
     stated = {}
     for cells in _markdown_table(record_path.read_text(), "min adjacent-code gap"):
         if len(cells) >= 4:
@@ -512,7 +527,7 @@ def load_cdac_transfer() -> dict:
     return {"corners": corners, "n_codes": len(next(iter(corners.values()))["codes"])}
 
 
-def load_bit_trial_settling() -> dict:
+def load_bit_trial_settling(rel_record: str) -> dict:
     """Worst-case 99% settling time per corner, and the budget it is read
     against.
 
@@ -522,10 +537,15 @@ def load_bit_trial_settling() -> dict:
     measurement). The DR-006-derived worst-case phase budget is read out of
     the record's prose rather than hard-coded here.
 
+    `rel_record` is the figure's declared citation, passed in by the loader
+    dispatch: both the table and the budget line this loader reads come out
+    of the record the figure cites, never a second selection made on the
+    side.
+
     Cross-check: budget / t_settle must reproduce the margin the same table
     states, to that column's own 1-decimal precision.
     """
-    record_path = REPO_ROOT / "sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md"
+    record_path = REPO_ROOT / rel_record
     text = record_path.read_text()
     budget_match = re.search(
         r"\*\*DR-006 phase-period reference points\*\*:\s*([\d.]+)\s*ns", text
@@ -569,7 +589,7 @@ def load_bit_trial_settling() -> dict:
     return {"points": points, "budget_ns": budget_ns}
 
 
-def load_coherent_sine_spectrum() -> dict:
+def load_coherent_sine_spectrum(rel_record: str) -> dict:
     """The captured code stream's single-sided spectrum, measured and ideal.
 
     Source: the dynamic-test record's own "Captured code stream" table (one
@@ -578,13 +598,18 @@ def load_coherent_sine_spectrum() -> dict:
     `sim/full-conversion-transient/dynamic_enob.py`, so the figure and the
     record's headline figures come out of one implementation.
 
+    `rel_record` is the figure's declared citation, passed in by the loader
+    dispatch: the code stream, metadata and stated values this loader reads
+    all come out of the record the figure cites, never a second selection
+    made on the side.
+
     Cross-check: the SNDR, ENOB, SFDR, spur bin and full-scale-normalised
     ENOB this module recomputes must reproduce the values the record states,
     to the record's own printed precision.
     """
     import dynamic_enob  # stdlib-only; path set at module import
 
-    record_path = REPO_ROOT / "sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md"
+    record_path = REPO_ROOT / rel_record
     text = record_path.read_text()
     captured: list[int] = []
     ideal: list[int] = []
@@ -1128,7 +1153,7 @@ def render_all(output_dir: Path = PLOTS_DIR) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     entries: dict[str, dict] = {}
     for spec in PLOTS:
-        data = LOADERS[spec.key]()
+        data = LOADERS[spec.key](spec.source_record)
         figure = RENDERERS[spec.key](plt, spec, data)
         target = output_dir / spec.filename
         figure.savefig(target, format="svg", metadata={"Date": None})
@@ -1351,7 +1376,7 @@ def provenance_problems(specs: tuple[PlotSpec, ...] = PLOTS) -> list[str]:
                 "record and re-render, so it cannot keep showing a replaced result."
             )
         try:
-            LOADERS[spec.key]()
+            LOADERS[spec.key](spec.source_record)
         except (ProvenanceError, KeyError, ValueError, OSError) as exc:
             problems.append(f"{spec.key}: {exc}")
     return problems

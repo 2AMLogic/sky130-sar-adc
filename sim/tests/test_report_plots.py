@@ -313,6 +313,34 @@ class TestCommittedPlots(unittest.TestCase):
         enob = REPO_ROOT / "docs/plots/enob-distribution.svg"
         self.assertTrue(enob.is_file(), f"{enob} must be committed")
 
+    def test_a_swapped_citation_fails_provenance_for_that_figure(self):
+        """A loader must read the record its own figure declares (issue #1035).
+
+        Pointing the settling figure at the ENOB record -- which states no
+        settling table and no DR-006 phase-period reference -- must surface a
+        provenance error naming that missing data, not pass silently because
+        the loader re-selected its old record on the side.
+        """
+        from dataclasses import replace
+
+        figures = {p.key: p for p in plots.PLOTS}
+        settling = figures["bit-trial-settling-corners"]
+        enob_record = figures["enob-distribution"].source_record
+        swapped = replace(settling, source_record=enob_record)
+
+        problems = plots.provenance_problems((swapped,))
+
+        self.assertTrue(
+            any(
+                settling.key in problem
+                and enob_record in problem
+                and ("DR-006" in problem or "settling rows" in problem)
+                for problem in problems
+            ),
+            f"a figure whose cited record lacks its data must fail provenance: "
+            f"{problems}",
+        )
+
 
 class TestCdacMonteCarloDistributions(unittest.TestCase):
     """Both Monte Carlo series come out of the campaign's own committed draw
@@ -320,8 +348,9 @@ class TestCdacMonteCarloDistributions(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.data = plots.load_cdac_inl_distribution()
-        record = REPO_ROOT / f"sim/cdac-array-transfer/records/{plots.CDAC_MC_RECORD_ID}.md"
+        rel_record = f"sim/cdac-array-transfer/records/{plots.CDAC_MC_RECORD_ID}.md"
+        cls.data = plots.load_cdac_inl_distribution(rel_record)
+        record = REPO_ROOT / rel_record
         cls.stated = plots._cdac_mc_stated_rows(record)
 
     def test_every_draw_log_the_figure_hashes_is_committed(self):
