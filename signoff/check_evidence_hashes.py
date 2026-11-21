@@ -143,14 +143,21 @@ def classify(envelope: dict) -> str:
         return "drc"
     if "mismatches" in envelope and "reference" in envelope:
         return "lvs"
+    # `klt sim` (item 5, issues #564/#881/#1023): a `measurements` list plus
+    # `corner_count`, checked BEFORE `yield` (which also carries a
+    # `measurements` list) exactly as the grader checks it. ARTIFACT_FIELD
+    # names its `netlist` -- which a `klt sim` report records as a
+    # `{"path", "scope"}` object, so the artifact-name reader below accepts
+    # both that object's `path` and a plain string.
+    if isinstance(envelope.get("measurements"), list) and "corner_count" in envelope:
+        return "sim"
     # `klt yield` (item 6, issue #1015), detected by the same structural
     # triple `klt signoff` uses: a `measurements` list plus
     # `measurement_count` plus a `source` object, and never `corner_count`
-    # (that pair is `sim`, which this fixture-grade classifier does not need
-    # and which the yield test therefore cannot collide with). A yield
-    # envelope is the one kind whose freshness artifact is NOT described by
-    # its own `provenance` block -- it names a second document, `samples`,
-    # and the grader hashes THAT file live (klayout-tools#870/#2197).
+    # (that pair is `sim`, checked first above). A yield envelope is the one
+    # kind whose freshness artifact is NOT described by its own `provenance`
+    # block -- it names a second document, `samples`, and the grader hashes
+    # THAT file live (klayout-tools#870/#2197).
     if (
         isinstance(envelope.get("measurements"), list)
         and "measurement_count" in envelope
@@ -450,10 +457,20 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
             notes.append(f"item {item_key}: kind={kind} names no artifact field; input not re-hashed")
         else:
             named_artifact = envelope.get(field)
-            if not isinstance(named_artifact, str):
+            # A `klt sim` report records its netlist as a `{"path", "scope"}`
+            # object, not a string: read the path out of the object. A `null`
+            # path (scope "external"/"absent" -- a request submitted from
+            # outside any repo, the /tmp-scratch shape) names nothing this
+            # checkout can re-hash, and is refused as such rather than
+            # silently skipping the re-derivation.
+            if isinstance(named_artifact, dict):
+                named_artifact = named_artifact.get("path")
+            if not isinstance(named_artifact, str) or not named_artifact:
                 failures.append(
                     f"item {item_key}: {named_file} (kind={kind}) records an input hash "
-                    f"but no '{field}' naming the artifact it describes"
+                    f"but no '{field}' path naming the artifact it describes -- "
+                    "submit the request from inside this repo so the report "
+                    "records a repo-relative netlist path"
                 )
                 return
             artifact = resolve_artifact(named_artifact, envelope_path)

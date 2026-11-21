@@ -353,8 +353,25 @@
           "citation": "sim/digital-functional/runs/20261017-193811-9522693/top-glue.json",
           "status": "met",
           "reason": null
+        },
+        {
+          "citation": "sim/sar-sequencer-behavioral/corners/20261121-073156-75b91e85/report.json",
+          "rows": [
+            "resolution_n"
+          ],
+          "status": "met",
+          "reason": null
         }
       ],
+      "row_coverage": {
+        "failed_rows": [],
+        "uncovered_rows": [],
+        "declared_gaps": [],
+        "unratified_rows": [],
+        "row_sources": {
+          "resolution_n": "derived"
+        }
+      },
       "citations": [
         {
           "file": "sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json",
@@ -390,6 +407,15 @@
           "check_status": "pass",
           "content_hash": null,
           "input_verified": null,
+          "exit_status": 0
+        },
+        {
+          "file": "sim/sar-sequencer-behavioral/corners/20261121-073156-75b91e85/report.json",
+          "command": null,
+          "kind": "sim",
+          "check_status": "pass",
+          "content_hash": "sha256:e90301c42d597088d364f482531a8d2bb5bbe8bb7c2e98b5db6c8839a5580ae7",
+          "input_verified": true,
           "exit_status": 0
         }
       ]
