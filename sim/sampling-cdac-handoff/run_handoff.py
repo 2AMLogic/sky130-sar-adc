@@ -1528,8 +1528,18 @@ def submit_candidate(
         "tb.spice", cids, timeout_s=timeout_s, backend=backend, hosts=hosts,
     )
     (workdir / "request.json").write_text(json.dumps(req, indent=1) + "\n")
+    # A single-corner submit is one fleet unit, which `klt sim` resolves to
+    # the LOCAL backend on its own -- and `--wait-for-capacity` is a
+    # batch-only flag (the client refuses the pairing). The two code-state
+    # controls are exactly that shape, so the capacity wait is dropped
+    # whenever the submit is explicitly local or single-corner.
+    capacity_wait_s = (
+        None if backend == "local" or len(cids) == 1
+        else klt_sim.DEFAULT_CAPACITY_WAIT_S
+    )
     report = klt_sim.submit(
-        workdir / "request.json", workdir / "out", backend=backend
+        workdir / "request.json", workdir / "out", backend=backend,
+        capacity_wait_s=capacity_wait_s,
     )
     _vals, info = klt_sim.measurements_by_corner(report, CAND_SUPPLY_KEY)
     return report, dict(info, backend=backend or "(klt default / KLT_SIM_BACKEND)")
@@ -1572,7 +1582,12 @@ def candidate_corner_row(values: dict[str, float | None], code_name: str) -> dic
 def read_candidate_report(report: dict) -> dict[str, dict]:
     """`{corner_id: row}` over the report's corners (error envelope refused
     by the shared reader, never read as numbers)."""
-    results, _info = klt_sim.measurements_by_corner(report, CAND_SUPPLY_KEY)
+    # null_error_corners=False: same choice as the companion bit-trial
+    # reader -- a single failed measurement must not void the corner's
+    # solved reads (the fixed-time probes this campaign grades on).
+    results, _info = klt_sim.measurements_by_corner(
+        report, CAND_SUPPLY_KEY, null_error_corners=False
+    )
     return {
         cid: candidate_corner_row(vals or {}, _CODE_OF[cid] if cid in _CODE_OF else CORNERS_CODE_STATE)
         for cid, vals in results.items()
@@ -1650,13 +1665,14 @@ def verdict_lines(
             )
             continue
         bind_cid, bind_err = max(errs, key=lambda ce: abs(ce[1]))
-        worst_node_cid, worst_node_err = max(
+        worst_node_cid, worst_node_name, worst_node_err = max(
             (
-                (c, grid[c][f"{stat}_{grid[c].get('worst_node', 'n')}_err_mv"])
+                (c, SIDES[node][0], grid[c][f"{stat}_{node}_err_mv"])
                 for c in complete
-                if grid[c].get(f"{stat}_n_err_mv") is not None
+                for node in SIDES
+                if grid[c].get(f"{stat}_{node}_err_mv") is not None
             ),
-            key=lambda ce: abs(ce[1]),
+            key=lambda ce: abs(ce[2]),
         )
         acq_ok = abs(bind_err) <= HALF_LSB_MV
         # Bit-trial side, from the companion record's own reader.
@@ -1696,11 +1712,13 @@ def verdict_lines(
             f"differential acquisition error {bind_err:+.4f} mV at `{bind_cid}` "
             f"({abs(bind_err) / HALF_LSB_MV:.2f}x the {HALF_LSB_MV:.4f} mV "
             "half-LSB reference; worst single-ended node residual "
-            f"{worst_node_err:+.4f} mV at `{worst_node_cid}`)"
+            f"{worst_node_err:+.4f} mV on `{worst_node_name}` at "
+            f"`{worst_node_cid}`)"
         )
         out.append(
             f"- **{label}: {verdict}.** At this deadline the binding "
-            f"acquisition corner: {reason}. {'; ' + bt_txt if bt_txt else ''}."
+            f"acquisition corner: {reason}. {bt_txt}." if bt_txt
+            else f"- **{label}: {verdict}.** {reason}."
             + (
                 ""
                 if (acq_ok and bt_ok is not False) or bt_ok is None
@@ -2093,7 +2111,9 @@ def candidate_main(args: argparse.Namespace) -> int:
             workroot / name, code_name, sub_cids, args.backend,
             args.timeout_s, hosts=(args.hosts if name == "grid" else None),
         )
-        results, _ = klt_sim.measurements_by_corner(report, CAND_SUPPLY_KEY)
+        results, _ = klt_sim.measurements_by_corner(
+            report, CAND_SUPPLY_KEY, null_error_corners=False
+        )
         for cid in results:
             _CODE_OF[cid] = code_name
             row = candidate_corner_row(results[cid] or {}, code_name)

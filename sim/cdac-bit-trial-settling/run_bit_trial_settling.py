@@ -1453,7 +1453,14 @@ def candidate_rows(values: dict[str, float | None], supply_v: float) -> list[dic
 def read_candidate_report(report: dict) -> tuple[dict[str, list[dict]], list[str]]:
     """`({corner_id: rows}, completed corner ids)` -- refuses an error
     envelope rather than inventing numbers (klt_sim's shared reader)."""
-    results, _info = klt_sim.measurements_by_corner(report, CAND_SUPPLY_KEY)
+    # null_error_corners=False: a corner whose status is error ONLY because
+    # one crossing search never crossed still carries every other solved
+    # measurement, and the missing crossing itself is data this campaign
+    # reports (see read_candidate_report's docstring) -- the default nulling
+    # would throw the whole grid row away with it.
+    results, _info = klt_sim.measurements_by_corner(
+        report, CAND_SUPPLY_KEY, null_error_corners=False
+    )
     out: dict[str, list[dict]] = {}
     complete: list[str] = []
     for cid, values in results.items():

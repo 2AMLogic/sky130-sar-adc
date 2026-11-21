@@ -257,6 +257,13 @@ def run_info(report: dict) -> dict:
     jobs = []
     pdks, ngs, features = set(), set(), set()
     for entry in entries:
+        # A LOST shard reports as a null fleet entry (a real campaign hit
+        # this: 5 of 9 corners `lost_shard`, and reading the report crashed
+        # run_info before the campaign could report the loss). A missing
+        # shard contributes no environment facts; the corners it carried
+        # report their own `lost_shard` status either way.
+        if not isinstance(entry, dict):
+            continue
         worker = entry.get("worker_environment") or {}
         pdk_stamp = (worker.get("pdk") or {}).get("stamp_text")
         variant = (worker.get("pdk") or {}).get("variant")
@@ -317,7 +324,7 @@ def finite(x) -> bool:
 
 
 def measurements_by_corner(
-    report: dict, supply_key: str
+    report: dict, supply_key: str, *, null_error_corners: bool = True
 ) -> tuple[dict[str, dict[str, float | None]], dict]:
     """`({corner_id: {"<step>.<name>": value}}, run_info(report))`.
 
@@ -331,6 +338,18 @@ def measurements_by_corner(
     `supply_key` selects the corner's supply out of its `supply_v` map; the
     campaign's module constant (`SUPPLY_KEY` = "vsup" today) moves to this
     argument rather than being baked into yet another module.
+
+    `null_error_corners=False` keeps each MEASUREMENT's own value at a corner
+    whose status is `error`/`inconclusive`. A corner can carry that status
+    because ONE measurement produced no value while every other measurement
+    solved -- the crossing-search case, where a threshold that is never
+    crossed is itself evidence the campaign must RETAIN (a settling study's
+    small-swing row), not a reason to throw away the corner's other values.
+    `klt` already reports per-measurement values and statuses; the default
+    nulling stays the safe read for campaigns where "any error" means "the
+    solve is suspect". (Found by the DR-027 candidate campaign: two corners
+    lost their whole measured grid to one legitimately-missing bit-0
+    crossing.)
     """
     if not isinstance(report, dict):
         raise ValueError("klt sim report is not a JSON object")
@@ -345,7 +364,7 @@ def measurements_by_corner(
             for m in (c.get("measurements") or [])
             if isinstance(m, dict) and "name" in m
         }
-        if c.get("status") in ("error", "inconclusive"):
+        if null_error_corners and c.get("status") in ("error", "inconclusive"):
             vals = {k: None for k in vals}
         out[cid] = vals
     return out, run_info(report)
