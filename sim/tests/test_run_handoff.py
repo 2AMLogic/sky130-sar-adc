@@ -188,5 +188,189 @@ class TestFragmentCurrencyHelper(unittest.TestCase):
                 self.assertTrue(sch.is_file(), f"{sch} must exist to be re-netlisted")
 
 
+class TestDR027CandidateFragment(unittest.TestCase):
+    """issue #1033: the candidate deck is the committed production fragment
+    with ONLY the unit-cap plates resized -- switch devices byte-identical,
+    exactly 20 caps swapped, and the result identified as experimental."""
+
+    def test_swaps_exactly_twenty_plates_and_announces_itself(self):
+        text, n = rh.candidate_cdac_fragment()
+        self.assertEqual(n, 20, "9 P-side + 9 N-side bit caps + 2 termination units")
+        self.assertIn("EXPERIMENTAL DR-027 CANDIDATE STUDY FRAGMENT", text)
+        self.assertEqual(text.count(f"W={rh.CANDIDATE_UNIT_CAP_WL_UM:.4f} "
+                                    f"L={rh.CANDIDATE_UNIT_CAP_WL_UM:.4f}"), 20)
+        self.assertNotIn(f"W={rh.PRODUCTION_UNIT_CAP_WL_UM:.4f} "
+                         f"L={rh.PRODUCTION_UNIT_CAP_WL_UM:.4f}", text)
+
+    def test_every_non_cap_device_line_is_byte_identical(self):
+        """The resize-the-plate-only rule, enforced structurally: diffing the
+        candidate against the committed fragment (as device/card lines, so
+        both hand-written headers are out of the comparison) may show ONLY
+        the 20 cap cards' W/L differing."""
+        committed = rh._device_lines(rh.CDAC_FRAG.read_text())
+        candidate = rh._device_lines(rh.candidate_cdac_fragment()[0])
+        self.assertEqual(len(candidate), len(committed))
+        diffs = [
+            (c, k) for c, k in zip(committed, candidate) if c != k
+        ]
+        self.assertEqual(len(diffs), 20)
+        for c, k in diffs:
+            self.assertTrue(k.startswith("XC") and "cap_mim_m3_1" in k)
+            self.assertEqual(
+                k, c.replace(
+                    f"W={rh.PRODUCTION_UNIT_CAP_WL_UM:.4f} "
+                    f"L={rh.PRODUCTION_UNIT_CAP_WL_UM:.4f}",
+                    f"W={rh.CANDIDATE_UNIT_CAP_WL_UM:.4f} "
+                    f"L={rh.CANDIDATE_UNIT_CAP_WL_UM:.4f}",
+                ),
+            )
+
+    def test_refuses_a_fragment_that_is_not_twenty_production_plates(self):
+        """If the production fragment drifts (a different plate count or
+        size), the candidate must refuse to be generated rather than
+        silently measure something else."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "cdac_array_dut.spice"
+            bad.write_text(
+                rh.CDAC_FRAG.read_text().replace(
+                    f"W={rh.PRODUCTION_UNIT_CAP_WL_UM:.4f} L="
+                    f"{rh.PRODUCTION_UNIT_CAP_WL_UM:.4f}",
+                    "W=2.0000 L=2.0000", 1,
+                )
+            )
+            saved = rh.CDAC_FRAG
+            try:
+                rh.CDAC_FRAG = bad
+                with self.assertRaises(RuntimeError):
+                    rh.candidate_cdac_fragment()
+            finally:
+                rh.CDAC_FRAG = saved
+
+
+class TestDR027CandidateStimulusWindows(unittest.TestCase):
+    """issue #1033: BOTH DR-006 deadlines must fall inside the active SAMPLE
+    pulse #2 and ahead of switch turn-off, and the fast deadline must stay
+    at the baseline records' own budget-probe instant so the candidate's
+    fast column is corner-for-corner comparable with them."""
+
+    def test_fast_deadline_is_the_baseline_budget_probe_instant(self):
+        self.assertAlmostEqual(
+            rh.CAND_FAST_AT_NS, rh.BUDGET_PROBE_AT_NS, places=9,
+        )
+        self.assertAlmostEqual(
+            rh.CAND_FAST_AT_NS, rh.TRIG_AT_NS + rh.T_PHASE_WORST_NS, places=9,
+        )
+        self.assertAlmostEqual(
+            rh.CAND_SLOW_AT_NS, rh.TRIG_AT_NS + rh.T_PHASE_SLOW_NS, places=9,
+        )
+
+    def test_both_deadlines_and_late_read_are_inside_pulse_two(self):
+        # pulse #2 spans T_SAMPLE2_RISE_NS (+ its 0.2 ns edge) to
+        # CAND_T_SAMPLE2_FALL_NS; every probe must sit strictly inside it.
+        active_from = rh.T_SAMPLE2_RISE_NS + rh.EDGE_TR_NS
+        for at in (rh.CAND_FAST_AT_NS, rh.CAND_SLOW_AT_NS, rh.CAND_LATE_AT_NS):
+            self.assertGreater(at, active_from)
+            self.assertLess(at, rh.CAND_T_SAMPLE2_FALL_NS,
+                            "probe must be ahead of switch turn-off")
+        # and the late read uses the baseline CONFIRM_AT_NS's own convention
+        self.assertAlmostEqual(
+            rh.CAND_LATE_AT_NS, rh.CAND_T_SAMPLE2_FALL_NS - 5.0, places=9,
+        )
+        # the deadline must land with margin, not on the turn-off edge itself
+        self.assertGreater(
+            rh.CAND_T_SAMPLE2_FALL_NS - rh.CAND_SLOW_AT_NS, 20.0,
+        )
+
+    def test_pwl_points_extend_the_pulse_and_inputs_to_the_window_end(self):
+        sample, vinp, vinn = rh._candidate_pwl_points()
+        self.assertEqual(max(t for t, _v in sample), rh.CAND_TRAN_STOP_NS)
+        self.assertEqual(max(t for t, _v in vinp), rh.CAND_TRAN_STOP_NS)
+        self.assertEqual(max(t for t, _v in vinn), rh.CAND_TRAN_STOP_NS)
+        # SAMPLE pulse #2: normalised 1 between its rise edge and the
+        # widened fall, 0 elsewhere after pulse #1 ends.
+        def level(points, t):
+            pts = sorted(points)
+            for (t0, v0), (t1, _v1) in zip(pts, pts[1:]):
+                if t0 <= t <= t1:
+                    return v0
+            return pts[-1][1]
+        self.assertEqual(level(sample, rh.CAND_FAST_AT_NS), 1.0)
+        self.assertEqual(level(sample, rh.CAND_SLOW_AT_NS), 1.0)
+        self.assertEqual(level(sample, rh.CAND_LATE_AT_NS), 1.0)
+        self.assertEqual(level(sample, rh.CAND_T_SAMPLE2_FALL_NS + 1.0), 0.0)
+
+
+class TestDR027CandidateBodyAndRequest(unittest.TestCase):
+    def test_body_keeps_the_front_end_and_its_own_sampling_capacitor(self):
+        body = rh.build_candidate_body(rh.CORNERS_CODE_STATE)
+        self.assertIn("XCsamp_p TOP_P BPREF_P", body)
+        self.assertIn("XCsamp_n TOP_N BPREF_N", body)
+        # BPREF_x must stay dead-ended (no testbench source drives it)
+        for line in body.splitlines():
+            self.assertFalse(
+                line.startswith(("V", "B")) and (" BPREF_P " in line or " BPREF_N " in line),
+                f"BPREF_x must not be driven: {line}",
+            )
+
+    def test_body_is_a_circuit_body_not_a_deck(self):
+        body = rh.build_candidate_body()
+        for line in body.splitlines():
+            self.assertFalse(
+                line.startswith((".control", ".tran", ".meas", ".lib", ".temp", ".end")),
+                f"circuit body must not carry analysis cards: {line}",
+            )
+
+    def test_supply_scaled_sources_replace_corner_baked_levels(self):
+        body = rh.build_candidate_body()
+        self.assertIn(f"{rh.CAND_SUPPLY_KEY} VDD 0 DC {rh.VDD}", body)
+        self.assertIn("Bsample SAMPLE 0 V=v(SMPN)*v(VDD)", body)
+        self.assertIn("Bvrefp VREFP 0 V=v(VDD)", body)
+        # the baseline campaign's fixed levels stay fixed
+        self.assertIn(f"Vvcm VCM 0 DC {rh.VCM}", body)
+
+    def test_previous_code_drivers_present_for_every_bit(self):
+        body = rh.build_candidate_body(rh.CORNERS_CODE_STATE)
+        for i in range(9):
+            self.assertTrue(
+                f"Bselp{i} SELp{i} " in body or f"Vselp{i} SELp{i} " in body
+            )
+            self.assertTrue(
+                f"Bseln{i} SELn{i} " in body or f"Vseln{i} SELn{i} " in body
+            )
+
+    def test_steps_carry_the_two_deadlines_with_documented_ceilings(self):
+        steps = {s["name"]: s for s in rh.candidate_analysis_steps()}
+        self.assertEqual(
+            steps["fast"]["analysis"]["args"],
+            f"{rh.TRAN_STEP_NS:g}n {rh.CAND_FAST_TRAN_STOP_NS:g}n",
+        )
+        self.assertEqual(
+            steps["slow"]["analysis"]["args"],
+            f"{rh.CAND_SLOW_TRAN_STEP_NS:g}n {rh.CAND_TRAN_STOP_NS:g}n",
+        )
+        fast_spice = " ".join(m["spice"] for m in steps["fast"]["measurements"])
+        slow_spice = " ".join(m["spice"] for m in steps["slow"]["measurements"])
+        self.assertIn(f"at={rh.CAND_FAST_AT_NS:.6f}n", fast_spice)
+        self.assertIn(f"at={rh.CAND_SLOW_AT_NS:.6f}n", slow_spice)
+        self.assertIn(f"at={rh.CAND_LATE_AT_NS:.6f}n", slow_spice)
+        # measurement names never collide with node names (klt-sim #5446)
+        nodes = set()
+        for line in rh.build_candidate_body().splitlines():
+            if line and line[0].isalpha() and not line.startswith("*"):
+                nodes.update(line.split()[1].split("[")[0].split(":"))
+        for s in steps.values():
+            for m in s["measurements"]:
+                self.assertNotIn(m["name"], nodes)
+
+    def test_request_shapes_the_oat_grid_via_exclude(self):
+        cids = rh.candidate_corner_ids()
+        req = rh.build_candidate_request("tb.spice", cids)
+        self.assertEqual(len(cids), 9)
+        self.assertEqual(len(req["exclude"]), 45 - 9)
+        self.assertEqual(len(req["corners"]["process"]), 5)
+        self.assertEqual(req["corners"]["supply_v"], {rh.CAND_SUPPLY_KEY: [1.62, 1.8, 1.98]})
+
+
 if __name__ == "__main__":
     unittest.main()
