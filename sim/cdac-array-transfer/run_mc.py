@@ -102,17 +102,20 @@ ENDPOINT_LO, ENDPOINT_HI = 0, 511
 ARRAY_IDEAL_STEP_V = 2 * NOMINAL_SUPPLY_V / 512  # this array's own ideal code-to-code step
 
 
-def build_netlist(info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float, rndseed: int | None) -> str:
+def build_netlist(info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float, rndseed: int | None, unit_side_um: float = 1.9000) -> str:
     lines: list[str] = []
     a = lines.append
-    a(f"* cdac-array-transfer Monte Carlo -- corner={corner} temp={temp_c}C supply={supply_v}V seed={rndseed} (issue #29)")
+    title = f"* cdac-array-transfer Monte Carlo -- corner={corner} temp={temp_c}C supply={supply_v}V seed={rndseed} (issue #29)"
+    if unit_side_um != 1.9000:
+        title += f" unit-cap-plate={unit_side_um:.4f}um (issue #1016 candidate study; DR-019 as-built is 1.9000um)"
+    a(title)
     a(f".lib {info.ngspice_lib} {corner}")
     a(f".temp {temp_c}")
     a(f".param vdd_val = {supply_v}")
     if rndseed is not None:
         a(f".option rndseed={rndseed}")
     a("")
-    a(gen_fragment(CODES_MC))
+    a(gen_fragment(CODES_MC, unit_side_um=unit_side_um))
     a("")
     a(".control")
     a(f"tran {TRAN_STEP} {SETTLE_T}")
@@ -218,8 +221,8 @@ def gain_error_summary(result: "McResult") -> dict:
     }
 
 
-def _one_draw(info: pdk.PdkInfo, corner: str, seed: int | None, scratch_dir: Path, log_name: str) -> Draw:
-    netlist = build_netlist(info, corner, TEMP_C, NOMINAL_SUPPLY_V, seed)
+def _one_draw(info: pdk.PdkInfo, corner: str, seed: int | None, scratch_dir: Path, log_name: str, unit_side_um: float = 1.9000) -> Draw:
+    netlist = build_netlist(info, corner, TEMP_C, NOMINAL_SUPPLY_V, seed, unit_side_um=unit_side_um)
     log_text = toolchain.run_ngspice(netlist, scratch_dir, log_name)
     return _parse_draw(seed, log_text)
 
@@ -235,14 +238,14 @@ class McResult:
     source_record_id: str | None = None  # set only by reanalyze_from_logs()
 
 
-def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = False) -> McResult:
+def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = False, unit_side_um: float = 1.9000) -> McResult:
     info = pdk.resolve()
     if not info.found:
         raise RuntimeError(f"PDK not resolvable: {info.error}")
     mismatch_corner = corners_mod.mismatch_corner_for(corner)
 
     def one_draw(draw_corner: str, this_seed: int, scratch_dir: Path, log_name: str) -> Draw:
-        return _one_draw(info, draw_corner, this_seed, scratch_dir, log_name)
+        return _one_draw(info, draw_corner, this_seed, scratch_dir, log_name, unit_side_um=unit_side_um)
 
     def describe(d: Draw) -> str:
         return f"DNLmax={d.dnl_max_lsb:.4f} LSB INLmax={d.inl_max_lsb:.4f} LSB"
@@ -455,14 +458,39 @@ def reanalysis_prose_line(source_record_id: str) -> str:
     )
 
 
+def _negative_control_measurements(negctrl_record: str) -> dict[str, list[float]] | None:
+    """Per-measurement known-bad sample lists for the `klt yield` envelope's
+    `negative_control` declaration (issue #1016), re-derived from a PRIOR
+    record's already-committed `mc-draws/<negctrl_record>/` logs with NO new
+    ngspice run. The as-built 1.9000 um-plate campaign is the natural
+    known-bad control for a candidate-resize study: its DNL/INL populations
+    demonstrably fail the +-1 LSB limit (empirical yield 0.825/0.925,
+    records 20261001-124049-5207381 / 20261115-014818-7adcfe77), so a
+    control built from it shows the envelope's statistics detect the
+    degradation the resize is meant to remove. Returns None (and the
+    envelope is minted without a control, exactly as before) if the record
+    or its draws cannot be read."""
+    try:
+        res = reanalyze_from_logs(negctrl_record)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"warning: negative-control record {negctrl_record!r} unreadable ({exc}); minting envelope without a declared control")
+        return None
+    return {
+        "dnl_max_lsb": [d.dnl_max_lsb for d in res.draws],
+        "inl_max_lsb": [d.inl_max_lsb for d in res.draws],
+    }
+
+
 def write_evidence(
     result: McResult,
     note: str = "",
     target_limit_lsb: float = DRAFT_INL_DNL_TARGET_LSB,
     target_yield: float = 0.99,
     supersedes: str = "",
+    unit_side_um: float = 1.9000,
+    negctrl_record: str | None = None,
 ) -> tuple[Path, bool]:
-    sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed)
+    sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed, unit_side_um=unit_side_um)
     prov = evidence.resolve_provenance(EXPERIMENT_DIR, sample_netlist)
     record_id = prov.record_id
     record_path = prov.record_path
@@ -492,28 +520,37 @@ def write_evidence(
     rel_se_pct = 100.0 / (2 * (n - 1)) ** 0.5 if n > 1 else float("inf")
 
     yield_json_path = EXPERIMENT_DIR / "yield-reports" / f"{record_id}.json"
+    negctrl_samples = _negative_control_measurements(negctrl_record) if negctrl_record else None
+    negctrl_desc = (
+        f"as-built 1.9000 um unit plate (DR-019), committed draws of record "
+        f"{negctrl_record} -- known short of the +-1 LSB limit (empirical yield "
+        "0.825 DNL / 0.925 INL, issue #29/#912); shows this envelope's statistics "
+        "detect the degradation the candidate resize removes"
+    ) if negctrl_samples else ""
+
+    def _measurement(name: str, samples: list[float]) -> dict:
+        m = {
+            "name": name,
+            "unit": "LSB",
+            "samples": samples,
+            "limits": {
+                "min": -target_limit_lsb,
+                "max": target_limit_lsb,
+                "target_yield": target_yield,
+            },
+        }
+        if negctrl_samples:
+            m["negative_control"] = {
+                "samples": negctrl_samples[name],
+                "errored": 0, "failed_unmeasurable": 0, "censored": 0,
+                "description": negctrl_desc,
+            }
+        return m
+
     yield_report = evidence.run_klt_yield(
         [
-            {
-                "name": "dnl_max_lsb",
-                "unit": "LSB",
-                "samples": dnl_draws,
-                "limits": {
-                    "min": -target_limit_lsb,
-                    "max": target_limit_lsb,
-                    "target_yield": target_yield,
-                },
-            },
-            {
-                "name": "inl_max_lsb",
-                "unit": "LSB",
-                "samples": inl_draws,
-                "limits": {
-                    "min": -target_limit_lsb,
-                    "max": target_limit_lsb,
-                    "target_yield": target_yield,
-                },
-            },
+            _measurement("dnl_max_lsb", dnl_draws),
+            _measurement("inl_max_lsb", inl_draws),
         ],
         yield_json_path,
     )
@@ -527,15 +564,49 @@ def write_evidence(
         provenance = target_provenance_prose(target_limit_lsb, target_yield)
         a(f"- **Claim**: {provenance.claim_body}")
         a(f"- **Reanalysis, not a new simulation**: {reanalysis_prose_line(result.source_record_id)}")
+        if unit_side_um != 1.9000:
+            a(
+                "- **Netlist provenance**: schematic, generated STUDY VARIANT -- unit-cap plate side "
+                f"resized to {unit_side_um:.4f} um (issue #1016 closure study; the as-committed "
+                "design/cdac/cdac_array.sch still carries DR-019's 1.9000 um plate -- this record "
+                "re-scores the candidate campaign's committed draws, it does not implement the "
+                "resize). The source campaign's netlists were generated by "
+                "`sim/cdac-array-transfer/gen_fragment.py` (byte-for-byte verified against #53's "
+                "hand-authored fragment at the default 1.9000 um plate by "
+                "`sim/tests/test_cdac_fragment_gen.py`); the PDK's own MiM Pelgrom mismatch term "
+                "picks the resized plate up automatically (sigma_u = 2.8 %*um / "
+                f"{unit_side_um:.4f} um = {2.8 / unit_side_um:.4f} % vs 1.4737 % as-built)"
+            )
     else:
         a(
             "- **Claim**: "
             f"{target_provenance_prose(target_limit_lsb, target_yield).fresh_claim_body}"
         )
+        if unit_side_um != 1.9000:
+            a(
+                "- **Netlist provenance**: schematic, generated STUDY VARIANT -- unit-cap plate side "
+                f"resized to {unit_side_um:.4f} um (issue #1016 closure study; the as-committed "
+                "design/cdac/cdac_array.sch still carries DR-019's 1.9000 um plate -- this record "
+                "simulates the candidate, it does not implement it). Generated by "
+                "`sim/cdac-array-transfer/gen_fragment.py` (byte-for-byte verified against #53's "
+                "hand-authored fragment at the default 1.9000 um plate by "
+                "`sim/tests/test_cdac_fragment_gen.py`); the PDK's own MiM Pelgrom mismatch term "
+                "picks up the new plate automatically (sigma_u = 2.8 %*um / "
+                f"{unit_side_um:.4f} um = {2.8 / unit_side_um:.4f} % vs 1.4737 % as-built)"
+            )
+        else:
+            a(
+                "- **Netlist provenance**: schematic, generated (`sim/cdac-array-transfer/gen_fragment.py`, "
+                "verified byte-for-byte against #53's hand-authored `testbench/tb_cdac_array_transfer.spice` "
+                "for that fragment's own 5 codes -- see `sim/tests/test_cdac_fragment_gen.py`)"
+            )
+    if negctrl_samples:
         a(
-            "- **Netlist provenance**: schematic, generated (`sim/cdac-array-transfer/gen_fragment.py`, "
-            "verified byte-for-byte against #53's hand-authored `testbench/tb_cdac_array_transfer.spice` "
-            "for that fragment's own 5 codes -- see `sim/tests/test_cdac_fragment_gen.py`)"
+            "- **Declared negative control (klt yield)**: the as-built 1.9000 um-plate populations "
+            f"of committed record `sim/cdac-array-transfer/records/{negctrl_record}.md` "
+            "(re-derived from its committed mc-draws, no new ngspice run) -- a known-bad variant "
+            "against the same limit, demonstrating the envelope detects the degradation the "
+            "candidate resize removes"
         )
     a(
         f"- **Statistical convention**: mismatch corner `{result.mismatch_corner}`, N={n}, "
@@ -838,6 +909,23 @@ def main() -> int:
         "--target-yield", type=float, default=0.99,
         help="target_yield passed to klt yield (default: 0.99, matching the DRAFT spec row's convention)",
     )
+    ap.add_argument(
+        "--unit-cap-side-um", type=float, default=1.9000,
+        help=(
+            "MiM unit-cap plate side for a CANDIDATE-array study run (issue #1016). "
+            "Default 1.9000 = DR-019's as-built plate (byte-identical netlist to prior "
+            "campaigns). Any other value simulates a resized array WITHOUT touching "
+            "design/cdac -- the PDK's Pelgrom mismatch term rescales with the plate."
+        ),
+    )
+    ap.add_argument(
+        "--negative-control-record", default=None, metavar="RECORD_ID",
+        help=(
+            "declare a klt yield negative_control in the minted envelope, re-derived "
+            "from this prior record's committed mc-draws (issue #1016: the as-built "
+            "1.9000 um campaign is the known-bad control for a candidate-resize study)"
+        ),
+    )
     args = ap.parse_args()
 
     if args.check_env:
@@ -851,7 +939,7 @@ def main() -> int:
             for i, d in enumerate(result.draws):
                 print(f"  draw {i} (seed={d.seed}, {result.mismatch_corner}): DNLmax={d.dnl_max_lsb:.4f} LSB INLmax={d.inl_max_lsb:.4f} LSB")
     else:
-        result = run_mc(seed=args.seed, n=args.n, corner=args.corner, quiet=args.quiet)
+        result = run_mc(seed=args.seed, n=args.n, corner=args.corner, quiet=args.quiet, unit_side_um=args.unit_cap_side_um)
     exit_code = 0
     if args.record and args.gain_error:
         record_path, ok = write_gain_error_evidence(result, supersedes=args.supersedes, note=args.note)
@@ -863,6 +951,8 @@ def main() -> int:
             result, note=args.note,
             target_limit_lsb=args.target_limit_lsb, target_yield=args.target_yield,
             supersedes=args.supersedes,
+            unit_side_um=args.unit_cap_side_um,
+            negctrl_record=args.negative_control_record,
         )
         print(f"wrote {record_path}")
         print("PASS" if ok else "FAIL")
