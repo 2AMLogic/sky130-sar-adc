@@ -1550,7 +1550,7 @@ What can drift unnoticed is not that either set exists but its *size and
 membership*, so that is gated (check 18), in the same shape check 6 gates the
 pointer-claim census below:
 
-> of the **32** (spec row, evidence flow) citation pairs in Section 4's table, **23** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**10** records), `sim/comparator-decision` (**18** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
+> of the **32** (spec row, evidence flow) citation pairs in Section 4's table, **23** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**10** records), `sim/comparator-decision` (**19** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
 
 (30 → **31** pairs and 21 → **22** freshness-checked on 2026-11-13,
 issue #841: the **Sample rate** row's new `sim/reference-drive-budget`
@@ -1559,7 +1559,12 @@ joins the checked set and the pointerless list is unchanged — the direction
 this gate is meant to allow. 31 → **32** pairs and 22 → **23** the same day,
 issue #847: the **Sample rate** row's new `sim/input-drive-budget` citation
 likewise names a flow that publishes a `records/LATEST` pointer, so it joins
-the checked set too and the pointerless list is again unchanged.)
+the checked set too and the pointerless list is again unchanged.
+comparator-decision 18 → **19** on 2026-11-21, issue #1014: the item-5
+`klt sim` noise envelope's record
+`sim/comparator-decision/records/20261121-010219-75b91e8.md` mints a new
+distinct claim beside the campaign record — that flow still publishes no
+`LATEST` pointer, so it stays in the pointerless list with one more record.)
 
 `python3 docs/chipalooza/check_proposal_citations.py --stats` prints that
 sentence live, to be pasted back in when it moves. It is graded in both
@@ -5744,7 +5749,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **243** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **244** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      (164 → **165** on 2026-10-03: issue #525's PR #533 added
@@ -5782,7 +5787,7 @@ tracker already owns.
      committed one more deck, `sim/cdac-array-transfer/testbench/klt/tb_body.spice`,
      a two-line wrapper that sets `vdd_val` and `.include`s the existing
      `tb_cdac_array_transfer.spice`; it carries no inductor card and models no
-     ground-return path, so the count moves and the qualification does not. 213 → **223** on 2026-11-06: issue #810's re-runs of the local-slice records committed ten more `.spice` files (nine per-record netlist snapshots and one coherent-sine fragment copy), all copies of decks already counted in kind; the census still reads **0** inductor cards. 223 → **225** on 2026-11-06: issue #814's two replay-control records committed one netlist snapshot each (`sim/sampling-frontend/netlist-snapshots/20261106-223403-31f2f3f.spice` and `sim/supply-impedance-sensitivity/netlist-snapshots/20261106-224934-31f2f3f.spice`), two more copies of decks already counted in kind, again with no inductor card and no ground-return model. 225 → **229** on 2026-11-13: issue #841's `sim/reference-drive-budget/` campaign committed two records, each with its submitted circuit body and the frozen netlist snapshot of the same body — four decks, of a new kind — the whole ADC with a series *resistor* on each reference pad — which is exactly why they move the count and not the qualification: the impedance they add is resistive only, so none carries an inductor card, and all leave `VGND`/`GND` on ideal sources at the die, so none models a ground-return path either. The second record supersedes the first on the same cached `klt sim` report — a correction to the record's wording, not a re-simulation — and `sim/` being append-only, its decks are committed beside it rather than replacing the first record's. 229 → **231** on 2026-11-13: issue #847's `sim/input-drive-budget/` campaign committed its record's submitted circuit body and the frozen netlist snapshot of the same body — two decks, the sampling front end with a series *resistor* on each of `VINP`/`VINN`, so for the same reason they move the count and not the qualification: the added impedance is resistive only, so neither carries an inductor card, and both leave `VGND`/`GND` at the die on the ideal `0` node, so neither models a ground-return path. 231 → **239** on 2026-11-13: issue #881 ported `sim/vcm-drive-budget/`'s `--corners` paths from a local `ngspice` loop to `klt sim` and re-minted its four full-PVT-grid records, each committing its submitted circuit body and the frozen netlist snapshot of the DUT fragment — eight decks, all of a kind already counted: the sampling front end with a series *resistor* (and, on the `C_decouple` legs, a shunt *capacitor*) on `VCM`. The added impedance is resistive and capacitive only, so none carries an inductor card, and all leave `GND` at the die on the ideal `0` node, so none models a ground-return path either; the count moves and the qualification does not. 239 → **240** on 2026-11-15: issue #913's converging-range input sweep added `sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice`, a parameterized variant of the same experiment's DC-input fragment — the same ideal sources with the differential input lifted into a top-level `.param` the `klt sim` request sweeps; no inductor card and no ground-return model. 240 → **242** the same day: that sweep's record committed its submitted circuit body and the frozen netlist snapshot of the same body, two more copies of decks already counted in kind — the whole ADC with its differential input on the `.param` instead of per-conversion literals, every source ideal at the die — again with no inductor card and no ground-return model, so the count moves and the qualification does not. 242 → **243** on 2026-11-15: merging origin/main into this branch brought in issue #912's PR #938, which committed one more netlist snapshot (`sim/cdac-array-transfer/netlist-snapshots/20261115-014818-7adcfe77.spice`), a copy of a deck already counted in kind — again with no inductor card and no ground-return model, so the count moves and the qualification does not.)
+     ground-return path, so the count moves and the qualification does not. 213 → **223** on 2026-11-06: issue #810's re-runs of the local-slice records committed ten more `.spice` files (nine per-record netlist snapshots and one coherent-sine fragment copy), all copies of decks already counted in kind; the census still reads **0** inductor cards. 223 → **225** on 2026-11-06: issue #814's two replay-control records committed one netlist snapshot each (`sim/sampling-frontend/netlist-snapshots/20261106-223403-31f2f3f.spice` and `sim/supply-impedance-sensitivity/netlist-snapshots/20261106-224934-31f2f3f.spice`), two more copies of decks already counted in kind, again with no inductor card and no ground-return model. 225 → **229** on 2026-11-13: issue #841's `sim/reference-drive-budget/` campaign committed two records, each with its submitted circuit body and the frozen netlist snapshot of the same body — four decks, of a new kind — the whole ADC with a series *resistor* on each reference pad — which is exactly why they move the count and not the qualification: the impedance they add is resistive only, so none carries an inductor card, and all leave `VGND`/`GND` on ideal sources at the die, so none models a ground-return path either. The second record supersedes the first on the same cached `klt sim` report — a correction to the record's wording, not a re-simulation — and `sim/` being append-only, its decks are committed beside it rather than replacing the first record's. 229 → **231** on 2026-11-13: issue #847's `sim/input-drive-budget/` campaign committed its record's submitted circuit body and the frozen netlist snapshot of the same body — two decks, the sampling front end with a series *resistor* on each of `VINP`/`VINN`, so for the same reason they move the count and not the qualification: the added impedance is resistive only, so neither carries an inductor card, and both leave `VGND`/`GND` at the die on the ideal `0` node, so neither models a ground-return path. 231 → **239** on 2026-11-13: issue #881 ported `sim/vcm-drive-budget/`'s `--corners` paths from a local `ngspice` loop to `klt sim` and re-minted its four full-PVT-grid records, each committing its submitted circuit body and the frozen netlist snapshot of the DUT fragment — eight decks, all of a kind already counted: the sampling front end with a series *resistor* (and, on the `C_decouple` legs, a shunt *capacitor*) on `VCM`. The added impedance is resistive and capacitive only, so none carries an inductor card, and all leave `GND` at the die on the ideal `0` node, so none models a ground-return path either; the count moves and the qualification does not. 239 → **240** on 2026-11-15: issue #913's converging-range input sweep added `sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice`, a parameterized variant of the same experiment's DC-input fragment — the same ideal sources with the differential input lifted into a top-level `.param` the `klt sim` request sweeps; no inductor card and no ground-return model. 240 → **242** the same day: that sweep's record committed its submitted circuit body and the frozen netlist snapshot of the same body, two more copies of decks already counted in kind — the whole ADC with its differential input on the `.param` instead of per-conversion literals, every source ideal at the die — again with no inductor card and no ground-return model, so the count moves and the qualification does not. 242 → **243** on 2026-11-15: merging origin/main into this branch brought in issue #912's PR #938, which committed one more netlist snapshot (`sim/cdac-array-transfer/netlist-snapshots/20261115-014818-7adcfe77.spice`), a copy of a deck already counted in kind — again with no inductor card and no ground-return model, so the count moves and the qualification does not. 243 → **244** on 2026-11-21: issue #1014's item-5 `klt sim` noise request committed one more deck, `sim/comparator-decision/testbench/klt/tb_body.spice`, the comparator noise campaign's reduced sub-model transcribed device-for-device with ideal supplies and an AC stimulus source; it carries no inductor card and models no ground-return path, so the count moves and the qualification does not.)
 
      Read this census the way it already reads itself: **a floor on the gap,
      not a proof of it, and it never claimed to be the thing that retires
@@ -6316,7 +6321,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **117** of the **122** records under `sim/*/records/` name both an `ngspice`
+  > **118** of the **123** records under `sim/*/records/` name both an `ngspice`
   > version and a 40-hex `open_pdks` commit, while of the **114** records under
   > `layout/*/reports/` and `layout/*/erc-reports/` **113** name a `klt`
   > version and **76** name the `open_pdks` commit
@@ -6331,6 +6336,18 @@ and is not claimed to be met.
   figure the census above now states. That flow's own count of records naming
   no commit is unchanged — six of its ten, all minted before 2026-10-02 — so
   no flow newly pins the commit. No earlier record was rewritten.
+
+  **Update (2026-11-21, issue #1014):** the item-5 analog manifest work mints
+  one record of the existing `sim/comparator-decision/` campaign —
+  `sim/comparator-decision/records/20261121-010219-75b91e8.md`, the
+  machine-graded `klt sim` noise envelope beside the 2026-08-27 campaign
+  record — naming both an `ngspice` version (`ngspice-47`, the executing
+  batch worker's) and a 40-hex `open_pdks` commit
+  (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`, the current `sim/pdk.json`
+  pin), so it counts as pinned: the totals move 122 → **123** records and
+  117 → **118** pinned, which is the figure the census above now states. No
+  flow's count of records naming no commit changed, so no flow newly pins
+  the commit. No earlier record was rewritten.
 
   **Update (2026-11-15, issue #913):** the converging-range input sweep
   mints one record of the existing `sim/full-conversion-transient/` campaign —
