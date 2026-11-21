@@ -8,6 +8,9 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-20
 
+- **Issue #1025** (closed as not planned): test
+- **Issue #1015** (closed): T1 item 6: declare the statistical rows in spec_rows and cite the two freshness-pinnable klt yield envelopes
+- **PR #1019**: feat: declare item-6 statistical rows and cite the two pinnable yield envelopes
 - **PR #1011**: docs: point the summary-plot guide at the manifest instead of pinned record IDs
 - **Issue #1010** (closed): Remove duplicate source-record pins from the summary plot guide
 
