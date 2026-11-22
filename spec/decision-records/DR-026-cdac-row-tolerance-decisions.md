@@ -2,7 +2,7 @@
 
 - **Status**: proposed
 - **Date**: 2026-11-22
-- **Decided by**: proposed via issue #1021; ratification pending (operator approval of the PR that carries this record, per the DR-003 standing policy)
+- **Decided by**: proposed via issue #1021; no option chosen yet; ratification pending a separate operator decision recorded in this file's `## Decision` section (merging the PR that proposes this record does not ratify it; DR-003 standing policy)
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands)
 - **Related**: issue #1021; DR-003 (ratified the rows and their values); DR-019 (resized the unit-cap plate); `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md` (the graded `klt sim` envelope whose informational columns are this record's evidence); `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (the structural + functional baseline); `sim/spec-coverage.json` rows `LSB (differential)` and `Sampling cap (CDAC unit × array)` (declared gaps naming this record until it is ratified)

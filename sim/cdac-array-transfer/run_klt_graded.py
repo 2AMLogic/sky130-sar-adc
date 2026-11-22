@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -79,17 +80,31 @@ CODES = run_transfer.CODES
 #: VREFP, charge conservation on the (floating) top plate gives
 #: dv_top = sw*vdd/512, so the charge drawn from VREFP is
 #: C_u * (sw*vdd - sw*dv_top) = C_u*vdd*sw*(1 - sw/512) per side -- NOT
-#: C_u*vdd*sw: the top-plate redistribution returns most of it. Each
+#: C_u*vdd*sw: the top-plate redistribution returns most of it. (In the
+#: netlist each top plate is reset to Vcm = vdd/2, not 0, with every bottom
+#: plate at VREFN; the Vcm terms cancel -- per switched unit the charge from
+#: VREFP is C_u*(vdd - v_top_final) - C_u*(0 - Vcm) = C_u*vdd*(1 - sw/512)
+#: -- so the shorthand above reaches the same result.) Each
 #: measured code drives the P side with `code` and the N side with
-#: `511 - code` switched units, so the five-code set's exact equivalent is
-#: the sum below (328699/512 = 641.990234375 unit positions). Verified
-#: against a single-unit calibration deck (see the record's C_u section).
+#: `511 - code` switched units; the five codes are parallel array copies
+#: sharing one reset event, so the whole-transient integral is a sum of five
+#: independent single-switch events and the five-code set's exact equivalent
+#: is the sum below (328699/512 = 641.990234375 unit positions). This is an
+#: analytic derivation only: no calibration deck or run checks it, and none
+#: is committed.
 SWITCHED_UNITS_EQ = sum(
     sw * (1 - sw / 512.0) + (511 - sw) * (1 - (511 - sw) / 512.0)
     for sw in CODES
 )
 
 BASELINE_RECORD = "20261001-120402-d24f700"
+
+
+def _baseline_pdk_commit(record_id: str) -> str:
+    """PDK commit stamped in the baseline record's own `- PDK:` line."""
+    text = (EXPERIMENT_DIR / "records" / f"{record_id}.md").read_text()
+    m = re.search(r"^- PDK: \S+ @ ([0-9a-f]{40})\s*$", text, re.M)
+    return m.group(1) if m else "unknown"
 
 
 def _baseline_cid(corner: dict) -> str:
@@ -183,7 +198,7 @@ def write_record(
             vref_ratio_status=m["vref_ratio"]["status"],
             v_vrefn=m["v_vrefn"]["value"],
             v_vrefn_status=m["v_vrefn"]["status"],
-            lsb_derived_mv=2 * m["v_vrefp"]["value"] / 1024 * 1000.0,
+            lsb_derived_mv=2 * (m["v_vrefp"]["value"] - m["v_vrefn"]["value"]) / 1024 * 1000.0,
             step_dev_pct=max(
                 abs((per_code[c2]["vdiff"] - per_code[c1]["vdiff"])
                     / (128 * 2 * vdd / 512) - 1.0) * 100.0
@@ -369,7 +384,8 @@ def write_record(
             f"{cmp_res.get('max_abs_delta_v') or float('nan'):.3g} V). That rule "
             "is issue #811's gate, not a spec value: it is reported, not "
             "widened or reinterpreted. This run differs from the baseline in "
-            "PDK pin (worker f6eeac7d... vs baseline c6d73a35...), host, "
+            f"PDK pin (worker {worker_pdk.rpartition(' @ ')[2][:8]}... vs baseline "
+            f"{_baseline_pdk_commit(BASELINE_RECORD)[:8]}...), host, "
             "ngspice build, and tran step (0.05n here vs 0.5n) -- none "
             "separated; the pilot record 20261106-190301-7bdf8c4 saw the "
             "same failure mode at `ff_27c_1.80v` (3e-05 V) with the "
