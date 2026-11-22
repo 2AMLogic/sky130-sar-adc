@@ -16,16 +16,17 @@ the bootstrap rails BOOST_P/BOOST_N. See
 ## Files here (reusable source, versioned)
 
 - `testbench.spice` -- the one testbench `klt pex` runs on both legs: the
-  acquisition campaign's two-SAMPLE-pulse stimulus with its constants
-  unchanged (precharge 10 ns, SAMPLE#1 100 ns wide, input step during hold
+  acquisition campaign's two-pulse timing (precharge 10 ns, SAMPLE#1
+  100 ns wide, input step during hold
   at 130 ns, SAMPLE#2 at 160 ns, budget read 83.3333 ns after the 160.1 ns
   trigger, confirm read at 305 ns), `.meas` rows supplied by the request
-  `run_pex.py` builds (the crossing thresholds are constants because the
-  campaign holds its stimulus amplitudes fixed across the PVT grid -- its
-  own ratified-grid convention). Only `vdd` is keyed by `corners.supply_v`
+  `run_pex.py` builds. The crossing thresholds follow the fixed VIN step.
+  Only `vdd` is keyed by `corners.supply_v`
   (a literal DC source, the alter gotcha,
   `layout/comparator/pex/README.md`); Vcm and the VIN amplitudes stay at
-  the campaign's fixed 0.9/0.2/1.6 V values at every corner. The Xdut line
+  the campaign's fixed 0.9/0.2/1.6 V values at every corner. SAMPLE high
+  stays at 1.8 V on both PEX legs. The campaign tracks VDD, so the PEX bench
+  drives SAMPLE higher at 1.62 V and lower at 1.98 V. The Xdut line
   is POSITIONAL on the extracted netlist's own pin order (alphabetical, 12
   pins); `run_pex.py` asserts every run's extraction still declares exactly
   that list. BPREF_x sit on dead-end nets -- the `*_NC` wiring

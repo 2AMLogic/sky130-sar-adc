@@ -1,10 +1,10 @@
 # Comparator PEX record: 20261121-103712-a71fe14a
 
-Real `klt extract --parasitics --pdk sky130A` parasitic extraction of the composed comparator layout `reports/20261027-183338-b96026c2/comparator.gds` and a `klt pex` schematic-vs-extracted comparison of the pick-off statistic, at the ratified 9-point one-at-a-time PVT grid (spec/target-spec.md "Numeric rows -- RATIFIED 2026-08-19") -- issue #1017's re-mint on the current layout (see the provenance bullet for the `klt` this run used; the fleet's current runner could not grade the pin's batch submits). Supersedes the three September 2026 envelopes (`20260905-213747-bbf06dd`, `20260906-101231-1250ff4`, `20260906-152000-eace0b6`), which ran on klt 0.4.0 at two tt/27C corner points against layouts the drawing flow has since re-drawn; those records stay exactly as minted (append-only).
+Real `klt extract --parasitics --pdk sky130A` parasitic extraction of the composed comparator layout `reports/20261027-183338-b96026c2/comparator.gds` and a `klt pex` schematic-vs-extracted comparison of the pick-off statistic, at the ratified 9-point one-at-a-time PVT grid (spec/target-spec.md "Numeric rows -- RATIFIED 2026-08-19") -- issue #1017's re-mint on the current layout (see Provenance for the `klt` version used). Supersedes the three September 2026 envelopes (`20260905-213747-bbf06dd`, `20260906-101231-1250ff4`, `20260906-152000-eace0b6`), which ran on klt 0.4.0 at two tt/27C corner points against layouts the drawing flow has since re-drawn; those records stay exactly as minted (append-only).
 
 ## Provenance
 
-- `klt` version: **0.9.0 -- NOT the layout/requirements.txt pin (0.6.0)**: the pinned build submits batch `klt sim` calls the fleet's current runner cannot grade (every corner errored, client/runner version mismatch, on the first attempt with the pin), so this record's `klt` invocations come from a throwaway venv per issue #1017 step 4; the pin itself is untouched (#734 owns it)
+- `klt` version: **0.9.0** (layout/requirements.txt pins 0.6.0). For the November 2026 records, the builder reported errors at every corner on the first batch attempt, attributed them to a client/runner version mismatch, and switched to a throwaway venv under issue #1017 step 4. Only the successful run's envelopes are archived here.
 - KLayout engine: 0.30.13
 - PDK: sky130A (open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7)
 - Extraction deck content hash: `sha256:029ef177c1f4e872c13cc81093f94a02a9bbfe1f51939a88194a83532d60bf7c`
@@ -45,6 +45,7 @@ Pick-off statistic v(OUTP)-v(OUTN) at t=6.3ns after the evaluate edge starts (ma
 | `tt_125c_1.80v` | 1.80 | +18.7168 | +10.2420 | +0.00 | -10870.00 | -1.06132 |
 
 At the star's center (tt/27C/1.8V): schematic gain +20.2830 V/V, extracted gain +12.1130 V/V (both correctly signed at the corrected instant), input-referred parasitic-driven offset -0.88087 mV.
+At tt/27C/1.98 V the schematic gain of +106.2971 V/V is the output differential at the 6.3 ns pick-off divided by the single +10 mV input. Faster regeneration can increase this ratio. A sweep of smaller inputs would be needed to establish small-signal linearity at this rail.
 Across the grid the input-referred parasitic-driven offset ranges to **-1.07481 mV** worst-case at `tt/vdd=1.620_vinn=0.810_vinp=0.810V/27C`. Full per-corner rows in `pex_zero.json` / `pex_cal.json` (`delta[]`).
 
 ## AC4: is the routing-driven component material against device mismatch?

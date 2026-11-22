@@ -6,17 +6,15 @@
 * `--parasitics`-extracted netlist and diff the schematic leg against the
 * extracted leg, per corner.
 *
-* METHOD (same as the acquisition campaign, constants identical): SAMPLE
+* Acquisition timing and input levels follow the campaign. SAMPLE
 * pulse #1 (rise 10n, width 100n) acquires the OLD input value (VINP=0.2V,
 * VINN=1.6V -- the worst-case rail-adjacent differential extremes the
 * campaign uses); during the following HOLD the inputs step to the opposite
 * extremes (130n, while Msw is off); SAMPLE pulse #2 re-asserts at 160n and
 * the bootstrapped switches must pull TOP_P/TOP_N to the NEW value against
 * the real Csamp load. The campaign's two measurement families, expressed
-* as fixed `.meas` lines in the request run_pex.py builds (the crossing
-* thresholds are constants because the stimulus amplitudes are constants
-* held fixed across the PVT grid -- the campaign's own ratified-grid
-* convention):
+* as fixed `.meas` lines in the request run_pex.py builds, use crossing
+* thresholds derived from the fixed VIN step:
 *   - t_settle_{p,n}_{50,90}: TRIG AT=160.1n (50% of SAMPLE#2's rising
 *     edge) TARG V(top_x) VAL=<50%/90% of the old->new step> TD=160.1n
 *     CROSS=1 -- the TD= qualifier is the campaign's own workaround for
@@ -34,11 +32,9 @@
 * CORNER AXES: only `vdd` is keyed by corners.supply_v (a literal DC
 * source, the alter gotcha -- layout/comparator/pex/README.md). Vcm and
 * the VIN amplitudes stay at their fixed 0.9/0.2/1.6 V values at every
-* corner, the campaign's own ratified-grid convention (its corners mode
-* moves rail/process/temp only); a VCM or input amplitude that tracked the
-* rail would change the stimulus definition the committed campaign record
-* already measures with. SAMPLE's PWL amplitude stays 1.8 V for the same
-* reason.
+* corner, as in the acquisition campaign. This bench also fixes SAMPLE high
+* at 1.8 V. The campaign drives SAMPLE high to VDD, so the two clocks differ
+* at the 1.62 V and 1.98 V corners.
 Vdd    vdd     0 DC 1.8
 Vvcm   vcm     0 DC 0.9
 Vinp   vinp    0 pwl(0 0.2 130n 0.2 130.2n 1.6 330n 1.6)

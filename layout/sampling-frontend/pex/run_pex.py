@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Sampling front end sub-block PEX flow (issue #1017): schematic-vs-extracted
 comparison of the acquisition-window settling experiment
-(`sim/sampling-acquisition-settling`'s own methodology, issues #121/#236), at
+(timing and input step from `sim/sampling-acquisition-settling`, issues #121/#236,
+with SAMPLE high fixed at 1.8 V), at
 the ratified 9-point one-at-a-time PVT corner set -- the DR-006 worst-case
 (12 MHz) per-phase budget probe (`budget_*`, a fixed-time read one phase
 period after the second SAMPLE rising edge), its confirmatory long-window
@@ -168,9 +169,8 @@ def build_request(points) -> dict:
 
 
 def oat_points(pilot: bool):
-    # The front end has no rail-tracking companion source: the stimulus
-    # (Vcm, VIN amplitudes) is held fixed across the grid by the campaign's
-    # own ratified-grid convention, so the only supply axis is vdd itself.
+    # Only vdd varies. Vcm and VIN follow the campaign's fixed levels.
+    # This PEX bench also fixes SAMPLE high at 1.8 V.
     pts = pex_flow.ratified_oat_points({})
     if pilot:
         pts = [p for p in pts if p.cid == "tt_27c_1.80v"]
@@ -346,7 +346,7 @@ def write_record(
         "Real `klt extract --parasitics --pdk sky130A` extraction of the sampling "
         f"front end layout `reports/{latest_id}/sampling_frontend.gds` and a `klt pex` "
         "schematic-vs-extracted comparison of the acquisition-window settling "
-        "experiment (`sim/sampling-acquisition-settling`'s own methodology, issues "
+        "experiment (timing and input levels from `sim/sampling-acquisition-settling`, issues "
         "#121/#236: two SAMPLE pulses, full-scale differential input step during hold, "
         "DR-006 worst-case 12 MHz per-phase budget read one phase period after the "
         "second SAMPLE rising edge), at the ratified 9-point one-at-a-time PVT grid "
@@ -399,9 +399,19 @@ def write_record(
     a("## Schematic-vs-extracted settling delta (per corner)")
     a("")
     a(
+        "Both PEX legs drive SAMPLE high to 1.8 V. The acquisition campaign drives "
+        "it to VDD. At tt/27C the PEX clock is 0.18 V above the 1.62 V rail and "
+        "0.18 V below the 1.98 V rail. The stronger NMOS gate drive at the low rail "
+        "is expected to speed acquisition and reduce the budget residual, with the "
+        "opposite tendency at the high rail. The extracted residuals below were "
+        "measured only with the fixed clock. VCM (0.9 V), the input step "
+        "(0.2 to 1.6 V or its reverse), and the read times match the campaign."
+    )
+    a("")
+    a(
         "Per corner, per leg: `budget_err_x` = v(top_x) at the DR-006 budget point "
         f"minus the NEW input value (the campaign's own error definition); "
-        f"`confirm_err_x` the same at {CONFIRM_AT_NS:g} ns; `t_settle_x_{50,90}` the "
+        f"`confirm_err_x` the same at {CONFIRM_AT_NS:g} ns; `t_settle_x_{{50,90}}` the "
         f"campaign's TRIG/TARG crossing delays from {TRIG_AT_NS:g} ns. Raw "
         "per-corner values in `pex.json`'s `delta[]`."
     )
@@ -419,7 +429,7 @@ def write_record(
         x = analysis[cid]
         sch, ext = x["legs"]["schematic"], x["legs"]["extracted"]
         a(
-            f"| `{cid}` | {x['supplies'].get('vdd', 0):.2f} "
+            f"| `{cid}` | {x['supplies']['vdd']:.2f} "
             f"| {_mv(sch['budget_err_p_mv'])} / {_mv(ext['budget_err_p_mv'])} "
             f"| {_mv(sch['budget_err_n_mv'])} / {_mv(ext['budget_err_n_mv'])} "
             f"| {_ns(sch.get('t_settle_p_90'))} / {_ns(ext.get('t_settle_p_90'))} |"

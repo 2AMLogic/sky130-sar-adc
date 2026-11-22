@@ -5,7 +5,7 @@
 * single `.include` below for its freshly `--parasitics`-extracted netlist and
 * diff the schematic leg against the extracted leg, per corner, per code.
 *
-* METHOD (same as the transfer campaign): each of the 5 representative 9-bit
+* As in the transfer campaign, each of the 5 representative 9-bit
 * sub-array codes (0, 128, 256, 384, 511) gets its OWN instance of the array --
 * P side driven with the code directly, N side with the 9-bit mirrored
 * complement -- reset to Vcm by an ideal testbench-only switch until t=1n while
@@ -31,11 +31,10 @@
 * follow its corner's rail would swamp the comparison with a ~(VDD/2 - 0.9 V)
 * offset, orders of magnitude above an LSB. VREFP is not a separate source at
 * all: DR-003 ratifies V_REF = V_DD at the rail, so every VREFP pin below is
-* wired straight to the vdd rail node. The SEL PWL amplitudes, the reset
-* control PWL and the switch model threshold stay at their 1.8 V nominal values
-* (ideal testbench-only stimulus, identical on both legs); a bit=0 SEL pin is
-* also wired straight to the vdd rail node (the transfer campaign's own
-* tie-to-rail convention), so it follows the supply corner exactly.
+* wired straight to the vdd rail node, as are the bit=0 SEL pins. On both PEX
+* legs the pulsed SEL and reset highs are fixed at 1.8 V and SWMOD Vt at 0.9 V.
+* The transfer campaign uses VDD and VDD/2 respectively, so those levels
+* differ at the 1.62 V and 1.98 V corners.
 
 Vdd    vdd    0 DC 1.8
 Vrefn  vrefn  0 DC 0

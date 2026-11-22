@@ -27,7 +27,9 @@ DR-022 / DR-025 assume for systematic gain error. See
   `corners.supply_v` (the alter gotcha, `layout/comparator/pex/README.md`);
   VCM tracks the rail (VCM = VDD/2) as a PAIRED supply point, never swept
   independently; VREFP is wired straight to the vdd rail node per DR-003's
-  V_REF = V_DD.
+  V_REF = V_DD. Both PEX legs use 1.8 V for the pulsed SEL and reset highs
+  and 0.9 V for the reset switch threshold. The transfer campaign scales
+  these to VDD and VDD/2. The levels differ at the two off-nominal rails.
 - `run_pex.py` -- this record's generator; also materializes the schematic
   DUT wrap per run (below). Run it to reproduce:
 

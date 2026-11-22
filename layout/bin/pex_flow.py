@@ -364,23 +364,29 @@ def _cross(supply_v: dict[str, list[float]]) -> list[tuple[tuple[str, float], ..
     return out
 
 
+_DECIMAL = r"-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)"
 _CORNER_ID_RE = re.compile(
-    r"^(?P<process>[a-z]+[a-z0-9]*)/(?P<supplies>[^/]+)V/(?P<temp>-?[0-9.]+)C$"
+    rf"(?P<process>[a-z]+[a-z0-9]*)/(?P<supplies>[^/]+)V/(?P<temp>{_DECIMAL})C"
 )
-_SUPPLY_TOKEN_RE = re.compile(r"([A-Za-z0-9]+)=([0-9.]+)")
+_SUPPLY_TOKEN_RE = re.compile(rf"([A-Za-z0-9]+)=({_DECIMAL})")
 
 
 def parse_corner_id(cid: str) -> tuple[str, float, dict[str, float]]:
     """(process, temp_c, {source: volts}) from a `klt sim` corner id such as
-    ``tt/vdd=1.800_vcm=0.900V/27C`` -- the inverse of what build_corners_spec
-    encodes, used to key per-corner analysis off the pex report's own rows."""
-    m = _CORNER_ID_RE.match(cid)
+    ``tt/1.800V/27C`` or ``tt/vdd=1.800_vcm=0.900V/27C``. The single
+    unnamed source in these flows is the rail added by ratified_oat_points."""
+    m = _CORNER_ID_RE.fullmatch(cid)
     if not m:
         raise PexFlowError(f"unparseable corner id {cid!r}")
-    supplies = {
-        match.group(1): float(match.group(2))
-        for match in _SUPPLY_TOKEN_RE.finditer(m.group("supplies"))
-    }
+    field = m.group("supplies")
+    if "=" not in field:
+        field = "vdd=" + field
+    supplies = {}
+    for token in field.split("_"):
+        match = _SUPPLY_TOKEN_RE.fullmatch(token)
+        if not match or match.group(1) in supplies:
+            raise PexFlowError(f"unparseable supply in corner id {cid!r}")
+        supplies[match.group(1)] = float(match.group(2))
     return m.group("process"), float(m.group("temp")), supplies
 
 
@@ -423,22 +429,18 @@ def pinned_klt_version() -> str | None:
 
 
 def klt_version_note(version: str) -> str:
-    """The record provenance bullet for the `klt` this run actually used:
-    the pin when it matches, or the issue-#1017-step-4 substitution note
-    when it does not (the pinned 0.6.0's batch submits cannot be graded by
-    the fleet's current runner -- every corner errored with a client/runner
-    version mismatch on the first attempt -- so the record's `klt` runs
-    come from a throwaway venv; the pin is untouched, #734 owns it)."""
+    """Report the run's klt version and the recorded reason for the #1017 substitution."""
     pin = pinned_klt_version()
     if pin and version != pin:
-        return (
-            f"`klt` version: **{version} -- NOT the layout/requirements.txt pin "
-            f"({pin})**: the pinned build submits batch `klt sim` calls the fleet's "
-            "current runner cannot grade (every corner errored, client/runner "
-            "version mismatch, on the first attempt with the pin), so this "
-            "record's `klt` invocations come from a throwaway venv per issue "
-            "#1017 step 4; the pin itself is untouched (#734 owns it)"
-        )
+        note = f"`klt` version: **{version}** (layout/requirements.txt pins {pin})."
+        if (pin, version) == ("0.6.0", "0.9.0"):
+            note += (
+                " For the November 2026 records, the builder reported errors at every "
+                "corner on the first batch attempt, attributed them to a client/runner "
+                "version mismatch, and switched to a throwaway venv under issue #1017 "
+                "step 4. Only the successful run's envelopes are archived here."
+            )
+        return note
     return f"`klt` version: {version} (layout/requirements.txt pin)"
 
 

@@ -315,8 +315,7 @@ def write_record(
         "`klt pex` schematic-vs-extracted comparison of the pick-off statistic, at "
         "the ratified 9-point one-at-a-time PVT grid (spec/target-spec.md \"Numeric "
         "rows -- RATIFIED 2026-08-19\") -- issue #1017's re-mint on the current "
-        "layout (see the provenance bullet for the `klt` this run used; the "
-        "fleet's current runner could not grade the pin's batch submits). "
+        "layout (see Provenance for the `klt` version used). "
         "Supersedes the three September "
         "2026 envelopes (`20260905-213747-bbf06dd`, `20260906-101231-1250ff4`, "
         "`20260906-152000-eace0b6`), which ran on klt 0.4.0 at two tt/27C corner "
@@ -422,6 +421,16 @@ def write_record(
             f"{tt_entry['extracted_gain']:+.4f} V/V (both correctly signed at the "
             f"corrected instant), input-referred parasitic-driven offset "
             f"{tt_entry['parasitic_offset_mv']:+.5f} mV."
+        )
+    high_rail = analysis.get(("tt", 27.0, 1.98))
+    if high_rail is not None:
+        a(
+            f"At tt/27C/1.98 V the schematic gain of "
+            f"{high_rail['schematic_gain']:+.4f} V/V is the output differential "
+            f"at the {PICKOFF_AT_NS} ns pick-off divided by the single "
+            f"+{CAL_VINDIFF_MV:g} mV input. Faster regeneration can increase this "
+            "ratio. A sweep of smaller inputs would be needed to establish "
+            "small-signal linearity at this rail."
         )
     a(
         f"Across the grid the input-referred parasitic-driven offset ranges to "
