@@ -277,7 +277,7 @@
     },
     "9": {
       "file": "signoff/evidence/item-9.attestation.generic.json",
-      "content_hash": "sha256:07029f0347aa26e7d04d5161edc30b4746db944f5367825b4797368b3afea33b"
+      "content_hash": "sha256:3f47205dede8b63e25d9608989d0911e75f1846c1f6c131884347f248ea03ffa"
     },
     "10": {
       "file": "signoff/evidence/item-10.attestation.generic.json",
@@ -313,7 +313,7 @@
     ],
     "8.analog": {
       "file": "signoff/evidence/characterization-report.generic.json",
-      "content_hash": "sha256:17fafa484d152f8f0096ed6c39ca6de1852fda782f74e6e4165c6e2662114c33"
+      "content_hash": "sha256:df2da4dbb31a34c6b07dc363706089445443bce64c1de5c074c6050feb867728"
     },
     "8.digital": {
       "file": "signoff/evidence/digital-characterization.generic.json",
