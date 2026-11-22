@@ -6324,9 +6324,9 @@ and is not claimed to be met.
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
   > **118** of the **123** records under `sim/*/records/` name both an `ngspice`
-  > version and a 40-hex `open_pdks` commit, while of the **114** records under
-  > `layout/*/reports/` and `layout/*/erc-reports/` **113** name a `klt`
-  > version and **76** name the `open_pdks` commit
+  > version and a 40-hex `open_pdks` commit, while of the **117** records under
+  > `layout/*/reports/` and `layout/*/erc-reports/` **116** name a `klt`
+  > version and **79** name the `open_pdks` commit
 
   **Update (2026-11-21, issue #1023):** the behavioral sequencer campaign's
   row-evidence record —

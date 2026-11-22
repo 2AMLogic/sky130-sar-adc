@@ -19,6 +19,15 @@ hard campaign failure. `submit()` below gives every non-`local` submit the
 flag by default, so a new campaign inherits the policy instead of re-deciding
 it.
 
+The deck side of a request is shared here for the same reason (issue #1030):
+`split_fragment()` cuts a committed stimulus/measurement fragment into the
+three pieces a `klt sim` request needs them in (circuit body, `.meas` cards,
+`.tran` arguments), asserted against the expected measurement names the
+CALLING campaign passes in, and `saved_vectors()` reduces those cards to the
+sorted save set. The reference-drive budget and the input sweep had each
+carried a private copy of both, so a correction to card handling had to
+reach two campaigns at once.
+
 Stdlib plus one pure harness sibling (`corners.corner_id` -- string
 formatting, still no PDK), and the subprocess runner is injectable
 (`runner=`), so these paths are unit-testable without `klt`, the PDK or
@@ -29,6 +38,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import subprocess
 import sys
 import time
@@ -386,3 +396,71 @@ def budget_row(
     candidates = rows[1:] if skip_control else rows
     ok = [r for r in candidates if abs(r[err_key]) <= threshold_lsb]
     return ok[-1] if ok else None
+
+
+#: A `.meas` card's measured-signal reference (`v(node)` / `I(vsrc)`), which
+#: saved_vectors() scans the committed cards for.
+_VECTOR_RE = re.compile(r"\b([vi])\(([^)]+)\)", re.IGNORECASE)
+
+
+def split_fragment(
+    fragment_text: str, expected_measure_names: list[str]
+) -> tuple[str, list[str], str]:
+    """Split a committed stimulus/measurement fragment into the three pieces
+    a `klt sim` request needs them in: the circuit BODY (sources only --
+    `klt sim` owns the `.control`/`.end` wrapper), the `.meas` cards (which
+    become `measurements[].spice` entries), and the `.tran` card's arguments
+    (which become `analysis.args`).
+
+    Asserted rather than assumed: exactly one `.tran` card, and the `.meas`
+    card names must be exactly the CALLING campaign's
+    `expected_measure_names`, compared as sorted lists so a missing, an
+    extra or a repeated name all fail. A fragment that changes shape fails
+    here instead of silently producing a deck that measures something else.
+    """
+    body: list[str] = []
+    meas: list[str] = []
+    tran_args: str | None = None
+    for line in fragment_text.splitlines():
+        stripped = line.strip()
+        low = stripped.lower()
+        if low.startswith(".meas"):
+            meas.append(stripped)
+            continue
+        if low.startswith(".tran"):
+            if tran_args is not None:
+                raise RuntimeError(
+                    "expected exactly one .tran card in the committed fragment, "
+                    "found more -- the fragment changed shape; re-derive the "
+                    "campaign that reads it."
+                )
+            tran_args = stripped.split(None, 1)[1].strip()
+            continue
+        body.append(line)
+    if not tran_args:
+        raise RuntimeError(
+            "no .tran card found in the committed fragment -- the fragment "
+            "changed shape; re-derive the campaign that reads it."
+        )
+    names = sorted(card.split()[2] for card in meas)
+    expected = sorted(expected_measure_names)
+    if names != expected:
+        raise RuntimeError(
+            f"committed fragment declares {len(names)} .meas cards, the "
+            f"campaign's expected measurement names number {len(expected)}, "
+            "and the two sorted lists differ -- the fragment changed shape; "
+            "re-derive the campaign that reads it."
+        )
+    return "\n".join(body) + "\n", meas, tran_args
+
+
+def saved_vectors(meas_cards: list[str]) -> list[str]:
+    """Exactly the vectors the `.meas` cards read, as one sorted,
+    de-duplicated `v(node)` / `i(source)` name per measured signal, so a
+    whole-ADC transient over ~2000 devices does not carry a `save all`
+    rawfile per unit."""
+    found = set()
+    for card in meas_cards:
+        for kind, node in _VECTOR_RE.findall(card):
+            found.add(f"{kind.lower()}({node.strip().lower()})")
+    return sorted(found)
