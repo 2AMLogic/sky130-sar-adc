@@ -8,6 +8,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-21
 
+- **Issue #1029** (closed): Remove the stale “entirely DRAFT” spec claim from VCM drive-budget records
+- **PR #1038**: docs(sim): state VCM drive-budget campaign limits instead of blanket spec status
 - **Issue #1030** (closed): Share SPICE fragment parsing between the reference-drive budget and input sweep
 - **PR #1040**: refactor(sim): share the SPICE fragment split and save-set scan in harness.klt_sim
 
