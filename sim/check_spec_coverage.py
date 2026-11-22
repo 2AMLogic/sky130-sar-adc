@@ -20,6 +20,12 @@ described in prose:
                 least one committed evidence record. The one class permitted to
                 have no bench ("unbenched") is permitted only on a DRAFT row, so
                 RATIFYING a row mechanically forces a bench to exist for it.
+                A RATIFIED row whose named quantity no committed record
+                grades (no ratified tolerance exists for the measured
+                deviation) is "ratified-gap": benches and records still
+                exist, but the note must name the decision record or issue
+                that owns closing the gap, so the row can never silently
+                read as a full PASS (issue #1021).
 
   COLD START    each bench's documented invocation appears VERBATIM in the file
                 the index says documents it (a runner docstring or an experiment
@@ -82,10 +88,16 @@ CLAIM_CLASSES = {
     "draft-informational": True,
     "methodology": True,
     "structural": True,
+    "ratified-gap": True,
     "unbenched": False,
 }
 # Classes whose records must cite the spec file in their own Claim field.
 CLASSES_CITING_SPEC = {"ratified-measured", "draft-informational"}
+
+# A declared gap must name the decision vehicle that owns closing it: a
+# decision record (DR-NNN) or a tracking issue (#N). An open-ended gap with
+# no named owner is how a row silently stops being worked on.
+RE_GAP_DECISION_REF = re.compile(r"(DR-\d{3}|#\d+)")
 
 RE_PDK_LINE = re.compile(r"^- PDK:\s*(\S+)\s*@\s*([0-9a-fA-F]{7,40})\s*$", re.M)
 # `ngspice --version` reports "ngspice-<major>", which sim/harness/toolchain.py
@@ -326,6 +338,29 @@ class CoverageCheck:
                 f"claim_class={claim_class!r} is not one of {sorted(CLAIM_CLASSES)}",
             )
             return
+
+        if claim_class == "ratified-gap":
+            # A RATIFIED row whose named quantity is not yet graded against a
+            # tolerance: benches and records exist (the informational
+            # evidence), but no committed record may read as the row's full
+            # PASS. The gap must name who owns closing it (issue #1021).
+            if spec_status != "RATIFIED":
+                self.fail(
+                    "gap-row-not-ratified",
+                    param,
+                    "claim_class 'ratified-gap' is for RATIFIED rows whose "
+                    "measurement tolerance is still undecided -- a DRAFT row "
+                    "is 'draft-informational' or 'unbenched', not a gap",
+                )
+            if not RE_GAP_DECISION_REF.search(str(row.get("note", ""))):
+                self.fail(
+                    "gap-row-missing-decision-ref",
+                    param,
+                    "claim_class 'ratified-gap' requires a note naming the "
+                    "decision vehicle that owns the missing tolerance (a "
+                    "DR-NNN decision record or a #N tracking issue) -- a gap "
+                    "with no named owner never closes",
+                )
 
         benches = row.get("benches", [])
 

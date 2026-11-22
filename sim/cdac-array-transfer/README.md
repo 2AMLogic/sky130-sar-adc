@@ -148,3 +148,43 @@ python3 sim/cdac-array-transfer/compare_klt_envelope.py OUTDIR/report.json.gz   
 Result so far: record `records/20261106-180843-15ea2ea.md` (NOT RUN -- the
 fleet refused the job on a client/runner version mismatch; no comparison was
 possible). Raw report: `klt-sim/20261106-180843-15ea2ea/`.
+
+## Graded spec-row envelope (issue #1021)
+
+`testbench/klt/request-graded.json` (driven by `run_klt_graded.py`) is the
+graded sibling of the pilot request above: same DUT (`tb_body.spice` ->
+`tb_cdac_array_transfer.spice`), same 9-point ratified OAT corner grid, same
+ten raw top-plate FINDs, plus the ratified-row observables. What is graded
+and what is deliberately not:
+
+| Row | Observable in the envelope | Pass condition | Status |
+|---|---|---|---|
+| `V_REF` | `vref_ratio = (v(vrefp)-v(vrefn))/v(vdd)` and `v_vrefn`, both `spec_row: v_ref`-tagged, limits-bearing | Ratified relation `V_REF = V_DD` per corner (DR-003): ratio within `1 ± 1e-5` relative, VREFN within `±1e-5 V` of 0. The slack is solver/print precision ONLY -- `1e-5` rel is ≥ 20x the 6-significant-digit `.meas` print half-ULP (5e-7 rel) and ≥ 16x ngspice's default `vntol` = 1e-6 V at the 1.62 V rail corner -- not a design tolerance | **Graded** (record `records/20261122-103440-000e61e7.md`, PASS 9/9 corners) |
+| LSB (differential) | vdiff values + four untagged `mono_step_*` limits-bearing checks; per-corner derived LSB computed in the record | **No ratified tolerance exists** for the step's deviation from `2*V_REF/2^N = 3.5156 mV` -- none is invented here (CLAUDE.md). The monotonicity/polarity checks carry limits but NO `spec_row` tag, so they can never be read as the row's coverage | **Gap** -- tolerance decision owned by `spec/decision-records/DR-026-cdac-row-tolerance-decisions.md` (proposed); `sim/spec-coverage.json` keeps the row in the `ratified-gap` class naming it |
+| Sampling cap | Structural census (`run_transfer.check_structural_sizing()`, exact values) + untagged `q_vrefp` reference-charge integral -> per-corner `cu_elec` in the record | Structural: plate side exactly `1.9000 um`, per-side weights `1,2,4,...,256` + termination = `512`/side (ratified, DR-003/DR-019; corner-invariant). Electrical `cu_elec` (8.59-9.54 fF over the 9 corners vs the ratified "≈ 8.66 fF" estimate): **no ratified tolerance** -> informational only, no tag, no limits | **Structural graded; electrical gap** -- same DR-026 decision; row stays `ratified-gap` |
+
+The `q_vrefp` -> `cu_elec` derivation (full arithmetic in
+`run_klt_graded.py`'s `SWITCHED_UNITS_EQ`): for one array side with `sw`
+switched unit positions, the floating top plate's redistribution means the
+charge drawn from VREFP is `C_u*vdd*sw*(1 - sw/512)` per side, so the
+five-code set's exact equivalent is `328699/512 = 641.990234375` unit
+positions -- not `5*511`. The envelope's tran step is `0.05n` (the pilot's
+`0.5n` aliases the ~0.2 n switching event the integral needs).
+
+Cold start (indexed verbatim by `sim/spec-coverage.json`):
+
+```sh
+source sim/env.sh
+python3 sim/cdac-array-transfer/run_klt_graded.py --record
+```
+
+The submit goes through `klt sim` (batch fleet via `$KLT_SIM_BACKEND`, with
+`--wait-for-capacity 600` per the shared harness's fleet-capacity policy);
+the runner refuses to mint a record whose worker PDK/ngspice stamps drift
+from `sim/pdk.json` / `sim/toolchain.json`. Result: record
+`records/20261122-103440-000e61e7.md` (PASS; raw report under
+`klt-sim/20261122-103440-000e61e7/`). The #811 baseline-agreement probe
+(`compare_klt_envelope.py`) is reported inside that record informationally:
+it FAILs the pilot's `|delta| <= 2e-5 V` rule across uncontrolled
+differences (PDK pin, host, ngspice build, tran step) -- that gate belongs
+to #811 and is neither passed, widened nor reinterpreted here.

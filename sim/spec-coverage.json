@@ -1,645 +1,823 @@
 {
-  "schema_version": 1,
-  "_comment": [
-    "Spec-row -> testbench -> evidence-record coverage index (T1 item 9,",
-    "issue #31). This file is the SOURCE OF TRUTH for the question 'is this",
-    "spec row addressed by a runnable testbench, and where is its evidence?'",
-    "-- sim/spec-coverage.md is a generated, human-readable rendering of it",
-    "and sim/check_spec_coverage.py is the check that keeps both honest.",
-    "",
-    "It exists because T1 item 9 (klayout-tools/docs/design-evidence-tiers.md)",
-    "grades three things no single campaign owns: COMPLETENESS (a bench for",
-    "every claimed row, no claim resting on prose), COLD START (a documented",
-    "invocation a third party can run from docs/environment-setup.md), and",
-    "PINNING (the PDK revision + tool versions each bench is claimed against).",
-    "Adding a claimed spec row without its bench fails the check even while",
-    "every individual campaign still looks green -- that silent-regression",
-    "path is the whole reason this index is machine-checked rather than prose.",
-    "",
-    "claim_class vocabulary (see sim/check_spec_coverage.py for what each one",
-    "is checked to require):",
-    "  ratified-measured    a RATIFIED row graded pass/fail by a committed",
-    "                       campaign; >=1 bench, >=1 record, and at least one",
-    "                       record must cite spec/target-spec.md in its Claim.",
-    "  draft-informational  a DRAFT row with committed evidence recorded",
-    "                       INFORMATIONALLY (never as pass/fail against an",
-    "                       unratified number, per CLAUDE.md); same artifact",
-    "                       requirements as above.",
-    "  methodology          a row that constrains HOW every campaign runs",
-    "                       rather than naming a DUT quantity; its benches are",
-    "                       the campaigns that demonstrably executed it.",
-    "  structural           a topology/architecture row realized in design/",
-    "                       and exercised block-by-block by benches; not a",
-    "                       numeric measurement.",
-    "  unbenched            no bench, and none is owed yet. Permitted ONLY on",
-    "                       a DRAFT row, and only with a stated reason: a",
-    "                       RATIFIED row can never be 'unbenched', so",
-    "                       ratifying a row mechanically forces a bench.",
-    "",
-    "Records are append-only (sim/README.md): the record list below names the",
-    "record(s) a row's claim currently rests on; a later re-run adds a new",
-    "record-id here rather than replacing the file it points at."
-  ],
-
-  "spec_file": "spec/target-spec.md",
-  "spec_section": "Target table",
-
-  "pins": {
-    "pdk_json": "sim/pdk.json",
-    "toolchain_json": "sim/toolchain.json",
-    "cold_start_doc": "docs/environment-setup.md",
-    "note": [
-      "Every record indexed here states, in its own Environment section, the",
-      "PDK variant + resolved open_pdks commit and the ngspice version it was",
-      "produced with; sim/check_spec_coverage.py verifies those against",
-      "sim/pdk.json / sim/toolchain.json rather than trusting the prose.",
-      "xschem is pinned by sim/toolchain.json's xschem_tag and is a WARNING",
-      "rather than a fatal drift (sim/selftest.sh stage 2's rule: xschem only",
-      "netlists, and every record pins the exact netlist it ran by SHA-256) --",
-      "so the per-record xschem-side provenance this check enforces is the",
-      "presence of that DUT netlist sha256 line, not a version string."
-    ]
-  },
-
-  "cold_start_preamble": [
-    "# One-time machine bootstrap: docs/environment-setup.md sections 1-3",
-    "#   (xschem + ngspice + ciel install, `ciel enable` of the pinned",
-    "#    open_pdks commit, PDK_ROOT/PDK convention).",
-    "source sim/env.sh",
-    "python3 sim/run_corners.py --check-env   # exit 3 = tools/PDK missing, 1 = pin drifted"
-  ],
-
-  "harness_proofs": [
-    {
-      "experiment": "harness-corner-smoke",
-      "why": "Harness self-test, never a spec claim (sim/README.md 'Harness self-test experiments'): an ideal divider plus a diode-connected nfet_01v8, proving the corner runner actually switches the .lib process section, .temp and vdd_val independently. Counted toward T1 item 9 by nothing."
-    },
-    {
-      "experiment": "mc-smoke",
-      "why": "Harness self-test, never a spec claim: one diode-connected nfet_01v8 drawn N times at tt_mm with a deterministic plain-tt negative control, proving the Monte Carlo plumbing reaches the simulator. Counted toward T1 item 9 by nothing."
-    }
-  ],
-
-  "non_spice_campaigns": [
-    {
-      "experiment": "digital-functional",
-      "runner": "sim/digital-functional/bin/run-record.py",
-      "cold_start": "KLT=.venv-signoff/bin/klt python3 -I sim/digital-functional/bin/run-record.py",
-      "documented_in": "sim/digital-functional/README.md",
-      "covers": "Zero-delay gate-level functional verification of the routed sar-sequencer and top-glue netlists against a reference model, with a mutation campaign as negative control (issue #678, T1 item 5). Not an ngspice run; no spec-table row claims it.",
-      "records": [
-        "sim/digital-functional/records/20261017-193811-9522693.md"
-      ]
-    },
-    {
-      "experiment": "digital-sta",
-      "runner": "sim/digital-sta/bin/run-record.py",
-      "cold_start": "KLT=.venv-signoff/bin/klt python3 -I sim/digital-sta/bin/run-record.py",
-      "documented_in": "sim/digital-sta/README.md",
-      "covers": "Multi-corner static timing of the routed digital macros at the provisional 12 MHz period, with a too-fast negative control (issue #678, T1 item 5). Not an ngspice run; only the nearest stock Liberty corner is graded and the rest are declared gaps.",
-      "records": [
-        "sim/digital-sta/records/20261017-194050-9522693.md"
-      ]
-    }
-  ],
-
-  "rows": [
-    {
-      "parameter": "Architecture",
-      "status": "DRAFT",
-      "claim_class": "structural",
-      "note": "A topology statement (charge-redistribution, differential, top-plate sampling), not a measured quantity: it is realized in design/ and kept honest by design/regen_netlist.sh --check (staleness is failure). The benches below exercise the topology block by block -- none of them asserts a numeric spec value, and none is listed under a numeric row.",
-      "benches": [
-        {
-          "experiment": "sampling-frontend",
-          "runner": "sim/sampling-frontend/run_transient.py",
-          "testbench": ["sim/sampling-frontend/testbench/sampling_frontend_dut.spice"],
-          "cold_start": "python3 sim/sampling-frontend/run_transient.py --record",
-          "documented_in": "sim/sampling-frontend/run_transient.py",
-          "covers": "Top-plate sampling: in-sample settling and the post-edge delta on TOP_P/TOP_N (issue #52).",
-          "records": ["sim/sampling-frontend/records/20260821-072657-433a294.md"]
-        },
-        {
-          "experiment": "sampling-cdac-handoff",
-          "runner": "sim/sampling-cdac-handoff/run_handoff.py",
-          "testbench": [
-            "sim/sampling-cdac-handoff/testbench/sampling_frontend_dut.spice",
-            "sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice"
-          ],
-          "cold_start": "python3 sim/sampling-cdac-handoff/run_handoff.py --corners --record",
-          "documented_in": "sim/sampling-cdac-handoff/run_handoff.py",
-          "covers": "The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95), and -- at that same assembled top-plate load -- the acquisition residual at the DR-006 worst-case phase budget across the ratified PVT grid (issue #469).",
-          "records": [
-            "sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md",
-            "sim/sampling-cdac-handoff/records/20261001-135431-7487784.md"
-          ]
-        },
-        {
-          "experiment": "cdac-array-transfer",
-          "runner": "sim/cdac-array-transfer/run_transfer.py",
-          "testbench": ["sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"],
-          "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --record",
-          "documented_in": "sim/cdac-array-transfer/README.md",
-          "covers": "Charge redistribution: the array's own code-to-output transfer characteristic (issue #53).",
-          "records": ["sim/cdac-array-transfer/records/20260821-062504-433a294.md"]
-        },
-        {
-          "experiment": "top-plate-cpar",
-          "runner": "sim/top-plate-cpar/run_top_plate_cpar.py",
-          "testbench": ["sim/top-plate-cpar/run_top_plate_cpar.py"],
-          "testbench_note": "The deck is assembled by the runner from design/sar_adc_top.spice plus testbench-only sources; there is no committed fragment (deck bodies are frozen per record under corners/).",
-          "cold_start": "python3 sim/top-plate-cpar/run_top_plate_cpar.py --record",
-          "documented_in": "sim/top-plate-cpar/README.md",
-          "covers": "Top-plate parasitic capacitance C_par of the as-committed netlist: C(V), leave-one-out composition, per PVT and MiM r+c corner (issue #754; informational, asserts no numeric spec value).",
-          "records": ["sim/top-plate-cpar/records/20261101-183325-60421e38.md"]
-        },
-        {
-          "experiment": "sar-sequencer-behavioral",
-          "runner": "sim/sar-sequencer-behavioral/run_testbench.py",
-          "testbench": ["sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"],
-          "cold_start": "python3 sim/sar-sequencer-behavioral/run_testbench.py --record",
-          "documented_in": "sim/sar-sequencer-behavioral/run_testbench.py",
-          "covers": "Successive approximation: MSB-first bit-by-bit search and phase sequencing (issue #55).",
-          "records": ["sim/sar-sequencer-behavioral/records/20260823-152752-47640c8.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "Resolution `N`",
-      "status": "RATIFIED",
-      "claim_class": "ratified-measured",
-      "note": "N = 10 bit, RATIFIED (DR-003 via #27). Graded by issue #28's full ratified-corner campaign: correct MSB-first capture of all 10 bits, correct phase sequencing, and the ring sequencer's auto-restart at every point of the ratified corner set.",
-      "benches": [
-        {
-          "experiment": "sar-sequencer-behavioral",
-          "runner": "sim/sar-sequencer-behavioral/run_testbench.py",
-          "testbench": ["sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"],
-          "cold_start": "python3 sim/sar-sequencer-behavioral/run_testbench.py --corners --record",
-          "documented_in": "sim/sar-sequencer-behavioral/run_testbench.py",
-          "covers": "Ratified N=10 across the full ratified corner set (issue #28).",
-          "records": ["sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "Sample rate",
-      "status": "DRAFT",
-      "claim_class": "draft-informational",
-      "note": "DRAFT row (provisional 100 kS/s-1 MS/s), NOT re-derived and NOT closed by anything indexed here. This row was claim_class 'unbenched' until issue #274, on the reason that benching it 'needs a switch-R_on/settling campaign against the integrated signal path'. That campaign has since been run, in pieces: the benches below are the settling/delay mechanism campaigns docs/chipalooza/challenge-4-proposal.md Section 7 Item 2 names, plus the end-to-end whole-ADC transient that Section 7's own summary says a future decision record needs BEFORE the row can be re-derived. So the reason no longer describes the tree, and the evidence is indexed rather than left orphaned -- but the class is 'draft-informational' for the same standard the ENOB and INL/DNL rows are held to: every record below is reported INFORMATIONALLY, each one states in its own Claim field that it is not graded against a ratified row, and not one of them proposes a sample rate. The DR-006 phase budgets they measure against are themselves downstream of this DRAFT row, so they bound mechanisms, they do not close the row. Section 7 Item 2 stays open; a future decision record still ratifies the number first.",
-      "tracking": "#24 (CDAC/switch netlist), docs/chipalooza/challenge-4-proposal.md Section 7 Item 2 (end-to-end rate still unmeasured) and Item 6 (no on-chip VCM buffer exists for the budget below to size), and the future sample-rate decision record",
-      "benches": [
-        {
-          "experiment": "cdac-bit-trial-settling",
-          "runner": "sim/cdac-bit-trial-settling/run_bit_trial_settling.py",
-          "testbench": [],
-          "testbench_note": "No committed deck of its own: the runner states a single-side, single-free-bit reduction of design/cdac/cdac_array.sch in-line (see its module docstring's METHOD section for why no existing regenerated fragment isolates that topology), at the schematic's own W/L/MF values. Each corner's assembled deck is committed as raw evidence under sim/cdac-bit-trial-settling/corners/.",
-          "cold_start": "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --corners --record",
-          "documented_in": "sim/cdac-bit-trial-settling/run_bit_trial_settling.py",
-          "covers": "Mechanism (a) of Section 7 Item 2: how long the CDAC array's own bottom-plate switch network takes to settle the shared top-plate node after one bit's SEL toggles, over the full ratified corner set. Informational against this DRAFT row -- it is compared to the DR-006-derived phase period, which is itself downstream of this row, and proposes no sample rate.",
-          "records": ["sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md"]
-        },
-        {
-          "experiment": "sequencer-logic-delay",
-          "runner": "sim/sequencer-logic-delay/run_sequencer_logic_delay.py",
-          "testbench": [],
-          "testbench_note": "No committed deck of its own: the runner xschem-netlists design/sar_sequencer.sch fresh on each invocation (the DUT netlist sha256 in every record is that netlist's hash) and wraps it in the stimulus stated in-line, reusing sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice's own probe-time convention. Each corner's assembled deck is committed under sim/sequencer-logic-delay/corners/.",
-          "cold_start": "python3 sim/sequencer-logic-delay/run_sequencer_logic_delay.py --corners --record",
-          "documented_in": "sim/sequencer-logic-delay/run_sequencer_logic_delay.py",
-          "covers": "Mechanism (c) of Section 7 Item 2: the SAR sequencer's own CLK-to-phase-output logic delay across all 11 ring-sequencer phase transitions, over the full ratified corner set. Informational against this DRAFT row, on the same DR-006-downstream yardstick; proposes no sample rate.",
-          "records": ["sim/sequencer-logic-delay/records/20260906-230516-0904419.md"]
-        },
-        {
-          "experiment": "sampling-acquisition-settling",
-          "runner": "sim/sampling-acquisition-settling/run_acquisition_settling.py",
-          "testbench": ["sim/sampling-frontend/testbench/sampling_frontend_dut.spice"],
-          "testbench_note": "Reuses the sampling front end's own committed DUT fragment unmodified, read in place rather than duplicated (the same convention sim/sampling-frontend/run_hold_kick.py set); only the stimulus and the .meas set are stated by the runner.",
-          "cold_start": "python3 sim/sampling-acquisition-settling/run_acquisition_settling.py --corners --record",
-          "documented_in": "sim/sampling-acquisition-settling/run_acquisition_settling.py",
-          "covers": "Mechanism (d) of Section 7 Item 2: how close the bootstrapped sampling switch gets to a new worst-case (rail-to-rail differential) input by the end of the DR-006 worst-case acquisition window, over the full ratified corner set. This is the mechanism that did NOT clear that budget before issue #236 and does after; the record reports that informationally against a provisional-LSB reference scale, not as pass/fail against this DRAFT row.",
-          "records": ["sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md"]
-        },
-        {
-          "experiment": "vcm-drive-budget",
-          "runner": "sim/vcm-drive-budget/run_vcm_drive_budget.py",
-          "testbench": ["sim/sampling-frontend/testbench/sampling_frontend_dut.spice"],
-          "testbench_note": "Same unmodified sampling front-end DUT fragment as the bench above, read in place; the runner replaces only that deck's ideal Vvcm source with an ideal source in series with the swept R_source (plus optional C_decouple).",
-          "cold_start": "python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --record",
-          "documented_in": "sim/vcm-drive-budget/run_vcm_drive_budget.py",
-          "covers": "The interface precondition on mechanism (d): how much external VCM drive resistance (and how much on-die decoupling) the front end tolerates while still acquiring within the DR-006 windows this DRAFT row derives, over the full ratified corner set. Indexed here -- rather than under a row of its own -- because it measures the SAME quantity as the bench above (differential sampled-value error at the end of the acquisition window) with the VCM drive made non-ideal, and its yardstick windows come from this row; Section 7 Item 6 is explicit that it quantifies rather than closes its gap, and it proposes no sample rate and edits no spec row. The cited record is the post-issue-#236 bare-R_source full-grid leg; the other three legs (legacy window, and C_decouple at both windows) are separate records in the same directory, cited in Section 7 Item 6.",
-          "records": ["sim/vcm-drive-budget/records/20260908-100413-f3e2914.md"]
-        },
-        {
-          "experiment": "input-drive-budget",
-          "runner": "sim/input-drive-budget/run_input_drive_budget.py",
-          "testbench": ["sim/sampling-frontend/testbench/sampling_frontend_dut.spice"],
-          "testbench_note": "Same unmodified sampling front-end DUT fragment as the two benches above, read in place; the runner adds only an ideal source in series with the swept R_source on each of VINP and VINN, the two-pulse SAMPLE stimulus, and the fixed-time .meas set. The deck body and the klt sim request are committed per record under sim/input-drive-budget/corners/<record-id>/request/.",
-          "cold_start": "python3 sim/input-drive-budget/run_input_drive_budget.py --record",
-          "documented_in": "sim/input-drive-budget/run_input_drive_budget.py",
-          "covers": "The interface precondition on mechanism (d) from the INPUT side, the twin of the VCM bench above: how much series source resistance the VINP/VINN pads tolerate while the front end still acquires a new full-scale differential input inside the DR-006 windows this DRAFT row derives, over the full ratified corner set and at both acquisition windows. Indexed here rather than under a row of its own because it measures the SAME quantity as the acquisition-settling bench (differential sampled-value error at the end of the acquisition window) with the INPUT drive made non-ideal, and its yardstick windows come from this row. Informational only: every budget is reported relative to that corner and window's own R_source = 0 control row against the provisional differential LSB as a reference scale, it proposes no sample rate and it edits no spec row. It does not grade spec/target-spec.md's DRAFT Kickback row either, although that row's 1 kOhm series source impedance is why 1 kOhm is a simulated point in the sweep rather than an interpolation.",
-          "records": ["sim/input-drive-budget/records/20261113-110421-e03343e.md"]
-        },
-        {
-          "experiment": "reference-drive-budget",
-          "runner": "sim/reference-drive-budget/run_reference_drive_budget.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "testbench_note": "No deck of its own: the runner reads the full-conversion campaign's committed fragment in place and uses it verbatim except for the two reference source cards, which it re-points to a drive node with the swept R_ref in series to the die (the same read-in-place convention sim/vcm-drive-budget/ uses for the sampling front end's fragment). The assembled circuit body and the klt sim request are committed per record under sim/reference-drive-budget/corners/<record-id>/.",
-          "cold_start": "python3 sim/reference-drive-budget/run_reference_drive_budget.py --record",
-          "documented_in": "sim/reference-drive-budget/README.md",
-          "covers": "The interface precondition on the REFERENCE side: how much external series drive resistance VREFP/VREFN tolerate before the converter's captured codes move, over the full ratified corner set, at the DR-006 worst-case f_clk this DRAFT row derives. Indexed here -- rather than under a row of its own -- for the same reason sim/vcm-drive-budget/ is: it measures the SAME quantity the full-conversion bench below measures (the captured code of each DC input) with one drive made non-ideal, and its yardstick timing comes from this row. It is the reference-side counterpart of vcm-drive-budget (VCM) and supply-impedance-sensitivity (the four supply terminals), and closes the gap both of those state in their own text: before this campaign no sim/ bench put any impedance on VREFP/VREFN at all. Informational -- it grades nothing against this DRAFT row, edits no spec row, and chooses no route of the Challenge #4 proposal's Section 7 Item 11; it supplies the evidence route (iii) was missing.",
-          "records": [
-            "sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md"
-          ]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile reltol-gear",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "The only campaign that drives the whole transistor-level design/sar_adc_top.spice through complete conversions, at the DR-006 worst-case f_clk = 12 MHz, over the full ratified corner set -- the end-to-end data Section 7 Item 2 says a future decision record needs before this row can be re-derived. The cited record is the DR-023 reference re-mint (issue #638): solver profile reltol-gear (`.options reltol=1e-4 method=gear`), pinned ngspice-47 and PDK, run off-host on CI, superseding the pre-DR-023 record below. Its own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB; 12-period phase structure correct at 5/5 conversions everywhere); that is recorded as-is, and is not a pass/fail verdict against this DRAFT row, which the record explicitly declines to substantiate. Against the superseded ngspice-default record no per-input or per-corner verdict moves (same three mid-scale passes, same two near-full-scale failures, same binding corner tt_27c_1.62v at 124 LSB). Five captured codes move by 1 LSB and are solver-sensitive observations of the old policy: -0.78*V_REF at ff_27c_1.80v (205 -> 204) and sf_27c_1.80v (201 -> 200); +0.00*V_REF 512 -> 511 at sf_27c_1.80v, tt_-40c_1.80v and tt_125c_1.80v.",
-          "records": ["sim/full-conversion-transient/records/20261011-112119-188e94c.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile ngspice-default",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "HISTORICAL, SUPERSEDED (issue #638): the pre-DR-023 run of the reference campaign below, on ngspice's default solver settings (reltol=1e-3, trapezoidal). Its own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB; 12-period phase structure correct at 5/5 conversions everywhere), and it declines to substantiate this DRAFT row. Superseded by 20261011-112119-188e94c. The cold start names `--solver-profile ngspice-default`, the settings the record ran on: since DR-023 that re-run is a labelled SOLVER CONTROL that reproduces the record but never moves records/LATEST and may not --supersedes.",
-          "records": ["sim/full-conversion-transient/records/20261001-105439-c324f80.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the superseded campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.",
-          "records": ["sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice"
-          ],
-          "testbench_note": "The generated, committed sweep fragment carries the differential input as a top-level `.param` (`vin_frac`, a fraction of `vdd_val`) instead of per-conversion literals; the runner sweeps it as the only `corners.params` axis of ONE `klt sim` request -- one unit per level at the baseline corner (issue #913).",
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "The converging-range boundary sweep of the AS-COMMITTED schematic (issue #913, closing the 'Converging-range boundary sweep' Open item of DR-021): 24 signed DC input levels across the 0.25..0.78*V_REF band (0.05*V_REF rungs plus the 0.78 endpoint, both signs), one unit each of ONE klt sim request at tt_27c_1.80v under the DR-023 reference solver policy reltol-gear. Every level produced a captured code and reproduces the committed corner record where they overlap (-0.25 -> 383, +0.25 -> 641, -0.78 -> 214, all identical). The boundary, per sign: positive, largest tested magnitude that converges +0.30*V_REF and smallest that does not +0.35*V_REF (the captured code saturates at full scale from +0.35 up); negative, largest tested -0.35*V_REF and smallest -0.40*V_REF (the negative side degrades gradually, 15 LSB at -0.40 growing to 101 LSB at -0.78). INFORMATIONAL only: a measurement of the unmodified schematic that grades no row of spec/target-spec.md, proposes no design change (DR-021's switching scheme is out of scope), supersedes nothing and never moves records/LATEST.",
-          "records": ["sim/full-conversion-transient/records/20261115-084232-ad7393c6.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "ENOB",
-      "status": "DRAFT",
-      "claim_class": "draft-informational",
-      "note": "DRAFT target value (> 9.0 bit baseline / > 9.5 stretch). Issue #29's behavioral-accelerated estimate composes already-run evidence (comparator noise from #28's corner campaign, CDAC mismatch from the DNL/INL campaign below, plus analytic quantization and kT/C terms); it is reported INFORMATIONALLY against the DRAFT target and explicitly is NOT a dynamic-test (FFT) measurement -- see the record's own LIMITATIONS field.",
-      "benches": [
-        {
-          "experiment": "enob-estimate",
-          "runner": "sim/enob-estimate/run_enob.py",
-          "testbench": [],
-          "testbench_note": "Composite/derived experiment: no new ngspice deck is executed. Its inputs are the two SPICE-backed records named in its Composite-inputs manifest (comparator-decision, cdac-array-transfer), each of which ships its own committed deck under this index.",
-          "cold_start": "python3 sim/enob-estimate/run_enob.py --cdac-mc-record 20260828-005006-0c70212 --record",
-          "documented_in": "sim/enob-estimate/run_enob.py",
-          "covers": "Composed ENOB estimate against the DRAFT ENOB row (issue #29).",
-          "records": ["sim/enob-estimate/records/20260828-005033-0c70212.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": ["design/sar_adc_top.spice", "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --solver-profile reltol-gear",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "REFERENCE coherent-sine capture under the DR-023 solver policy reltol-gear (issue #638): whole transistor-level design/sar_adc_top.spice at tt/27C/1.8V, N=32, bin 7, 0.25*V_REF, pinned ngspice-47 + pinned PDK, run off-host on CI, superseding the ngspice-default record 20261011-022915-877794b. VALIDITY clean (32/32 phase structure, 0 missing measurements, peak bin = drive bin, 0/32 codes at a rail); per-code outlier diagnostic: 0 outliers above 8 LSB, max |error| 2 LSB. Unmodified-stream SNDR 52.00 dB, ENOB 8.345 bit, SFDR 54.98 dB (ideal quantizer on the same N=32 plan: 50.89 dB / 8.161 bit; the excess is short-record estimator variance). The stream matches the #621 solver-control record 20261011-023419-877794b code for code and differs from 20261011-022915-877794b only at conversion 9 (521 vs 960, ideal 522), so the +438 LSB outlier does not appear under the reference policy. INFORMATIONAL only: one corner, N=32, no noise sources, -12 dBFS; it does not grade the DRAFT ENOB row and no target changes.",
-          "records": ["sim/full-conversion-transient/records/20261011-110009-320dbc6.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": ["design/sar_adc_top.spice", "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10 --sine-switch-trace 9 --solver-profile ngspice-default",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "HISTORICAL (pre-DR-023, ngspice-default; superseded for reporting by the reference capture 20261011-110009-320dbc6 above, issue #638). First dynamic (coherent-sine FFT) SNDR/ENOB on the whole transistor-level design/sar_adc_top.spice at tt/27C/1.8V, N=32, bin 7, 0.25*V_REF, on the pinned ngspice-47 + pinned PDK (issue #605). INFORMATIONAL only: the VALIDITY gate is clean (32/32 phase structure, no missing measurements, peak bin = drive bin) and 31 of 32 captured codes are within +/-2 LSB of ideal, but one conversion (conversion 9, near the zero crossing) returned 960 against an ideal 522 (+438 LSB) and dominates the reported SNDR 2.17 dB (ENOB 0.068 bit; ideal quantizer on the same plan 50.89 dB). Those headline figures are a single-outlier artifact, not a clean converter measurement; the outlier is tracked in issue #621 (the runner now reports a per-code outlier diagnostic for new records; the re-run `20261010-204225-57a55c1.md` (same capture, bit-identical codes, ngspice-46 at the pin floor) supersedes this record for reporting and adds a read-only conversion-9 trace: conversion 9's comparator-input top plate TOP_P makes the normal bit-4 staircase step (phase-5 mid-evaluate 0.860 V, +0.057 V where ~+0.056 V is expected), then drops by ~1.37 V to -0.505 V later in the same phase, before the pre-capture instant, and stays below ground for the rest of the conversion; the mechanism behind that drop was not identified by that trace). Root cause (issue #621): the read-only --sine-switch-trace re-runs `20261011-021527-8d0c19a.md` and `20261011-022915-877794b.md` (ngspice-47, default solver settings, bit-identical stream; each supersedes the previous) OBSERVE the already-rejected registers DOUT8/7/6 and DOUT2 switching 0->1 together, with no CLK rising edge, ~2.6 ns after phase 5's CLK falling edge during the comparator's regeneration; their P bottom plates then pull TOP_P below ground. The SOLVER-CONTROL record `20261011-023419-877794b.md` (same DUT/stimulus/toolchain, only `.options reltol=1e-4 method=gear`) shows no such transition, conversion 9 = 521 vs ideal 522, 0 outliers, SNDR 52.00 dB / ENOB 8.345 bit (ideal quantizer 50.89 dB on this N=32 plan); the INFERRED root cause is a numerical artefact of the default ngspice settings, not a converter decision. The control is a control, not replacement evidence. It grades nothing and no target value changes. All four records cited here ran on ngspice's default solver settings, before DR-023 made `.options reltol=1e-4 method=gear` the reference policy for this experiment; the cold start therefore names `--solver-profile ngspice-default`, which reproduces their settings as a labelled SOLVER CONTROL (it never moves records/LATEST and may not --supersedes). The same flags without the profile now run the DR-023 reference policy and would not reproduce the +438 LSB outlier.",
-          "records": ["sim/full-conversion-transient/records/20261010-070734-f968286.md", "sim/full-conversion-transient/records/20261010-204225-57a55c1.md", "sim/full-conversion-transient/records/20261011-021527-8d0c19a.md", "sim/full-conversion-transient/records/20261011-022915-877794b.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": ["design/sar_adc_top.spice", "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --sine-solver-control",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "SOLVER CONTROL for the coherent-sine capture above (issue #621): the same DUT, stimulus, ngspice-47 and PDK pin with only `.options reltol=1e-4 method=gear` added. Conversion 9 converts to 521 (ideal 522), no transition is unscheduled, TOP_P stays inside the rails, 0 outliers above the 8 LSB bound; SNDR 52.00 dB / ENOB 8.345 bit against the ideal quantizer's 50.89 dB / 8.161 bit on the same N=32 plan (the excess is short-record estimator variance). A CONTROL, not replacement evidence: it supports the inference that the default-settings +438 LSB outlier is a numerical artefact. One corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes. Since DR-023 (issue #637) these settings are this experiment's reference solver policy; the record itself predates that and is labelled a control. Its cold start (`--sine-solver-control`, which now means `--solver-profile reltol-gear`) reproduces the record's settings, but a re-run today is a reference-policy run, not a control.",
-          "records": ["sim/full-conversion-transient/records/20261011-023419-877794b.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": ["design/sar_adc_top.spice", "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile reltol-only",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "SINGLE-SETTING SOLVER CONTROL (issue #637) for the coherent-sine capture above: the same DUT, stimulus, ngspice-47 and PDK pin with only `.options reltol=1e-4` added. The 32-code stream is identical, code for code, to the combined reltol=1e-4 + Gear control's: conversion 9 = 521 (ideal 522), no UNSCHEDULED transition in conversion 9, 0 outliers above 8 LSB, SNDR 52.00 dB. So this setting alone removes the issue #621 default-settings artefact. Simulator wall-clock 522 s. A CONTROL, not replacement evidence: one corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes.",
-          "records": ["sim/full-conversion-transient/records/20261011-064924-ad4bfff.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": ["design/sar_adc_top.spice", "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile gear-only",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "SINGLE-SETTING SOLVER CONTROL (issue #637) for the coherent-sine capture above: the same DUT, stimulus, ngspice-47 and PDK pin with only `.options method=gear` added. The 32-code stream is identical, code for code, to the combined reltol=1e-4 + Gear control's: conversion 9 = 521 (ideal 522), no UNSCHEDULED transition in conversion 9, 0 outliers above 8 LSB, SNDR 52.00 dB. So this setting alone removes the issue #621 default-settings artefact. Simulator wall-clock 217 s. A CONTROL, not replacement evidence: one corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes.",
-          "records": ["sim/full-conversion-transient/records/20261011-064408-ad4bfff.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "INL / DNL",
-      "status": "DRAFT",
-      "claim_class": "draft-informational",
-      "note": "DRAFT target value (<= +-1 LSB). Issue #29's mismatch Monte Carlo campaign over the CDAC array's own transfer characteristic, reported in ratified-LSB units with a zero-stdev negative control, INFORMATIONALLY against the DRAFT target. Scope is the array in isolation, stated in the record itself.",
-      "benches": [
-        {
-          "experiment": "cdac-array-transfer",
-          "runner": "sim/cdac-array-transfer/run_mc.py",
-          "testbench": ["sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"],
-          "testbench_note": "The Monte Carlo code set is generated by sim/cdac-array-transfer/gen_fragment.py, verified byte-for-byte against this committed hand-authored deck for its own 5 codes by sim/tests/test_cdac_fragment_gen.py.",
-          "cold_start": "python3 sim/cdac-array-transfer/run_mc.py --n 40 --seed 1 --record",
-          "documented_in": "sim/cdac-array-transfer/README.md",
-          "covers": "max|DNL| / max|INL| distributions at tt_mm with a plain-tt negative control (issue #29).",
-          "records": ["sim/cdac-array-transfer/records/20261001-124049-5207381.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "`V_REF`",
-      "status": "RATIFIED",
-      "claim_class": "ratified-measured",
-      "note": "V_REF = V_DD = 1.8 V, RATIFIED (DR-003 via #27). A fixed design constant wired into the testbench as VREFP={vdd_val} rather than a free-running simulated quantity; the campaign below grades the consequences (structural sizing, monotonicity, polarity) across the full ratified corner set.",
-      "benches": [
-        {
-          "experiment": "cdac-array-transfer",
-          "runner": "sim/cdac-array-transfer/run_transfer.py",
-          "testbench": ["sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"],
-          "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
-          "documented_in": "sim/cdac-array-transfer/README.md",
-          "covers": "Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).",
-          "records": ["sim/cdac-array-transfer/records/20261001-120402-d24f700.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "LSB (differential)",
-      "status": "RATIFIED",
-      "claim_class": "ratified-measured",
-      "note": "LSB = 2*V_REF/2^N = 3.5156 mV, RATIFIED (DR-003 via #27). Derived from V_REF and N, so it is graded by the same campaign record as V_REF -- one run, three ratified rows, each named explicitly in that record rather than left implicit.",
-      "benches": [
-        {
-          "experiment": "cdac-array-transfer",
-          "runner": "sim/cdac-array-transfer/run_transfer.py",
-          "testbench": ["sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"],
-          "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
-          "documented_in": "sim/cdac-array-transfer/README.md",
-          "covers": "Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).",
-          "records": ["sim/cdac-array-transfer/records/20261001-120402-d24f700.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "Sampling cap (CDAC unit × array)",
-      "status": "RATIFIED",
-      "claim_class": "ratified-measured",
-      "note": "C_u ~= 8.66 fF (1.9000 um square plate, 5 nm-grid-legal), 2^9 = 512 positions/side, RATIFIED (DR-003 via #27; plate resized to a grid-legal side by DR-019 via #496). UPDATE (2026-09-30, DR-019 via #496): the ratified unit-cap plate side moved from 1.8988 um to 1.9000 um -- the smallest 5 nm manufacturing-grid-legal side at or above this row's own matching floor -- so C_u moved 8.65 -> 8.66 fF (+0.116%); this note previously restated the pre-resize 8.65 fF figure as the current ratified value. Graded structurally (the deck's own device sizing and array population) plus functionally (monotonicity and polarity) at every point of the ratified corner set.",
-      "benches": [
-        {
-          "experiment": "cdac-array-transfer",
-          "runner": "sim/cdac-array-transfer/run_transfer.py",
-          "testbench": ["sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"],
-          "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
-          "documented_in": "sim/cdac-array-transfer/README.md",
-          "covers": "Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).",
-          "records": ["sim/cdac-array-transfer/records/20261001-120402-d24f700.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "Comparator input-referred noise",
-      "status": "RATIFIED",
-      "claim_class": "ratified-measured",
-      "note": "<= 1.0148 mV rms baseline / <= 0.5859 mV rms stretch, RATIFIED (DR-003 via #27). Graded against the ratified baseline threshold across the full ratified corner set, with the binding (worst-case) corner named explicitly in the record even though the row passes.",
-      "benches": [
-        {
-          "experiment": "comparator-decision",
-          "runner": "sim/comparator-decision/run.py",
-          "testbench": ["sim/comparator-decision/testbench/comparator_core.spice"],
-          "cold_start": "python3 sim/comparator-decision/run.py noise-corners --record",
-          "documented_in": "sim/comparator-decision/run.py",
-          "covers": "AC .noise input-referred noise across the full ratified corner set (issue #28).",
-          "records": ["sim/comparator-decision/records/20260827-212404-e13bc1e.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "Kickback",
-      "status": "DRAFT",
-      "claim_class": "draft-informational",
-      "note": "DRAFT row (<= 5 mV peak pin disturbance into a 1 kOhm series source impedance, single decision edge; stretch <= 2 mV), added by DR-011 via issue #361. The bound is adopted verbatim from the sibling 2AMLogic/sky130-comparator canary's own DR-002-ratified row as a stated interim choice -- NOT derived from this block's system-level budget -- so nothing here is graded pass/fail against it. Issue #346's single-corner (tt/27 C) probe is still the only corner covered: the record below reports 73.3673 mV worst-case peak pin disturbance INFORMATIONALLY and says so in its own Claim field, which cites spec/target-spec.md explicitly. That is ~14.7x the proposed target; the gap is recorded, not relaxed (CLAUDE.md). Issue #390 (DR-014's first gate) has since split that disturbance into its common-mode and differential components at the same corner: the differential part -- the part a differential top-plate CDAC does not reject, i.e. the part that lands on a decision -- is 10.9153 mV at Vindiff=+50 mV (~2.2x the proposed target) and 4.1918 mV at the half-LSB overdrive a marginal SAR decision actually presents (~0.84x the target, ~2.1x the stretch). So the row is missed on the quantity it bounds, and the decision-relevant component is a much smaller multiple of it than 14.7x -- but is not negligible either, which is what DR-014 Consequences §4 said would decide whether its 'no mitigation adopted' disposition weakens. Ratifying this row would oblige a full-corner campaign -- the bound is stated at the ratified corner set and the evidence covers one point of it (DR-011 Consequences §5).",
-      "tracking": "DR-014 (#349: static preamp not adopted, DR-004 Decision 1 stands, no mitigation adopted yet); #390 (common-mode/differential split of the kickback measurement, DR-014's first gate -- DELIVERED by the record below, which supersedes #346's baseline; confirms a differential component above the bound at the large-overdrive point, DR-014 Consequences §4's condition); #434 (follow-on: measuring the headroom-neutral mitigation classes DR-014 Consequences §4 / Open items names, filed once #390's result met that condition -- DELIVERED for the cross-coupled-neutralization class by DR-016); DR-016 (#434: cross-coupled neutralization measured against an EXPERIMENTAL, informational-only DUT variant -- worst-case peak differential deviation moves -10.9153 -> -10.8355 mV at Vindiff=+50 mV, -0.7%, not enough to close the gap; DR-014's 'not adopted' call stands; the double-tail latch and complementary-clock compensation classes remain unmeasured); DR-011's Open items (a budget-derived successor bound, a residual-at-next-decision measurable, and the full-corner kickback campaign ratification would require)",
-      "benches": [
-        {
-          "experiment": "comparator-decision",
-          "runner": "sim/comparator-decision/run.py",
-          "testbench": ["sim/comparator-decision/testbench/comparator_core.spice"],
-          "cold_start": "python3 sim/comparator-decision/run.py kickback --record",
-          "documented_in": "sim/comparator-decision/run.py",
-          "covers": "Peak pin disturbance on VINP/VINN across a single CLK reset->evaluate edge, into a 1 kOhm series source impedance, at tt/27 C (issue #346), plus -- since issue #390, DR-014's first gate -- the common-mode/differential decomposition of the same disturbance and later recovery pick-offs of both, over a Vindiff grid that now includes the half-LSB (1.7578 mV) point. The per-pin peak the row's bound is stated in is unchanged and reproduces exactly (73.3673 mV at Vindiff=+50 mV; -70.3419 mV at the Vindiff=0 control). The decomposition is what says how much of that lands on a decision: at Vindiff=0 the deck is symmetric so the disturbance is common-mode by construction, and the measured common-mode part barely moves with overdrive (-70.3419 -> -70.4415 mV), while the differential part is -10.9153 mV at Vindiff=+50 mV and +4.1918 mV at the half-LSB point. A subtraction between two per-pin rows is NOT that split and is no longer described as one.",
-          "records": ["sim/comparator-decision/records/20261106-190623-7bdf8c4.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "Gain error, systematic",
-      "status": "DRAFT",
-      "claim_class": "unbenched",
-      "reason": "Deliberately unbenched, not overlooked: this DRAFT row (<= 1.42 LSB span-referred, proposed by DR-022 via issue #269) has no bench that measures the gain. The only evidence is issue #263's decision-margin trace (sim/full-conversion-transient/records/20260912-011519-9aaf1ca.md), a two-corner mechanism trace whose Claim field names DR-009, not this row; DR-022 reads g = 0.99190-0.99200 (0.80-0.81 %, 8.2-8.3 LSB, about 5.8x the candidate) off its tables by hand. Indexing that record as this row's evidence would claim more than it says, and the record is append-only. DR-022 Decision item 3 / Open item 4 owe the per-corner gain extraction in sim/full-conversion-transient/ once the row is ratified; this index's ratified-row rule then forces a bench, because a RATIFIED row may never carry claim_class 'unbenched'.",
-      "tracking": "DR-022 (#269: specify the systematic gain error, do not resize; ratification open) and its Open items: C_par composition measurement, closure or superseding DR for the 5.8x miss, the mismatch half, per-corner gain extraction",
-      "benches": []
-    },
-    {
-      "parameter": "Power",
-      "status": "DRAFT",
-      "claim_class": "draft-informational",
-      "note": "DRAFT row, target text 'provisional, minimise at rate' with the note 'report, don't pre-commit'. There is still no threshold to grade against, so nothing here is a pass/fail claim -- but 'report' is exactly what the bench below now does: issue #254's end-to-end campaign carries the first supply- and reference-current measurement of any kind on this block (per-rail `.meas tran avg i(...)` over a whole steady-state conversion, at every point of the ratified corner set). It is indexed here, informationally, rather than left orphaned. This row was claim_class 'unbenched' until issue #274; the stated reason (no bench exists, and a number with no ratified line to grade it against would be one CLAUDE.md forbids inventing) is why the class is 'draft-informational' rather than 'ratified-measured', and why no power target is proposed anywhere in this index or in the record. If a future decision record ratifies a power row, this index's ratified-row rule then requires a bench graded against it.",
-      "tracking": "future power decision record (none open); docs/chipalooza/challenge-4-proposal.md Section 4's Power row carries the current reported figures",
-      "benches": [
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile reltol-gear",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "Average per-rail current and power (VDD, VPWR, VREFP, VCM, VREFN) over one whole steady-state conversion at f_clk = 12 MHz, across the full ratified corner set -- the same run that feeds the Sample rate row above, re-minted under the DR-023 reference solver policy reltol-gear (issue #638): min 21.389 uW at tt_27c_1.62v, typ 27.197 uW at tt_27c_1.80v, max 34.136 uW at tt_27c_1.98v. Reported, not pre-committed: the record names this DRAFT row explicitly and states that it substantiates neither it nor a proposed target.",
-          "records": ["sim/full-conversion-transient/records/20261011-112119-188e94c.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile ngspice-default",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "HISTORICAL, SUPERSEDED (issue #638): the per-rail current and power of the pre-DR-023 campaign, on ngspice's default solver settings. Superseded by 20261011-112119-188e94c, whose figures are 0.3-6.4 % lower per corner (largest at sf_27c_1.80v, tt_-40c_1.80v and tt_125c_1.80v, mostly I(VPWR)). That comparison crosses ngspice-46 -> ngspice-47 as well as ngspice-default -> reltol-gear; the version step alone is measured only at tt_27c_1.80v, where audit 20261011-064547-a6dcdd7 found it null, so the 0.3-6.4 % is a combined solver-plus-version shift, not a measured integration-setting uncertainty. The cold start names `--solver-profile ngspice-default` so it reproduces the record's settings; that re-run is a labelled SOLVER CONTROL that never moves records/LATEST and may not --supersedes.",
-          "records": ["sim/full-conversion-transient/records/20261001-105439-c324f80.md"]
-        },
-        {
-          "experiment": "full-conversion-transient",
-          "runner": "sim/full-conversion-transient/run_conversion.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record",
-          "documented_in": "sim/full-conversion-transient/README.md",
-          "covers": "SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the superseded campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.",
-          "records": ["sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md"]
-        },
-        {
-          "experiment": "supply-impedance-sensitivity",
-          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package-r-only,package,substrate --record",
-          "documented_in": "sim/supply-impedance-sensitivity/README.md",
-          "covers": "Same per-rail average current/power as the bench above, but with DR-015's package-style R+L (or a lumped substrate stand-in) driving the four supply terminals instead of ideal sources at the die -- DR-012's own open item, issue #378, 'the impedance argument is unmeasured'. Baseline corner only (see the record's own Subset-corner justification); reported informationally, same as the row above, and no power target is proposed here either.",
-          "records": ["sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md"]
-        },
-        {
-          "experiment": "supply-impedance-sensitivity",
-          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package,no-gnd-pad --record",
-          "documented_in": "sim/supply-impedance-sensitivity/README.md",
-          "covers": "The same per-rail average current/power again, on the one arm pair that prices DR-012's REJECTED null option (issue #409 item 2): `no-gnd-pad` -- `GND` with no bond of its own, reaching the board only through the lumped substrate link -- against the `package` arm it differs from in exactly one element, plus the `ideal` control, at the baseline corner. A separate bench entry from the two above because it is a separate invocation with its own documented cold start: the four-arm comparison omitted this arm on a cost projection, and this record is what replaces that projection with a measurement (487 s, 1.67x the control -- cheaper than the `package` arm, not the ~10x the projection assumed). Reported informationally, same as the rows above; no power target is proposed here either, and `I(GND)` is `n/a (no bond)` on the `no-gnd-pad` row by construction.",
-          "records": ["sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md"]
-        },
-        {
-          "experiment": "supply-impedance-sensitivity",
-          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record",
-          "documented_in": "sim/supply-impedance-sensitivity/README.md",
-          "covers": "The same per-rail average current/power again, over the bounded 2-D box DR-015's own 'Open items' asks for (issue #409 item 3): the as-built package topology re-run at bond inductance 0x/1x/10x of DR-015's 1.914 nH crossed with the lumped substrate link R_SUBX at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the one above because it is a separate invocation with its own documented cold start, not a re-run of it: the arm comparison ranks five NETWORKS at DR-015's assumption point, this walks a box around that point on one of them. Reported informationally, same as the rows above; no power target is proposed here either, and the box's total power spread (27.20-27.97 uW) is stated in the record rather than graded.",
-          "records": ["sim/supply-impedance-sensitivity/records/20260925-164447-722fcb0.md"]
-        },
-        {
-          "experiment": "supply-impedance-sensitivity",
-          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --record",
-          "documented_in": "sim/supply-impedance-sensitivity/README.md",
-          "covers": "The same per-rail average current/power once more, over the one-axis ladder that the 2-D box above could not reach (the residual of issue #409 item 3, and DR-015's own R_SUB open item): DR-012's REJECTED no-gnd-pad topology re-run with the lumped substrate RETURN at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the box above because it is a separate invocation with its own documented cold start and a structurally different experiment: the box moves a substrate resistance that sits BESIDE a bonded GND as a shunt, this moves the same constant where it is the analog ground's entire path to the board. Its 30 Ohm rung is card-for-card the no-gnd-pad arm of the ablation record, asserted in code before the run and again at record-write time. Reported informationally, same as the rows above; no power target is proposed here either, the ladder's total power spread (27.27-27.97 uW) is stated in the record rather than graded, and I(GND) is 'n/a (no bond)' on every swept row by construction.",
-          "records": ["sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md"]
-        },
-        {
-          "experiment": "supply-impedance-sensitivity",
-          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record",
-          "documented_in": "sim/supply-impedance-sensitivity/README.md",
-          "covers": "The same per-rail average current/power again, at the first NON-baseline point of the ratified corner set any record of this campaign contains (issue #409 item 1): the ideal control and the as-built package arm at tt_27c_1.80v and the slow-process corner ss_27c_1.80v. A separate bench entry from the ones above because a corner subset changes what was simulated and therefore reaches the record footer -- so every widening of the subset is its own indexed invocation rather than a re-run of an existing one. Two of nine ratified points and two of five arms: the record states its own Subset-corner justification, and the seven remaining points stay open on #409 -- including ff_27c_1.80v and tt_-40c_1.80v, where the fastest edges should make the largest excursion. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT power figures move with the corner (26.97 uW ideal / 26.81 uW package at ss, against 27.96 / 27.25 at tt), and the die-side ground excursion is SMALLER at the slow corner (28.472 mV against 37.590 mV), which is why ss may not be quoted as this campaign's worst corner.",
-          "records": ["sim/supply-impedance-sensitivity/records/20260926-012944-a966fdf.md"]
-        },
-        {
-          "experiment": "supply-impedance-sensitivity",
-          "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
-          "testbench": [
-            "design/sar_adc_top.spice",
-            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
-          ],
-          "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record",
-          "documented_in": "sim/supply-impedance-sensitivity/README.md",
-          "covers": "The same per-rail average current/power once more, over the WHOLE ratified corner set for every arm the runner implements (issue #409 item 1): all five supply-return networks x the nine ratified OAT points = 45 whole-ADC transients, on the as-committed DECOUPLED design/sar_adc_top.spice (DR-017's one MiM cap per supply domain), so it is compared with nothing minted on the undecoupled netlist -- the records above measure a different DUT sha256 on purpose. A separate bench entry because --corners changes what was simulated and reaches the record footer. No Subset-corner justification is owed: every ratified point is present. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT total power of the ideal control across the grid spans 21.60 uW (tt_27c_1.62v) to 34.24 uW (tt_27c_1.98v), with the supply corners bounding it rather than process or temperature; and the largest die-side analog-ground excursion of the as-built package arm is at the fast-process corner ff_27c_1.80v (13.964 mV), not at the baseline.",
-          "records": ["sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md"]
-        },
-        {
-          "experiment": "digital-partition",
-          "runner": "sim/digital-partition/run_digital_partition.py",
-          "testbench": ["design/sar_adc_top.spice"],
-          "testbench_note": "No committed deck of its own: digital_char.build_netlist() assembles the deck from design/sar_adc_top.spice's sar_sequencer subcircuit and its 33 top-level sky130_fd_sc_hd glue instances; every probe's deck, request and report is committed under sim/digital-partition/corners/<record>/.",
-          "cold_start": "python3 sim/digital-partition/run_digital_partition.py --record",
-          "documented_in": "sim/digital-partition/run_digital_partition.py",
-          "covers": "Digital-rail power (idle/reset and active) and energy per conversion at the provisional 12 MHz operating point across the ratified corner set, with the digital partition's clock-frequency bracket and routed area (issue #619). The digital rail only, schematic level; reported informationally against this DRAFT row, and not an ADC power figure.",
-          "records": ["sim/digital-partition/records/20261010-132019-f757b0e.md"]
-        }
-      ]
-    },
-    {
-      "parameter": "Corners",
-      "status": "RATIFIED",
-      "claim_class": "methodology",
-      "note": "-40/27/125 C, +-10 % supply, sky130 process corners, RATIFIED (DR-003 via #27). This row constrains how every other campaign runs rather than naming a DUT quantity, so its evidence is that the ratified-row campaigns below each state a Corner matrix run covering every sky130 process corner in sim/pdk.json and three points on each of the temperature and supply axes. sim/check_spec_coverage.py checks that SHAPE, not the numbers themselves -- the numbers live in the spec and in each record, and sim/harness/corners.py deliberately keeps spec values out of harness code.",
-      "benches": [
-        {
-          "experiment": "sar-sequencer-behavioral",
-          "runner": "sim/sar-sequencer-behavioral/run_testbench.py",
-          "testbench": ["sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"],
-          "cold_start": "python3 sim/sar-sequencer-behavioral/run_testbench.py --corners --record",
-          "documented_in": "sim/sar-sequencer-behavioral/run_testbench.py",
-          "covers": "Ratified corner set executed end to end (issue #28).",
-          "records": ["sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md"]
-        },
-        {
-          "experiment": "cdac-array-transfer",
-          "runner": "sim/cdac-array-transfer/run_transfer.py",
-          "testbench": ["sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"],
-          "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
-          "documented_in": "sim/cdac-array-transfer/README.md",
-          "covers": "Ratified corner set executed end to end (issue #28).",
-          "records": ["sim/cdac-array-transfer/records/20261001-120402-d24f700.md"]
-        },
-        {
-          "experiment": "comparator-decision",
-          "runner": "sim/comparator-decision/run.py",
-          "testbench": ["sim/comparator-decision/testbench/comparator_core.spice"],
-          "cold_start": "python3 sim/comparator-decision/run.py noise-corners --record",
-          "documented_in": "sim/comparator-decision/run.py",
-          "covers": "Ratified corner set executed end to end (issue #28).",
-          "records": ["sim/comparator-decision/records/20260827-212404-e13bc1e.md"]
-        }
-      ]
-    }
+ "schema_version": 1,
+ "_comment": [
+  "Spec-row -> testbench -> evidence-record coverage index (T1 item 9,",
+  "issue #31). This file is the SOURCE OF TRUTH for the question 'is this",
+  "spec row addressed by a runnable testbench, and where is its evidence?'",
+  "-- sim/spec-coverage.md is a generated, human-readable rendering of it",
+  "and sim/check_spec_coverage.py is the check that keeps both honest.",
+  "",
+  "It exists because T1 item 9 (klayout-tools/docs/design-evidence-tiers.md)",
+  "grades three things no single campaign owns: COMPLETENESS (a bench for",
+  "every claimed row, no claim resting on prose), COLD START (a documented",
+  "invocation a third party can run from docs/environment-setup.md), and",
+  "PINNING (the PDK revision + tool versions each bench is claimed against).",
+  "Adding a claimed spec row without its bench fails the check even while",
+  "every individual campaign still looks green -- that silent-regression",
+  "path is the whole reason this index is machine-checked rather than prose.",
+  "",
+  "claim_class vocabulary (see sim/check_spec_coverage.py for what each one",
+  "is checked to require):",
+  "  ratified-measured    a RATIFIED row graded pass/fail by a committed",
+  "                       campaign; >=1 bench, >=1 record, and at least one",
+  "                       record must cite spec/target-spec.md in its Claim.",
+  "  draft-informational  a DRAFT row with committed evidence recorded",
+  "                       INFORMATIONALLY (never as pass/fail against an",
+  "                       unratified number, per CLAUDE.md); same artifact",
+  "                       requirements as above.",
+  "  methodology          a row that constrains HOW every campaign runs",
+  "                       rather than naming a DUT quantity; its benches are",
+  "                       the campaigns that demonstrably executed it.",
+  "  structural           a topology/architecture row realized in design/",
+  "                       and exercised block-by-block by benches; not a",
+  "                       numeric measurement.",
+  "  unbenched            no bench, and none is owed yet. Permitted ONLY on",
+  "                       a DRAFT row, and only with a stated reason: a",
+  "                       RATIFIED row can never be 'unbenched', so",
+  "  ratified-gap         a RATIFIED row whose named quantity is not yet",
+  "                       graded: committed benches and records exist (the",
+  "                       informational evidence), but no ratified tolerance",
+  "                       exists for the measured deviation, so no record",
+  "                       reads as the row's full PASS. The note must name",
+  "                       the decision record (DR-NNN) or issue (#N) that",
+  "                       owns closing the gap (issue #1021).",
+  "                       ratifying a row mechanically forces a bench.",
+  "",
+  "Records are append-only (sim/README.md): the record list below names the",
+  "record(s) a row's claim currently rests on; a later re-run adds a new",
+  "record-id here rather than replacing the file it points at."
+ ],
+ "spec_file": "spec/target-spec.md",
+ "spec_section": "Target table",
+ "pins": {
+  "pdk_json": "sim/pdk.json",
+  "toolchain_json": "sim/toolchain.json",
+  "cold_start_doc": "docs/environment-setup.md",
+  "note": [
+   "Every record indexed here states, in its own Environment section, the",
+   "PDK variant + resolved open_pdks commit and the ngspice version it was",
+   "produced with; sim/check_spec_coverage.py verifies those against",
+   "sim/pdk.json / sim/toolchain.json rather than trusting the prose.",
+   "xschem is pinned by sim/toolchain.json's xschem_tag and is a WARNING",
+   "rather than a fatal drift (sim/selftest.sh stage 2's rule: xschem only",
+   "netlists, and every record pins the exact netlist it ran by SHA-256) --",
+   "so the per-record xschem-side provenance this check enforces is the",
+   "presence of that DUT netlist sha256 line, not a version string."
   ]
+ },
+ "cold_start_preamble": [
+  "# One-time machine bootstrap: docs/environment-setup.md sections 1-3",
+  "#   (xschem + ngspice + ciel install, `ciel enable` of the pinned",
+  "#    open_pdks commit, PDK_ROOT/PDK convention).",
+  "source sim/env.sh",
+  "python3 sim/run_corners.py --check-env   # exit 3 = tools/PDK missing, 1 = pin drifted"
+ ],
+ "harness_proofs": [
+  {
+   "experiment": "harness-corner-smoke",
+   "why": "Harness self-test, never a spec claim (sim/README.md 'Harness self-test experiments'): an ideal divider plus a diode-connected nfet_01v8, proving the corner runner actually switches the .lib process section, .temp and vdd_val independently. Counted toward T1 item 9 by nothing."
+  },
+  {
+   "experiment": "mc-smoke",
+   "why": "Harness self-test, never a spec claim: one diode-connected nfet_01v8 drawn N times at tt_mm with a deterministic plain-tt negative control, proving the Monte Carlo plumbing reaches the simulator. Counted toward T1 item 9 by nothing."
+  }
+ ],
+ "non_spice_campaigns": [
+  {
+   "experiment": "digital-functional",
+   "runner": "sim/digital-functional/bin/run-record.py",
+   "cold_start": "KLT=.venv-signoff/bin/klt python3 -I sim/digital-functional/bin/run-record.py",
+   "documented_in": "sim/digital-functional/README.md",
+   "covers": "Zero-delay gate-level functional verification of the routed sar-sequencer and top-glue netlists against a reference model, with a mutation campaign as negative control (issue #678, T1 item 5). Not an ngspice run; no spec-table row claims it.",
+   "records": [
+    "sim/digital-functional/records/20261017-193811-9522693.md"
+   ]
+  },
+  {
+   "experiment": "digital-sta",
+   "runner": "sim/digital-sta/bin/run-record.py",
+   "cold_start": "KLT=.venv-signoff/bin/klt python3 -I sim/digital-sta/bin/run-record.py",
+   "documented_in": "sim/digital-sta/README.md",
+   "covers": "Multi-corner static timing of the routed digital macros at the provisional 12 MHz period, with a too-fast negative control (issue #678, T1 item 5). Not an ngspice run; only the nearest stock Liberty corner is graded and the rest are declared gaps.",
+   "records": [
+    "sim/digital-sta/records/20261017-194050-9522693.md"
+   ]
+  }
+ ],
+ "rows": [
+  {
+   "parameter": "Architecture",
+   "status": "DRAFT",
+   "claim_class": "structural",
+   "note": "A topology statement (charge-redistribution, differential, top-plate sampling), not a measured quantity: it is realized in design/ and kept honest by design/regen_netlist.sh --check (staleness is failure). The benches below exercise the topology block by block -- none of them asserts a numeric spec value, and none is listed under a numeric row.",
+   "benches": [
+    {
+     "experiment": "sampling-frontend",
+     "runner": "sim/sampling-frontend/run_transient.py",
+     "testbench": [
+      "sim/sampling-frontend/testbench/sampling_frontend_dut.spice"
+     ],
+     "cold_start": "python3 sim/sampling-frontend/run_transient.py --record",
+     "documented_in": "sim/sampling-frontend/run_transient.py",
+     "covers": "Top-plate sampling: in-sample settling and the post-edge delta on TOP_P/TOP_N (issue #52).",
+     "records": [
+      "sim/sampling-frontend/records/20260821-072657-433a294.md"
+     ]
+    },
+    {
+     "experiment": "sampling-cdac-handoff",
+     "runner": "sim/sampling-cdac-handoff/run_handoff.py",
+     "testbench": [
+      "sim/sampling-cdac-handoff/testbench/sampling_frontend_dut.spice",
+      "sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice"
+     ],
+     "cold_start": "python3 sim/sampling-cdac-handoff/run_handoff.py --corners --record",
+     "documented_in": "sim/sampling-cdac-handoff/run_handoff.py",
+     "covers": "The front-end/array bottom-plate interface as design/sar_adc_top.sch actually wires it (issue #95), and -- at that same assembled top-plate load -- the acquisition residual at the DR-006 worst-case phase budget across the ratified PVT grid (issue #469).",
+     "records": [
+      "sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md",
+      "sim/sampling-cdac-handoff/records/20261001-135431-7487784.md"
+     ]
+    },
+    {
+     "experiment": "cdac-array-transfer",
+     "runner": "sim/cdac-array-transfer/run_transfer.py",
+     "testbench": [
+      "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"
+     ],
+     "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --record",
+     "documented_in": "sim/cdac-array-transfer/README.md",
+     "covers": "Charge redistribution: the array's own code-to-output transfer characteristic (issue #53).",
+     "records": [
+      "sim/cdac-array-transfer/records/20260821-062504-433a294.md"
+     ]
+    },
+    {
+     "experiment": "top-plate-cpar",
+     "runner": "sim/top-plate-cpar/run_top_plate_cpar.py",
+     "testbench": [
+      "sim/top-plate-cpar/run_top_plate_cpar.py"
+     ],
+     "testbench_note": "The deck is assembled by the runner from design/sar_adc_top.spice plus testbench-only sources; there is no committed fragment (deck bodies are frozen per record under corners/).",
+     "cold_start": "python3 sim/top-plate-cpar/run_top_plate_cpar.py --record",
+     "documented_in": "sim/top-plate-cpar/README.md",
+     "covers": "Top-plate parasitic capacitance C_par of the as-committed netlist: C(V), leave-one-out composition, per PVT and MiM r+c corner (issue #754; informational, asserts no numeric spec value).",
+     "records": [
+      "sim/top-plate-cpar/records/20261101-183325-60421e38.md"
+     ]
+    },
+    {
+     "experiment": "sar-sequencer-behavioral",
+     "runner": "sim/sar-sequencer-behavioral/run_testbench.py",
+     "testbench": [
+      "sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/sar-sequencer-behavioral/run_testbench.py --record",
+     "documented_in": "sim/sar-sequencer-behavioral/run_testbench.py",
+     "covers": "Successive approximation: MSB-first bit-by-bit search and phase sequencing (issue #55).",
+     "records": [
+      "sim/sar-sequencer-behavioral/records/20260823-152752-47640c8.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "Resolution `N`",
+   "status": "RATIFIED",
+   "claim_class": "ratified-measured",
+   "note": "N = 10 bit, RATIFIED (DR-003 via #27). Graded by issue #28's full ratified-corner campaign: correct MSB-first capture of all 10 bits, correct phase sequencing, and the ring sequencer's auto-restart at every point of the ratified corner set.",
+   "benches": [
+    {
+     "experiment": "sar-sequencer-behavioral",
+     "runner": "sim/sar-sequencer-behavioral/run_testbench.py",
+     "testbench": [
+      "sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/sar-sequencer-behavioral/run_testbench.py --corners --record",
+     "documented_in": "sim/sar-sequencer-behavioral/run_testbench.py",
+     "covers": "Ratified N=10 across the full ratified corner set (issue #28).",
+     "records": [
+      "sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "Sample rate",
+   "status": "DRAFT",
+   "claim_class": "draft-informational",
+   "note": "DRAFT row (provisional 100 kS/s-1 MS/s), NOT re-derived and NOT closed by anything indexed here. This row was claim_class 'unbenched' until issue #274, on the reason that benching it 'needs a switch-R_on/settling campaign against the integrated signal path'. That campaign has since been run, in pieces: the benches below are the settling/delay mechanism campaigns docs/chipalooza/challenge-4-proposal.md Section 7 Item 2 names, plus the end-to-end whole-ADC transient that Section 7's own summary says a future decision record needs BEFORE the row can be re-derived. So the reason no longer describes the tree, and the evidence is indexed rather than left orphaned -- but the class is 'draft-informational' for the same standard the ENOB and INL/DNL rows are held to: every record below is reported INFORMATIONALLY, each one states in its own Claim field that it is not graded against a ratified row, and not one of them proposes a sample rate. The DR-006 phase budgets they measure against are themselves downstream of this DRAFT row, so they bound mechanisms, they do not close the row. Section 7 Item 2 stays open; a future decision record still ratifies the number first.",
+   "tracking": "#24 (CDAC/switch netlist), docs/chipalooza/challenge-4-proposal.md Section 7 Item 2 (end-to-end rate still unmeasured) and Item 6 (no on-chip VCM buffer exists for the budget below to size), and the future sample-rate decision record",
+   "benches": [
+    {
+     "experiment": "cdac-bit-trial-settling",
+     "runner": "sim/cdac-bit-trial-settling/run_bit_trial_settling.py",
+     "testbench": [],
+     "testbench_note": "No committed deck of its own: the runner states a single-side, single-free-bit reduction of design/cdac/cdac_array.sch in-line (see its module docstring's METHOD section for why no existing regenerated fragment isolates that topology), at the schematic's own W/L/MF values. Each corner's assembled deck is committed as raw evidence under sim/cdac-bit-trial-settling/corners/.",
+     "cold_start": "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --corners --record",
+     "documented_in": "sim/cdac-bit-trial-settling/run_bit_trial_settling.py",
+     "covers": "Mechanism (a) of Section 7 Item 2: how long the CDAC array's own bottom-plate switch network takes to settle the shared top-plate node after one bit's SEL toggles, over the full ratified corner set. Informational against this DRAFT row -- it is compared to the DR-006-derived phase period, which is itself downstream of this row, and proposes no sample rate.",
+     "records": [
+      "sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md"
+     ]
+    },
+    {
+     "experiment": "sequencer-logic-delay",
+     "runner": "sim/sequencer-logic-delay/run_sequencer_logic_delay.py",
+     "testbench": [],
+     "testbench_note": "No committed deck of its own: the runner xschem-netlists design/sar_sequencer.sch fresh on each invocation (the DUT netlist sha256 in every record is that netlist's hash) and wraps it in the stimulus stated in-line, reusing sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice's own probe-time convention. Each corner's assembled deck is committed under sim/sequencer-logic-delay/corners/.",
+     "cold_start": "python3 sim/sequencer-logic-delay/run_sequencer_logic_delay.py --corners --record",
+     "documented_in": "sim/sequencer-logic-delay/run_sequencer_logic_delay.py",
+     "covers": "Mechanism (c) of Section 7 Item 2: the SAR sequencer's own CLK-to-phase-output logic delay across all 11 ring-sequencer phase transitions, over the full ratified corner set. Informational against this DRAFT row, on the same DR-006-downstream yardstick; proposes no sample rate.",
+     "records": [
+      "sim/sequencer-logic-delay/records/20260906-230516-0904419.md"
+     ]
+    },
+    {
+     "experiment": "sampling-acquisition-settling",
+     "runner": "sim/sampling-acquisition-settling/run_acquisition_settling.py",
+     "testbench": [
+      "sim/sampling-frontend/testbench/sampling_frontend_dut.spice"
+     ],
+     "testbench_note": "Reuses the sampling front end's own committed DUT fragment unmodified, read in place rather than duplicated (the same convention sim/sampling-frontend/run_hold_kick.py set); only the stimulus and the .meas set are stated by the runner.",
+     "cold_start": "python3 sim/sampling-acquisition-settling/run_acquisition_settling.py --corners --record",
+     "documented_in": "sim/sampling-acquisition-settling/run_acquisition_settling.py",
+     "covers": "Mechanism (d) of Section 7 Item 2: how close the bootstrapped sampling switch gets to a new worst-case (rail-to-rail differential) input by the end of the DR-006 worst-case acquisition window, over the full ratified corner set. This is the mechanism that did NOT clear that budget before issue #236 and does after; the record reports that informationally against a provisional-LSB reference scale, not as pass/fail against this DRAFT row.",
+     "records": [
+      "sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md"
+     ]
+    },
+    {
+     "experiment": "vcm-drive-budget",
+     "runner": "sim/vcm-drive-budget/run_vcm_drive_budget.py",
+     "testbench": [
+      "sim/sampling-frontend/testbench/sampling_frontend_dut.spice"
+     ],
+     "testbench_note": "Same unmodified sampling front-end DUT fragment as the bench above, read in place; the runner replaces only that deck's ideal Vvcm source with an ideal source in series with the swept R_source (plus optional C_decouple).",
+     "cold_start": "python3 sim/vcm-drive-budget/run_vcm_drive_budget.py --corners --record",
+     "documented_in": "sim/vcm-drive-budget/run_vcm_drive_budget.py",
+     "covers": "The interface precondition on mechanism (d): how much external VCM drive resistance (and how much on-die decoupling) the front end tolerates while still acquiring within the DR-006 windows this DRAFT row derives, over the full ratified corner set. Indexed here -- rather than under a row of its own -- because it measures the SAME quantity as the bench above (differential sampled-value error at the end of the acquisition window) with the VCM drive made non-ideal, and its yardstick windows come from this row; Section 7 Item 6 is explicit that it quantifies rather than closes its gap, and it proposes no sample rate and edits no spec row. The cited record is the post-issue-#236 bare-R_source full-grid leg; the other three legs (legacy window, and C_decouple at both windows) are separate records in the same directory, cited in Section 7 Item 6.",
+     "records": [
+      "sim/vcm-drive-budget/records/20260908-100413-f3e2914.md"
+     ]
+    },
+    {
+     "experiment": "input-drive-budget",
+     "runner": "sim/input-drive-budget/run_input_drive_budget.py",
+     "testbench": [
+      "sim/sampling-frontend/testbench/sampling_frontend_dut.spice"
+     ],
+     "testbench_note": "Same unmodified sampling front-end DUT fragment as the two benches above, read in place; the runner adds only an ideal source in series with the swept R_source on each of VINP and VINN, the two-pulse SAMPLE stimulus, and the fixed-time .meas set. The deck body and the klt sim request are committed per record under sim/input-drive-budget/corners/<record-id>/request/.",
+     "cold_start": "python3 sim/input-drive-budget/run_input_drive_budget.py --record",
+     "documented_in": "sim/input-drive-budget/run_input_drive_budget.py",
+     "covers": "The interface precondition on mechanism (d) from the INPUT side, the twin of the VCM bench above: how much series source resistance the VINP/VINN pads tolerate while the front end still acquires a new full-scale differential input inside the DR-006 windows this DRAFT row derives, over the full ratified corner set and at both acquisition windows. Indexed here rather than under a row of its own because it measures the SAME quantity as the acquisition-settling bench (differential sampled-value error at the end of the acquisition window) with the INPUT drive made non-ideal, and its yardstick windows come from this row. Informational only: every budget is reported relative to that corner and window's own R_source = 0 control row against the provisional differential LSB as a reference scale, it proposes no sample rate and it edits no spec row. It does not grade spec/target-spec.md's DRAFT Kickback row either, although that row's 1 kOhm series source impedance is why 1 kOhm is a simulated point in the sweep rather than an interpolation.",
+     "records": [
+      "sim/input-drive-budget/records/20261113-110421-e03343e.md"
+     ]
+    },
+    {
+     "experiment": "reference-drive-budget",
+     "runner": "sim/reference-drive-budget/run_reference_drive_budget.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "testbench_note": "No deck of its own: the runner reads the full-conversion campaign's committed fragment in place and uses it verbatim except for the two reference source cards, which it re-points to a drive node with the swept R_ref in series to the die (the same read-in-place convention sim/vcm-drive-budget/ uses for the sampling front end's fragment). The assembled circuit body and the klt sim request are committed per record under sim/reference-drive-budget/corners/<record-id>/.",
+     "cold_start": "python3 sim/reference-drive-budget/run_reference_drive_budget.py --record",
+     "documented_in": "sim/reference-drive-budget/README.md",
+     "covers": "The interface precondition on the REFERENCE side: how much external series drive resistance VREFP/VREFN tolerate before the converter's captured codes move, over the full ratified corner set, at the DR-006 worst-case f_clk this DRAFT row derives. Indexed here -- rather than under a row of its own -- for the same reason sim/vcm-drive-budget/ is: it measures the SAME quantity the full-conversion bench below measures (the captured code of each DC input) with one drive made non-ideal, and its yardstick timing comes from this row. It is the reference-side counterpart of vcm-drive-budget (VCM) and supply-impedance-sensitivity (the four supply terminals), and closes the gap both of those state in their own text: before this campaign no sim/ bench put any impedance on VREFP/VREFN at all. Informational -- it grades nothing against this DRAFT row, edits no spec row, and chooses no route of the Challenge #4 proposal's Section 7 Item 11; it supplies the evidence route (iii) was missing.",
+     "records": [
+      "sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile reltol-gear",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "The only campaign that drives the whole transistor-level design/sar_adc_top.spice through complete conversions, at the DR-006 worst-case f_clk = 12 MHz, over the full ratified corner set -- the end-to-end data Section 7 Item 2 says a future decision record needs before this row can be re-derived. The cited record is the DR-023 reference re-mint (issue #638): solver profile reltol-gear (`.options reltol=1e-4 method=gear`), pinned ngspice-47 and PDK, run off-host on CI, superseding the pre-DR-023 record below. Its own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB; 12-period phase structure correct at 5/5 conversions everywhere); that is recorded as-is, and is not a pass/fail verdict against this DRAFT row, which the record explicitly declines to substantiate. Against the superseded ngspice-default record no per-input or per-corner verdict moves (same three mid-scale passes, same two near-full-scale failures, same binding corner tt_27c_1.62v at 124 LSB). Five captured codes move by 1 LSB and are solver-sensitive observations of the old policy: -0.78*V_REF at ff_27c_1.80v (205 -> 204) and sf_27c_1.80v (201 -> 200); +0.00*V_REF 512 -> 511 at sf_27c_1.80v, tt_-40c_1.80v and tt_125c_1.80v.",
+     "records": [
+      "sim/full-conversion-transient/records/20261011-112119-188e94c.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile ngspice-default",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "HISTORICAL, SUPERSEDED (issue #638): the pre-DR-023 run of the reference campaign below, on ngspice's default solver settings (reltol=1e-3, trapezoidal). Its own verdict is FAIL against its own informational criterion (0/9 corners resolve all 5 inputs to their ideal code within +-1 LSB; 12-period phase structure correct at 5/5 conversions everywhere), and it declines to substantiate this DRAFT row. Superseded by 20261011-112119-188e94c. The cold start names `--solver-profile ngspice-default`, the settings the record ran on: since DR-023 that re-run is a labelled SOLVER CONTROL that reproduces the record but never moves records/LATEST and may not --supersedes.",
+     "records": [
+      "sim/full-conversion-transient/records/20261001-105439-c324f80.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the superseded campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.",
+     "records": [
+      "sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice"
+     ],
+     "testbench_note": "The generated, committed sweep fragment carries the differential input as a top-level `.param` (`vin_frac`, a fraction of `vdd_val`) instead of per-conversion literals; the runner sweeps it as the only `corners.params` axis of ONE `klt sim` request -- one unit per level at the baseline corner (issue #913).",
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "The converging-range boundary sweep of the AS-COMMITTED schematic (issue #913, closing the 'Converging-range boundary sweep' Open item of DR-021): 24 signed DC input levels across the 0.25..0.78*V_REF band (0.05*V_REF rungs plus the 0.78 endpoint, both signs), one unit each of ONE klt sim request at tt_27c_1.80v under the DR-023 reference solver policy reltol-gear. Every level produced a captured code and reproduces the committed corner record where they overlap (-0.25 -> 383, +0.25 -> 641, -0.78 -> 214, all identical). The boundary, per sign: positive, largest tested magnitude that converges +0.30*V_REF and smallest that does not +0.35*V_REF (the captured code saturates at full scale from +0.35 up); negative, largest tested -0.35*V_REF and smallest -0.40*V_REF (the negative side degrades gradually, 15 LSB at -0.40 growing to 101 LSB at -0.78). INFORMATIONAL only: a measurement of the unmodified schematic that grades no row of spec/target-spec.md, proposes no design change (DR-021's switching scheme is out of scope), supersedes nothing and never moves records/LATEST.",
+     "records": [
+      "sim/full-conversion-transient/records/20261115-084232-ad7393c6.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "ENOB",
+   "status": "DRAFT",
+   "claim_class": "draft-informational",
+   "note": "DRAFT target value (> 9.0 bit baseline / > 9.5 stretch). Issue #29's behavioral-accelerated estimate composes already-run evidence (comparator noise from #28's corner campaign, CDAC mismatch from the DNL/INL campaign below, plus analytic quantization and kT/C terms); it is reported INFORMATIONALLY against the DRAFT target and explicitly is NOT a dynamic-test (FFT) measurement -- see the record's own LIMITATIONS field.",
+   "benches": [
+    {
+     "experiment": "enob-estimate",
+     "runner": "sim/enob-estimate/run_enob.py",
+     "testbench": [],
+     "testbench_note": "Composite/derived experiment: no new ngspice deck is executed. Its inputs are the two SPICE-backed records named in its Composite-inputs manifest (comparator-decision, cdac-array-transfer), each of which ships its own committed deck under this index.",
+     "cold_start": "python3 sim/enob-estimate/run_enob.py --cdac-mc-record 20260828-005006-0c70212 --record",
+     "documented_in": "sim/enob-estimate/run_enob.py",
+     "covers": "Composed ENOB estimate against the DRAFT ENOB row (issue #29).",
+     "records": [
+      "sim/enob-estimate/records/20260828-005033-0c70212.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --solver-profile reltol-gear",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "REFERENCE coherent-sine capture under the DR-023 solver policy reltol-gear (issue #638): whole transistor-level design/sar_adc_top.spice at tt/27C/1.8V, N=32, bin 7, 0.25*V_REF, pinned ngspice-47 + pinned PDK, run off-host on CI, superseding the ngspice-default record 20261011-022915-877794b. VALIDITY clean (32/32 phase structure, 0 missing measurements, peak bin = drive bin, 0/32 codes at a rail); per-code outlier diagnostic: 0 outliers above 8 LSB, max |error| 2 LSB. Unmodified-stream SNDR 52.00 dB, ENOB 8.345 bit, SFDR 54.98 dB (ideal quantizer on the same N=32 plan: 50.89 dB / 8.161 bit; the excess is short-record estimator variance). The stream matches the #621 solver-control record 20261011-023419-877794b code for code and differs from 20261011-022915-877794b only at conversion 9 (521 vs 960, ideal 522), so the +438 LSB outlier does not appear under the reference policy. INFORMATIONAL only: one corner, N=32, no noise sources, -12 dBFS; it does not grade the DRAFT ENOB row and no target changes.",
+     "records": [
+      "sim/full-conversion-transient/records/20261011-110009-320dbc6.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-trace 8 --sine-trace 9 --sine-trace 10 --sine-switch-trace 9 --solver-profile ngspice-default",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "HISTORICAL (pre-DR-023, ngspice-default; superseded for reporting by the reference capture 20261011-110009-320dbc6 above, issue #638). First dynamic (coherent-sine FFT) SNDR/ENOB on the whole transistor-level design/sar_adc_top.spice at tt/27C/1.8V, N=32, bin 7, 0.25*V_REF, on the pinned ngspice-47 + pinned PDK (issue #605). INFORMATIONAL only: the VALIDITY gate is clean (32/32 phase structure, no missing measurements, peak bin = drive bin) and 31 of 32 captured codes are within +/-2 LSB of ideal, but one conversion (conversion 9, near the zero crossing) returned 960 against an ideal 522 (+438 LSB) and dominates the reported SNDR 2.17 dB (ENOB 0.068 bit; ideal quantizer on the same plan 50.89 dB). Those headline figures are a single-outlier artifact, not a clean converter measurement; the outlier is tracked in issue #621 (the runner now reports a per-code outlier diagnostic for new records; the re-run `20261010-204225-57a55c1.md` (same capture, bit-identical codes, ngspice-46 at the pin floor) supersedes this record for reporting and adds a read-only conversion-9 trace: conversion 9's comparator-input top plate TOP_P makes the normal bit-4 staircase step (phase-5 mid-evaluate 0.860 V, +0.057 V where ~+0.056 V is expected), then drops by ~1.37 V to -0.505 V later in the same phase, before the pre-capture instant, and stays below ground for the rest of the conversion; the mechanism behind that drop was not identified by that trace). Root cause (issue #621): the read-only --sine-switch-trace re-runs `20261011-021527-8d0c19a.md` and `20261011-022915-877794b.md` (ngspice-47, default solver settings, bit-identical stream; each supersedes the previous) OBSERVE the already-rejected registers DOUT8/7/6 and DOUT2 switching 0->1 together, with no CLK rising edge, ~2.6 ns after phase 5's CLK falling edge during the comparator's regeneration; their P bottom plates then pull TOP_P below ground. The SOLVER-CONTROL record `20261011-023419-877794b.md` (same DUT/stimulus/toolchain, only `.options reltol=1e-4 method=gear`) shows no such transition, conversion 9 = 521 vs ideal 522, 0 outliers, SNDR 52.00 dB / ENOB 8.345 bit (ideal quantizer 50.89 dB on this N=32 plan); the INFERRED root cause is a numerical artefact of the default ngspice settings, not a converter decision. The control is a control, not replacement evidence. It grades nothing and no target value changes. All four records cited here ran on ngspice's default solver settings, before DR-023 made `.options reltol=1e-4 method=gear` the reference policy for this experiment; the cold start therefore names `--solver-profile ngspice-default`, which reproduces their settings as a labelled SOLVER CONTROL (it never moves records/LATEST and may not --supersedes). The same flags without the profile now run the DR-023 reference policy and would not reproduce the +438 LSB outlier.",
+     "records": [
+      "sim/full-conversion-transient/records/20261010-070734-f968286.md",
+      "sim/full-conversion-transient/records/20261010-204225-57a55c1.md",
+      "sim/full-conversion-transient/records/20261011-021527-8d0c19a.md",
+      "sim/full-conversion-transient/records/20261011-022915-877794b.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --sine-solver-control",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "SOLVER CONTROL for the coherent-sine capture above (issue #621): the same DUT, stimulus, ngspice-47 and PDK pin with only `.options reltol=1e-4 method=gear` added. Conversion 9 converts to 521 (ideal 522), no transition is unscheduled, TOP_P stays inside the rails, 0 outliers above the 8 LSB bound; SNDR 52.00 dB / ENOB 8.345 bit against the ideal quantizer's 50.89 dB / 8.161 bit on the same N=32 plan (the excess is short-record estimator variance). A CONTROL, not replacement evidence: it supports the inference that the default-settings +438 LSB outlier is a numerical artefact. One corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes. Since DR-023 (issue #637) these settings are this experiment's reference solver policy; the record itself predates that and is labelled a control. Its cold start (`--sine-solver-control`, which now means `--solver-profile reltol-gear`) reproduces the record's settings, but a re-run today is a reference-policy run, not a control.",
+     "records": [
+      "sim/full-conversion-transient/records/20261011-023419-877794b.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile reltol-only",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "SINGLE-SETTING SOLVER CONTROL (issue #637) for the coherent-sine capture above: the same DUT, stimulus, ngspice-47 and PDK pin with only `.options reltol=1e-4` added. The 32-code stream is identical, code for code, to the combined reltol=1e-4 + Gear control's: conversion 9 = 521 (ideal 522), no UNSCHEDULED transition in conversion 9, 0 outliers above 8 LSB, SNDR 52.00 dB. So this setting alone removes the issue #621 default-settings artefact. Simulator wall-clock 522 s. A CONTROL, not replacement evidence: one corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes.",
+     "records": [
+      "sim/full-conversion-transient/records/20261011-064924-ad4bfff.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --coherent-sine --record --sine-switch-trace 9 --solver-profile gear-only",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "SINGLE-SETTING SOLVER CONTROL (issue #637) for the coherent-sine capture above: the same DUT, stimulus, ngspice-47 and PDK pin with only `.options method=gear` added. The 32-code stream is identical, code for code, to the combined reltol=1e-4 + Gear control's: conversion 9 = 521 (ideal 522), no UNSCHEDULED transition in conversion 9, 0 outliers above 8 LSB, SNDR 52.00 dB. So this setting alone removes the issue #621 default-settings artefact. Simulator wall-clock 217 s. A CONTROL, not replacement evidence: one corner, N=32, no noise, -12 dBFS; it grades nothing and no target value changes.",
+     "records": [
+      "sim/full-conversion-transient/records/20261011-064408-ad4bfff.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "INL / DNL",
+   "status": "DRAFT",
+   "claim_class": "draft-informational",
+   "note": "DRAFT target value (<= +-1 LSB). Issue #29's mismatch Monte Carlo campaign over the CDAC array's own transfer characteristic, reported in ratified-LSB units with a zero-stdev negative control, INFORMATIONALLY against the DRAFT target. Scope is the array in isolation, stated in the record itself.",
+   "benches": [
+    {
+     "experiment": "cdac-array-transfer",
+     "runner": "sim/cdac-array-transfer/run_mc.py",
+     "testbench": [
+      "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"
+     ],
+     "testbench_note": "The Monte Carlo code set is generated by sim/cdac-array-transfer/gen_fragment.py, verified byte-for-byte against this committed hand-authored deck for its own 5 codes by sim/tests/test_cdac_fragment_gen.py.",
+     "cold_start": "python3 sim/cdac-array-transfer/run_mc.py --n 40 --seed 1 --record",
+     "documented_in": "sim/cdac-array-transfer/README.md",
+     "covers": "max|DNL| / max|INL| distributions at tt_mm with a plain-tt negative control (issue #29).",
+     "records": [
+      "sim/cdac-array-transfer/records/20261001-124049-5207381.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "`V_REF`",
+   "status": "RATIFIED",
+   "claim_class": "ratified-measured",
+   "note": "V_REF = V_DD = 1.8 V, RATIFIED (DR-003 via #27). A fixed design constant wired into the testbench as VREFP={vdd_val} rather than a free-running simulated quantity; graded since issue #1021 as a machine-evaluated relation: the klt sim envelope's spec_row-tagged vref_ratio/v_vrefn measurements check the applied reference equals the corner's own rail (and VREFN is 0) at every corner, with solver/print-precision slack only (source stated in the record). The run_transfer structural+functional campaign below remains the row's other indexed evidence.",
+   "benches": [
+    {
+     "experiment": "cdac-array-transfer",
+     "runner": "sim/cdac-array-transfer/run_transfer.py",
+     "testbench": [
+      "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"
+     ],
+     "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
+     "documented_in": "sim/cdac-array-transfer/README.md",
+     "covers": "Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).",
+     "records": [
+      "sim/cdac-array-transfer/records/20261001-120402-d24f700.md"
+     ]
+    },
+    {
+     "experiment": "cdac-array-transfer",
+     "runner": "sim/cdac-array-transfer/run_klt_graded.py",
+     "testbench": [
+      "sim/cdac-array-transfer/testbench/klt/tb_body.spice",
+      "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice",
+      "sim/cdac-array-transfer/testbench/klt/request-graded.json"
+     ],
+     "cold_start": "python3 sim/cdac-array-transfer/run_klt_graded.py --record",
+     "documented_in": "sim/cdac-array-transfer/README.md",
+     "covers": "Graded klt sim envelope for the three ratified CDAC rows (issue #1021): machine-evaluates the V_REF = V_DD relation per corner (spec_row-tagged vref_ratio/v_vrefn), re-checks the structural unit-cap census, and reports the LSB step deviation and the electrical C_u reference-charge observable informationally -- no pass condition is written where no ratified tolerance exists.",
+     "records": [
+      "sim/cdac-array-transfer/records/20261122-103440-000e61e7.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "LSB (differential)",
+   "status": "RATIFIED",
+   "claim_class": "ratified-gap",
+   "note": "LSB = 2*V_REF/2^N = 3.5156 mV, RATIFIED (DR-003 via #27). GAP (declared by issue #1021): no ratified tolerance exists for the measured differential step's deviation from the ideal value, so no committed record grades the row's magnitude -- the 5-code spot check's max |error| (1.1656 mV ~= 0.33 LSB) and the graded envelope's per-corner step deviation (0.61-0.97% of the 128-code step) are informational only, and the envelope deliberately leaves its LSB observables untagged so nothing reads as coverage. The tolerance decision is owned by spec/decision-records/DR-026-cdac-row-tolerance-decisions.md (proposed); until it is ratified (or superseded), this row must not be read as a full PASS.",
+   "benches": [
+    {
+     "experiment": "cdac-array-transfer",
+     "runner": "sim/cdac-array-transfer/run_transfer.py",
+     "testbench": [
+      "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"
+     ],
+     "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
+     "documented_in": "sim/cdac-array-transfer/README.md",
+     "covers": "Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).",
+     "records": [
+      "sim/cdac-array-transfer/records/20261001-120402-d24f700.md"
+     ]
+    },
+    {
+     "experiment": "cdac-array-transfer",
+     "runner": "sim/cdac-array-transfer/run_klt_graded.py",
+     "testbench": [
+      "sim/cdac-array-transfer/testbench/klt/tb_body.spice",
+      "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice",
+      "sim/cdac-array-transfer/testbench/klt/request-graded.json"
+     ],
+     "cold_start": "python3 sim/cdac-array-transfer/run_klt_graded.py --record",
+     "documented_in": "sim/cdac-array-transfer/README.md",
+     "covers": "Graded klt sim envelope for the three ratified CDAC rows (issue #1021): machine-evaluates the V_REF = V_DD relation per corner (spec_row-tagged vref_ratio/v_vrefn), re-checks the structural unit-cap census, and reports the LSB step deviation and the electrical C_u reference-charge observable informationally -- no pass condition is written where no ratified tolerance exists.",
+     "records": [
+      "sim/cdac-array-transfer/records/20261122-103440-000e61e7.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "Sampling cap (CDAC unit × array)",
+   "status": "RATIFIED",
+   "claim_class": "ratified-gap",
+   "note": "C_u ~= 8.66 fF (1.9000 um square plate, 5 nm-grid-legal), 2^9 = 512 positions/side, RATIFIED (DR-003 via #27; plate resized to a grid-legal side by DR-019 via #496). GAP (declared by issue #1021): the exact structural values are machine-checked (run_transfer.check_structural_sizing() inside both indexed records: cap_mim_m3_1 W=L=1.9000 um, weights 1..256 + termination = 512/side), but the ELECTRICAL unit cap has no ratified tolerance -- the graded envelope's reference-charge observable cu_elec (8.59-9.54 fF across the 9 corners, vs the ratified approx-8.66 fF design estimate) is informational only and carries no spec_row tag. The tolerance (or a structural-only grade) decision is owned by spec/decision-records/DR-026-cdac-row-tolerance-decisions.md (proposed); until it is ratified (or superseded), this row must not be read as a full PASS.",
+   "benches": [
+    {
+     "experiment": "cdac-array-transfer",
+     "runner": "sim/cdac-array-transfer/run_transfer.py",
+     "testbench": [
+      "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"
+     ],
+     "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
+     "documented_in": "sim/cdac-array-transfer/README.md",
+     "covers": "Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).",
+     "records": [
+      "sim/cdac-array-transfer/records/20261001-120402-d24f700.md"
+     ]
+    },
+    {
+     "experiment": "cdac-array-transfer",
+     "runner": "sim/cdac-array-transfer/run_klt_graded.py",
+     "testbench": [
+      "sim/cdac-array-transfer/testbench/klt/tb_body.spice",
+      "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice",
+      "sim/cdac-array-transfer/testbench/klt/request-graded.json"
+     ],
+     "cold_start": "python3 sim/cdac-array-transfer/run_klt_graded.py --record",
+     "documented_in": "sim/cdac-array-transfer/README.md",
+     "covers": "Graded klt sim envelope for the three ratified CDAC rows (issue #1021): machine-evaluates the V_REF = V_DD relation per corner (spec_row-tagged vref_ratio/v_vrefn), re-checks the structural unit-cap census, and reports the LSB step deviation and the electrical C_u reference-charge observable informationally -- no pass condition is written where no ratified tolerance exists.",
+     "records": [
+      "sim/cdac-array-transfer/records/20261122-103440-000e61e7.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "Comparator input-referred noise",
+   "status": "RATIFIED",
+   "claim_class": "ratified-measured",
+   "note": "<= 1.0148 mV rms baseline / <= 0.5859 mV rms stretch, RATIFIED (DR-003 via #27). Graded against the ratified baseline threshold across the full ratified corner set, with the binding (worst-case) corner named explicitly in the record even though the row passes.",
+   "benches": [
+    {
+     "experiment": "comparator-decision",
+     "runner": "sim/comparator-decision/run.py",
+     "testbench": [
+      "sim/comparator-decision/testbench/comparator_core.spice"
+     ],
+     "cold_start": "python3 sim/comparator-decision/run.py noise-corners --record",
+     "documented_in": "sim/comparator-decision/run.py",
+     "covers": "AC .noise input-referred noise across the full ratified corner set (issue #28).",
+     "records": [
+      "sim/comparator-decision/records/20260827-212404-e13bc1e.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "Kickback",
+   "status": "DRAFT",
+   "claim_class": "draft-informational",
+   "note": "DRAFT row (<= 5 mV peak pin disturbance into a 1 kOhm series source impedance, single decision edge; stretch <= 2 mV), added by DR-011 via issue #361. The bound is adopted verbatim from the sibling 2AMLogic/sky130-comparator canary's own DR-002-ratified row as a stated interim choice -- NOT derived from this block's system-level budget -- so nothing here is graded pass/fail against it. Issue #346's single-corner (tt/27 C) probe is still the only corner covered: the record below reports 73.3673 mV worst-case peak pin disturbance INFORMATIONALLY and says so in its own Claim field, which cites spec/target-spec.md explicitly. That is ~14.7x the proposed target; the gap is recorded, not relaxed (CLAUDE.md). Issue #390 (DR-014's first gate) has since split that disturbance into its common-mode and differential components at the same corner: the differential part -- the part a differential top-plate CDAC does not reject, i.e. the part that lands on a decision -- is 10.9153 mV at Vindiff=+50 mV (~2.2x the proposed target) and 4.1918 mV at the half-LSB overdrive a marginal SAR decision actually presents (~0.84x the target, ~2.1x the stretch). So the row is missed on the quantity it bounds, and the decision-relevant component is a much smaller multiple of it than 14.7x -- but is not negligible either, which is what DR-014 Consequences §4 said would decide whether its 'no mitigation adopted' disposition weakens. Ratifying this row would oblige a full-corner campaign -- the bound is stated at the ratified corner set and the evidence covers one point of it (DR-011 Consequences §5).",
+   "tracking": "DR-014 (#349: static preamp not adopted, DR-004 Decision 1 stands, no mitigation adopted yet); #390 (common-mode/differential split of the kickback measurement, DR-014's first gate -- DELIVERED by the record below, which supersedes #346's baseline; confirms a differential component above the bound at the large-overdrive point, DR-014 Consequences §4's condition); #434 (follow-on: measuring the headroom-neutral mitigation classes DR-014 Consequences §4 / Open items names, filed once #390's result met that condition -- DELIVERED for the cross-coupled-neutralization class by DR-016); DR-016 (#434: cross-coupled neutralization measured against an EXPERIMENTAL, informational-only DUT variant -- worst-case peak differential deviation moves -10.9153 -> -10.8355 mV at Vindiff=+50 mV, -0.7%, not enough to close the gap; DR-014's 'not adopted' call stands; the double-tail latch and complementary-clock compensation classes remain unmeasured); DR-011's Open items (a budget-derived successor bound, a residual-at-next-decision measurable, and the full-corner kickback campaign ratification would require)",
+   "benches": [
+    {
+     "experiment": "comparator-decision",
+     "runner": "sim/comparator-decision/run.py",
+     "testbench": [
+      "sim/comparator-decision/testbench/comparator_core.spice"
+     ],
+     "cold_start": "python3 sim/comparator-decision/run.py kickback --record",
+     "documented_in": "sim/comparator-decision/run.py",
+     "covers": "Peak pin disturbance on VINP/VINN across a single CLK reset->evaluate edge, into a 1 kOhm series source impedance, at tt/27 C (issue #346), plus -- since issue #390, DR-014's first gate -- the common-mode/differential decomposition of the same disturbance and later recovery pick-offs of both, over a Vindiff grid that now includes the half-LSB (1.7578 mV) point. The per-pin peak the row's bound is stated in is unchanged and reproduces exactly (73.3673 mV at Vindiff=+50 mV; -70.3419 mV at the Vindiff=0 control). The decomposition is what says how much of that lands on a decision: at Vindiff=0 the deck is symmetric so the disturbance is common-mode by construction, and the measured common-mode part barely moves with overdrive (-70.3419 -> -70.4415 mV), while the differential part is -10.9153 mV at Vindiff=+50 mV and +4.1918 mV at the half-LSB point. A subtraction between two per-pin rows is NOT that split and is no longer described as one.",
+     "records": [
+      "sim/comparator-decision/records/20261106-190623-7bdf8c4.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "Gain error, systematic",
+   "status": "DRAFT",
+   "claim_class": "unbenched",
+   "reason": "Deliberately unbenched, not overlooked: this DRAFT row (<= 1.42 LSB span-referred, proposed by DR-022 via issue #269) has no bench that measures the gain. The only evidence is issue #263's decision-margin trace (sim/full-conversion-transient/records/20260912-011519-9aaf1ca.md), a two-corner mechanism trace whose Claim field names DR-009, not this row; DR-022 reads g = 0.99190-0.99200 (0.80-0.81 %, 8.2-8.3 LSB, about 5.8x the candidate) off its tables by hand. Indexing that record as this row's evidence would claim more than it says, and the record is append-only. DR-022 Decision item 3 / Open item 4 owe the per-corner gain extraction in sim/full-conversion-transient/ once the row is ratified; this index's ratified-row rule then forces a bench, because a RATIFIED row may never carry claim_class 'unbenched'.",
+   "tracking": "DR-022 (#269: specify the systematic gain error, do not resize; ratification open) and its Open items: C_par composition measurement, closure or superseding DR for the 5.8x miss, the mismatch half, per-corner gain extraction",
+   "benches": []
+  },
+  {
+   "parameter": "Power",
+   "status": "DRAFT",
+   "claim_class": "draft-informational",
+   "note": "DRAFT row, target text 'provisional, minimise at rate' with the note 'report, don't pre-commit'. There is still no threshold to grade against, so nothing here is a pass/fail claim -- but 'report' is exactly what the bench below now does: issue #254's end-to-end campaign carries the first supply- and reference-current measurement of any kind on this block (per-rail `.meas tran avg i(...)` over a whole steady-state conversion, at every point of the ratified corner set). It is indexed here, informationally, rather than left orphaned. This row was claim_class 'unbenched' until issue #274; the stated reason (no bench exists, and a number with no ratified line to grade it against would be one CLAUDE.md forbids inventing) is why the class is 'draft-informational' rather than 'ratified-measured', and why no power target is proposed anywhere in this index or in the record. If a future decision record ratifies a power row, this index's ratified-row rule then requires a bench graded against it.",
+   "tracking": "future power decision record (none open); docs/chipalooza/challenge-4-proposal.md Section 4's Power row carries the current reported figures",
+   "benches": [
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile reltol-gear",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "Average per-rail current and power (VDD, VPWR, VREFP, VCM, VREFN) over one whole steady-state conversion at f_clk = 12 MHz, across the full ratified corner set -- the same run that feeds the Sample rate row above, re-minted under the DR-023 reference solver policy reltol-gear (issue #638): min 21.389 uW at tt_27c_1.62v, typ 27.197 uW at tt_27c_1.80v, max 34.136 uW at tt_27c_1.98v. Reported, not pre-committed: the record names this DRAFT row explicitly and states that it substantiates neither it nor a proposed target.",
+     "records": [
+      "sim/full-conversion-transient/records/20261011-112119-188e94c.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --corners --record --solver-profile ngspice-default",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "HISTORICAL, SUPERSEDED (issue #638): the per-rail current and power of the pre-DR-023 campaign, on ngspice's default solver settings. Superseded by 20261011-112119-188e94c, whose figures are 0.3-6.4 % lower per corner (largest at sf_27c_1.80v, tt_-40c_1.80v and tt_125c_1.80v, mostly I(VPWR)). That comparison crosses ngspice-46 -> ngspice-47 as well as ngspice-default -> reltol-gear; the version step alone is measured only at tt_27c_1.80v, where audit 20261011-064547-a6dcdd7 found it null, so the 0.3-6.4 % is a combined solver-plus-version shift, not a measured integration-setting uncertainty. The cold start names `--solver-profile ngspice-default` so it reproduces the record's settings; that re-run is a labelled SOLVER CONTROL that never moves records/LATEST and may not --supersedes.",
+     "records": [
+      "sim/full-conversion-transient/records/20261001-105439-c324f80.md"
+     ]
+    },
+    {
+     "experiment": "full-conversion-transient",
+     "runner": "sim/full-conversion-transient/run_conversion.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --solver-audit --record",
+     "documented_in": "sim/full-conversion-transient/README.md",
+     "covers": "SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the superseded campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.",
+     "records": [
+      "sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md"
+     ]
+    },
+    {
+     "experiment": "supply-impedance-sensitivity",
+     "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package-r-only,package,substrate --record",
+     "documented_in": "sim/supply-impedance-sensitivity/README.md",
+     "covers": "Same per-rail average current/power as the bench above, but with DR-015's package-style R+L (or a lumped substrate stand-in) driving the four supply terminals instead of ideal sources at the die -- DR-012's own open item, issue #378, 'the impedance argument is unmeasured'. Baseline corner only (see the record's own Subset-corner justification); reported informationally, same as the row above, and no power target is proposed here either.",
+     "records": [
+      "sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md"
+     ]
+    },
+    {
+     "experiment": "supply-impedance-sensitivity",
+     "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package,no-gnd-pad --record",
+     "documented_in": "sim/supply-impedance-sensitivity/README.md",
+     "covers": "The same per-rail average current/power again, on the one arm pair that prices DR-012's REJECTED null option (issue #409 item 2): `no-gnd-pad` -- `GND` with no bond of its own, reaching the board only through the lumped substrate link -- against the `package` arm it differs from in exactly one element, plus the `ideal` control, at the baseline corner. A separate bench entry from the two above because it is a separate invocation with its own documented cold start: the four-arm comparison omitted this arm on a cost projection, and this record is what replaces that projection with a measurement (487 s, 1.67x the control -- cheaper than the `package` arm, not the ~10x the projection assumed). Reported informationally, same as the rows above; no power target is proposed here either, and `I(GND)` is `n/a (no bond)` on the `no-gnd-pad` row by construction.",
+     "records": [
+      "sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md"
+     ]
+    },
+    {
+     "experiment": "supply-impedance-sensitivity",
+     "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --sweep --record",
+     "documented_in": "sim/supply-impedance-sensitivity/README.md",
+     "covers": "The same per-rail average current/power again, over the bounded 2-D box DR-015's own 'Open items' asks for (issue #409 item 3): the as-built package topology re-run at bond inductance 0x/1x/10x of DR-015's 1.914 nH crossed with the lumped substrate link R_SUBX at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the one above because it is a separate invocation with its own documented cold start, not a re-run of it: the arm comparison ranks five NETWORKS at DR-015's assumption point, this walks a box around that point on one of them. Reported informationally, same as the rows above; no power target is proposed here either, and the box's total power spread (27.20-27.97 uW) is stated in the record rather than graded.",
+     "records": [
+      "sim/supply-impedance-sensitivity/records/20260925-164447-722fcb0.md"
+     ]
+    },
+    {
+     "experiment": "supply-impedance-sensitivity",
+     "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --null-sweep --record",
+     "documented_in": "sim/supply-impedance-sensitivity/README.md",
+     "covers": "The same per-rail average current/power once more, over the one-axis ladder that the 2-D box above could not reach (the residual of issue #409 item 3, and DR-015's own R_SUB open item): DR-012's REJECTED no-gnd-pad topology re-run with the lumped substrate RETURN at 3/30/300 Ohm, plus the ideal control, at the baseline corner. A separate bench entry from the box above because it is a separate invocation with its own documented cold start and a structurally different experiment: the box moves a substrate resistance that sits BESIDE a bonded GND as a shunt, this moves the same constant where it is the analog ground's entire path to the board. Its 30 Ohm rung is card-for-card the no-gnd-pad arm of the ablation record, asserted in code before the run and again at record-write time. Reported informationally, same as the rows above; no power target is proposed here either, the ladder's total power spread (27.27-27.97 uW) is stated in the record rather than graded, and I(GND) is 'n/a (no bond)' on every swept row by construction.",
+     "records": [
+      "sim/supply-impedance-sensitivity/records/20260926-000929-ce12f9b.md"
+     ]
+    },
+    {
+     "experiment": "supply-impedance-sensitivity",
+     "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --arms ideal,package --corner-points tt_27c_1.80v,ss_27c_1.80v --record",
+     "documented_in": "sim/supply-impedance-sensitivity/README.md",
+     "covers": "The same per-rail average current/power again, at the first NON-baseline point of the ratified corner set any record of this campaign contains (issue #409 item 1): the ideal control and the as-built package arm at tt_27c_1.80v and the slow-process corner ss_27c_1.80v. A separate bench entry from the ones above because a corner subset changes what was simulated and therefore reaches the record footer -- so every widening of the subset is its own indexed invocation rather than a re-run of an existing one. Two of nine ratified points and two of five arms: the record states its own Subset-corner justification, and the seven remaining points stay open on #409 -- including ff_27c_1.80v and tt_-40c_1.80v, where the fastest edges should make the largest excursion. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT power figures move with the corner (26.97 uW ideal / 26.81 uW package at ss, against 27.96 / 27.25 at tt), and the die-side ground excursion is SMALLER at the slow corner (28.472 mV against 37.590 mV), which is why ss may not be quoted as this campaign's worst corner.",
+     "records": [
+      "sim/supply-impedance-sensitivity/records/20260926-012944-a966fdf.md"
+     ]
+    },
+    {
+     "experiment": "supply-impedance-sensitivity",
+     "runner": "sim/supply-impedance-sensitivity/run_supply_impedance.py",
+     "testbench": [
+      "design/sar_adc_top.spice",
+      "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/supply-impedance-sensitivity/run_supply_impedance.py --corners --record",
+     "documented_in": "sim/supply-impedance-sensitivity/README.md",
+     "covers": "The same per-rail average current/power once more, over the WHOLE ratified corner set for every arm the runner implements (issue #409 item 1): all five supply-return networks x the nine ratified OAT points = 45 whole-ADC transients, on the as-committed DECOUPLED design/sar_adc_top.spice (DR-017's one MiM cap per supply domain), so it is compared with nothing minted on the undecoupled netlist -- the records above measure a different DUT sha256 on purpose. A separate bench entry because --corners changes what was simulated and reaches the record footer. No Subset-corner justification is owed: every ratified point is present. Reported informationally, same as the rows above; no power target is proposed here either. What it adds for this row: the DRAFT total power of the ideal control across the grid spans 21.60 uW (tt_27c_1.62v) to 34.24 uW (tt_27c_1.98v), with the supply corners bounding it rather than process or temperature; and the largest die-side analog-ground excursion of the as-built package arm is at the fast-process corner ff_27c_1.80v (13.964 mV), not at the baseline.",
+     "records": [
+      "sim/supply-impedance-sensitivity/records/20260926-050045-8e62675.md"
+     ]
+    },
+    {
+     "experiment": "digital-partition",
+     "runner": "sim/digital-partition/run_digital_partition.py",
+     "testbench": [
+      "design/sar_adc_top.spice"
+     ],
+     "testbench_note": "No committed deck of its own: digital_char.build_netlist() assembles the deck from design/sar_adc_top.spice's sar_sequencer subcircuit and its 33 top-level sky130_fd_sc_hd glue instances; every probe's deck, request and report is committed under sim/digital-partition/corners/<record>/.",
+     "cold_start": "python3 sim/digital-partition/run_digital_partition.py --record",
+     "documented_in": "sim/digital-partition/run_digital_partition.py",
+     "covers": "Digital-rail power (idle/reset and active) and energy per conversion at the provisional 12 MHz operating point across the ratified corner set, with the digital partition's clock-frequency bracket and routed area (issue #619). The digital rail only, schematic level; reported informationally against this DRAFT row, and not an ADC power figure.",
+     "records": [
+      "sim/digital-partition/records/20261010-132019-f757b0e.md"
+     ]
+    }
+   ]
+  },
+  {
+   "parameter": "Corners",
+   "status": "RATIFIED",
+   "claim_class": "methodology",
+   "note": "-40/27/125 C, +-10 % supply, sky130 process corners, RATIFIED (DR-003 via #27). This row constrains how every other campaign runs rather than naming a DUT quantity, so its evidence is that the ratified-row campaigns below each state a Corner matrix run covering every sky130 process corner in sim/pdk.json and three points on each of the temperature and supply axes. sim/check_spec_coverage.py checks that SHAPE, not the numbers themselves -- the numbers live in the spec and in each record, and sim/harness/corners.py deliberately keeps spec values out of harness code.",
+   "benches": [
+    {
+     "experiment": "sar-sequencer-behavioral",
+     "runner": "sim/sar-sequencer-behavioral/run_testbench.py",
+     "testbench": [
+      "sim/sar-sequencer-behavioral/testbench/sar_sequencer_tb_fragment.spice"
+     ],
+     "cold_start": "python3 sim/sar-sequencer-behavioral/run_testbench.py --corners --record",
+     "documented_in": "sim/sar-sequencer-behavioral/run_testbench.py",
+     "covers": "Ratified corner set executed end to end (issue #28).",
+     "records": [
+      "sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md"
+     ]
+    },
+    {
+     "experiment": "cdac-array-transfer",
+     "runner": "sim/cdac-array-transfer/run_transfer.py",
+     "testbench": [
+      "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice"
+     ],
+     "cold_start": "python3 sim/cdac-array-transfer/run_transfer.py --ratified-record",
+     "documented_in": "sim/cdac-array-transfer/README.md",
+     "covers": "Ratified corner set executed end to end (issue #28).",
+     "records": [
+      "sim/cdac-array-transfer/records/20261001-120402-d24f700.md"
+     ]
+    },
+    {
+     "experiment": "comparator-decision",
+     "runner": "sim/comparator-decision/run.py",
+     "testbench": [
+      "sim/comparator-decision/testbench/comparator_core.spice"
+     ],
+     "cold_start": "python3 sim/comparator-decision/run.py noise-corners --record",
+     "documented_in": "sim/comparator-decision/run.py",
+     "covers": "Ratified corner set executed end to end (issue #28).",
+     "records": [
+      "sim/comparator-decision/records/20260827-212404-e13bc1e.md"
+     ]
+    }
+   ]
+  }
+ ]
 }

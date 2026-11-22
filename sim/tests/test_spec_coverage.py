@@ -271,6 +271,40 @@ class TestFailureModes(unittest.TestCase):
         row["benches"] = []
         self.assertIn("unbenched-row-missing-reason", self.repo.codes())
 
+    # -- declared gaps (issue #1021: a RATIFIED row no record grades) --------
+
+    def test_ratified_gap_row_passes(self):
+        row = self.repo.index["rows"][0]
+        row["claim_class"] = "ratified-gap"
+        row["note"] = (
+            "no ratified tolerance for the measured deviation; decision "
+            "owned by spec/decision-records/DR-026-cdac-row-tolerance-"
+            "decisions.md (proposed), tracked in issue #1021"
+        )
+        self.assertNotIn("gap-row-not-ratified", self.repo.codes())
+        self.assertNotIn("gap-row-missing-decision-ref", self.repo.codes())
+
+    def test_gap_row_on_a_draft_row_fails(self):
+        self.repo.write_spec([("Widget size", "DRAFT")])
+        row = self.repo.index["rows"][0]
+        row["status"] = "DRAFT"
+        row["claim_class"] = "ratified-gap"
+        row["note"] = "decision owned by DR-026"
+        self.assertIn("gap-row-not-ratified", self.repo.codes())
+
+    def test_gap_row_without_a_decision_reference_fails(self):
+        row = self.repo.index["rows"][0]
+        row["claim_class"] = "ratified-gap"
+        row["note"] = "no ratified tolerance exists, someone should decide"
+        self.assertIn("gap-row-missing-decision-ref", self.repo.codes())
+
+    def test_gap_row_without_a_bench_fails(self):
+        row = self.repo.index["rows"][0]
+        row["claim_class"] = "ratified-gap"
+        row["note"] = "decision owned by DR-026"
+        row["benches"] = []
+        self.assertIn("row-has-no-bench", self.repo.codes())
+
     def test_status_drift_between_spec_and_index_fails(self):
         self.repo.write_spec([("Widget size", "DRAFT")])
         self.assertIn("status-drift", self.repo.codes())

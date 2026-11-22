@@ -1,0 +1,32 @@
+* klt sim -- generated corner deck, do not edit
+.lib /opt/pdk/sky130A/libs.tech/combined/sky130.lib.spice ss
+.include /var/tmp/eda-job-klt-sim-f394dead034d/inputs/netlist.cir
+.temp 27
+.meas tran vtop_p_0 FIND v(top_0p) AT=500n
+.meas tran vtop_n_0 FIND v(top_0n) AT=500n
+.meas tran vtop_p_128 FIND v(top_128p) AT=500n
+.meas tran vtop_n_128 FIND v(top_128n) AT=500n
+.meas tran vtop_p_256 FIND v(top_256p) AT=500n
+.meas tran vtop_n_256 FIND v(top_256n) AT=500n
+.meas tran vtop_p_384 FIND v(top_384p) AT=500n
+.meas tran vtop_n_384 FIND v(top_384n) AT=500n
+.meas tran vtop_p_511 FIND v(top_511p) AT=500n
+.meas tran vtop_n_511 FIND v(top_511n) AT=500n
+.meas tran v_vdd FIND v(vdd) AT=500n
+.meas tran v_vrefp FIND v(vrefp) AT=500n
+.meas tran v_vrefn FIND v(vrefn) AT=500n
+.meas tran vref_diff FIND par('v(vrefp,vrefn)') AT=500n
+.meas tran vref_ratio FIND par('v(vrefp,vrefn)/v(vdd)') AT=500n
+.meas tran mono_step_0_128 FIND par('v(top_128p,top_128n)-v(top_0p,top_0n)') AT=500n
+.meas tran mono_step_128_256 FIND par('v(top_256p,top_256n)-v(top_128p,top_128n)') AT=500n
+.meas tran mono_step_256_384 FIND par('v(top_384p,top_384n)-v(top_256p,top_256n)') AT=500n
+.meas tran mono_step_384_511 FIND par('v(top_511p,top_511n)-v(top_384p,top_384n)') AT=500n
+.meas tran q_vrefp INTEG i(Vrefp) FROM=0 TO=500n
+.control
+alterparam vdd_val=1.8
+reset
+save all
+tran 0.05n 500n
+quit
+.endc
+.end
