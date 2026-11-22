@@ -1,0 +1,28 @@
+# Pinned rendering dependency for the summary plots under `docs/plots/`
+# (issue #835). Fourth pin, deliberately separate from
+# `sim/yield-requirements.txt` (mints `klt yield` envelopes),
+# `layout/requirements.txt` (mints layout evidence) and
+# `signoff/requirements.txt` (grades the manifest): it only redraws figures
+# from evidence that is already committed.
+#
+#   python3 -m venv .venv-plots
+#   .venv-plots/bin/pip install -r sim/report/plots-requirements.txt
+#   .venv-plots/bin/python sim/report/plots.py --render
+#
+# THIS PIN IS NOT A CI DEPENDENCY, BY DESIGN. `npm run check:ci` reaches the
+# plots only through `python3 sim/report/generate.py --check`, whose plot leg
+# (`sim/report/plots.py --check`) is stdlib-only: it re-hashes the committed
+# evidence inputs, this renderer, and each committed SVG, and re-derives each
+# record's own stated figures -- it never re-renders. A byte-comparison gate
+# would need matplotlib installed in CI and would still be fragile, because
+# SVG output is not expected to be stable across matplotlib and font
+# versions. See `sim/README.md` "Summary plots" for the full decision.
+#
+# STATUS AS OF 2026-11-13: THIS PIN RESOLVES. matplotlib 3.10.0 installed in a
+# fresh `python3 -m venv` on Python 3.12.3 and rendered all 5 committed
+# figures; a second `--render` in the same venv left `git status` clean, so
+# output is byte-stable for a fixed matplotlib version (it is not expected to
+# be across versions -- a re-render under a different matplotlib mints new
+# output hashes in `docs/plots/manifest.json`, which is a regeneration, not a
+# drift failure).
+matplotlib==3.10.0

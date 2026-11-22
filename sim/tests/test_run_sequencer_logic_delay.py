@@ -40,7 +40,6 @@ def _info(root: Path) -> pdk.PdkInfo:
     return pdk.PdkInfo(
         root=root, variant="sky130A", variant_dir=variant_dir,
         ngspice_lib=variant_dir / "libs.tech" / "ngspice" / "sky130.lib.spice",
-        xschem_rc=variant_dir / "libs.tech" / "xschem" / "xschemrc",
         open_pdks_commit_expected="synthetic", found=True,
     )
 

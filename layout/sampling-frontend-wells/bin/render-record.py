@@ -61,11 +61,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 from _record_common_strict import (  # noqa: E402
     build_argparser_strict,
     failing_checks,
-    git_field,
+    git_identity,
     load_json_strict,
+    render_lvs_counts_row,
     render_lvs_findings,
     render_net_correspondence,
     render_provenance_header,
+    render_verdict_checklist,
     resolve_pdk_info_strict,
     tool_version_strict,
 )
@@ -85,7 +87,6 @@ EXPECTED_BODY = {row[1]: DOMAIN_TAP_NET[row[2]] for row in DEVICES}
 DEVICE_KEY = {(row[7], row[6], row[5]): row[1] for row in DEVICES}
 
 _load = load_json_strict
-_git = git_field
 
 
 def _extracted_bodies(extract: dict) -> tuple[dict[str, str], list[str]]:
@@ -126,9 +127,7 @@ def main() -> int:
     lvs_bad_body = _load(out_dir / "lvs.broken-body-tie.json")
     lvs_bad_dev = _load(out_dir / "lvs.broken-device.json")
 
-    sha = _git(args.repo_root, "rev-parse", "HEAD")
-    branch = _git(args.repo_root, "rev-parse", "--abbrev-ref", "HEAD")
-    dirty = _git(args.repo_root, "status", "--porcelain") != ""
+    sha, branch, dirty = git_identity(args.repo_root)
 
     klt_version = tool_version_strict(args.klt, "--version")
     pdk_info = resolve_pdk_info_strict(args.klt, args.pdk_variant)
@@ -187,7 +186,6 @@ def main() -> int:
     ]
     all_pass = all(ok for _, ok in checks)
 
-    counts = lvs.get("counts", {})
     lines: list[str] = []
     a = lines.append
     a(f"# Sampling front end n-well isolation record: {args.record_id}")
@@ -203,11 +201,9 @@ def main() -> int:
         "`layout/sampling-frontend-wells/bin/build_layout.py`."
     )
     a("")
-    a("## Overall verdict: " + ("PASS" if all_pass else "FAIL"))
-    a("")
-    for desc, ok in checks:
-        a(f"- [{'x' if ok else ' '}] {desc}")
-    a("")
+    for line in render_verdict_checklist(checks):
+        a(line)
+
     if dirty_blocks:
         a(f"Blocks not clean in isolation: {', '.join(dirty_blocks)}")
         a("")
@@ -339,15 +335,8 @@ def main() -> int:
         f"pin_count={extract.get('pin_count')}, "
         f"unbiased_pmos_body_nets={len(unbiased)} |"
     )
-    a(
-        f"| LVS (good reference) | {lvs.get('status')} | "
-        f"devices {counts.get('devices', {}).get('matched')}/"
-        f"{counts.get('devices', {}).get('reference')} matched, "
-        f"nets {counts.get('nets', {}).get('matched')}/"
-        f"{counts.get('nets', {}).get('reference')} matched, "
-        f"pins {counts.get('pins', {}).get('matched')}/"
-        f"{counts.get('pins', {}).get('reference')} matched |"
-    )
+    for line in render_lvs_counts_row(lvs, "good reference"):
+        a(line)
     a(
         f"| LVS (body-tie negative control) | {lvs_bad_body.get('status')} | "
         f"mismatch_count={lvs_bad_body.get('mismatch_count')}, "

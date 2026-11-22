@@ -229,6 +229,31 @@
           "records": ["sim/vcm-drive-budget/records/20260908-100413-f3e2914.md"]
         },
         {
+          "experiment": "input-drive-budget",
+          "runner": "sim/input-drive-budget/run_input_drive_budget.py",
+          "testbench": ["sim/sampling-frontend/testbench/sampling_frontend_dut.spice"],
+          "testbench_note": "Same unmodified sampling front-end DUT fragment as the two benches above, read in place; the runner adds only an ideal source in series with the swept R_source on each of VINP and VINN, the two-pulse SAMPLE stimulus, and the fixed-time .meas set. The deck body and the klt sim request are committed per record under sim/input-drive-budget/corners/<record-id>/request/.",
+          "cold_start": "python3 sim/input-drive-budget/run_input_drive_budget.py --record",
+          "documented_in": "sim/input-drive-budget/run_input_drive_budget.py",
+          "covers": "The interface precondition on mechanism (d) from the INPUT side, the twin of the VCM bench above: how much series source resistance the VINP/VINN pads tolerate while the front end still acquires a new full-scale differential input inside the DR-006 windows this DRAFT row derives, over the full ratified corner set and at both acquisition windows. Indexed here rather than under a row of its own because it measures the SAME quantity as the acquisition-settling bench (differential sampled-value error at the end of the acquisition window) with the INPUT drive made non-ideal, and its yardstick windows come from this row. Informational only: every budget is reported relative to that corner and window's own R_source = 0 control row against the provisional differential LSB as a reference scale, it proposes no sample rate and it edits no spec row. It does not grade spec/target-spec.md's DRAFT Kickback row either, although that row's 1 kOhm series source impedance is why 1 kOhm is a simulated point in the sweep rather than an interpolation.",
+          "records": ["sim/input-drive-budget/records/20261113-110421-e03343e.md"]
+        },
+        {
+          "experiment": "reference-drive-budget",
+          "runner": "sim/reference-drive-budget/run_reference_drive_budget.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice"
+          ],
+          "testbench_note": "No deck of its own: the runner reads the full-conversion campaign's committed fragment in place and uses it verbatim except for the two reference source cards, which it re-points to a drive node with the swept R_ref in series to the die (the same read-in-place convention sim/vcm-drive-budget/ uses for the sampling front end's fragment). The assembled circuit body and the klt sim request are committed per record under sim/reference-drive-budget/corners/<record-id>/.",
+          "cold_start": "python3 sim/reference-drive-budget/run_reference_drive_budget.py --record",
+          "documented_in": "sim/reference-drive-budget/README.md",
+          "covers": "The interface precondition on the REFERENCE side: how much external series drive resistance VREFP/VREFN tolerate before the converter's captured codes move, over the full ratified corner set, at the DR-006 worst-case f_clk this DRAFT row derives. Indexed here -- rather than under a row of its own -- for the same reason sim/vcm-drive-budget/ is: it measures the SAME quantity the full-conversion bench below measures (the captured code of each DC input) with one drive made non-ideal, and its yardstick timing comes from this row. It is the reference-side counterpart of vcm-drive-budget (VCM) and supply-impedance-sensitivity (the four supply terminals), and closes the gap both of those state in their own text: before this campaign no sim/ bench put any impedance on VREFP/VREFN at all. Informational -- it grades nothing against this DRAFT row, edits no spec row, and chooses no route of the Challenge #4 proposal's Section 7 Item 11; it supplies the evidence route (iii) was missing.",
+          "records": [
+            "sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md"
+          ]
+        },
+        {
           "experiment": "full-conversion-transient",
           "runner": "sim/full-conversion-transient/run_conversion.py",
           "testbench": [
@@ -263,6 +288,19 @@
           "documented_in": "sim/full-conversion-transient/README.md",
           "covers": "SOLVER-SENSITIVITY AUDIT (issue #637, consumed by DR-023) of the campaign above at its baseline corner tt_27c_1.80v. The same DUT and DC fragment, ngspice-47 and the PDK pin, run under ngspice's defaults (the settings of every record before DR-023, including the superseded campaign record above) and under the reltol-gear / reltol-only / gear-only profiles. The ngspice-default run reproduces the campaign record's tt_27c_1.80v row exactly. No recorded failure mode moves under any profile (same three mid-scale passes, same two near-full-scale failures, 5/5 phase structure, no UNSCHEDULED register transition). Total power falls 1.9-2.8 % under the controls, so the informational power figure carries about a 3 % integration-setting uncertainty. A diagnostic about the evidence, not converter evidence: it grades nothing, does not move records/LATEST and supersedes nothing.",
           "records": ["sim/full-conversion-transient/records/20261011-064547-a6dcdd7.md"]
+        },
+        {
+          "experiment": "full-conversion-transient",
+          "runner": "sim/full-conversion-transient/run_conversion.py",
+          "testbench": [
+            "design/sar_adc_top.spice",
+            "sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice"
+          ],
+          "testbench_note": "The generated, committed sweep fragment carries the differential input as a top-level `.param` (`vin_frac`, a fraction of `vdd_val`) instead of per-conversion literals; the runner sweeps it as the only `corners.params` axis of ONE `klt sim` request -- one unit per level at the baseline corner (issue #913).",
+          "cold_start": "python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record",
+          "documented_in": "sim/full-conversion-transient/README.md",
+          "covers": "The converging-range boundary sweep of the AS-COMMITTED schematic (issue #913, closing the 'Converging-range boundary sweep' Open item of DR-021): 24 signed DC input levels across the 0.25..0.78*V_REF band (0.05*V_REF rungs plus the 0.78 endpoint, both signs), one unit each of ONE klt sim request at tt_27c_1.80v under the DR-023 reference solver policy reltol-gear. Every level produced a captured code and reproduces the committed corner record where they overlap (-0.25 -> 383, +0.25 -> 641, -0.78 -> 214, all identical). The boundary, per sign: positive, largest tested magnitude that converges +0.30*V_REF and smallest that does not +0.35*V_REF (the captured code saturates at full scale from +0.35 up); negative, largest tested -0.35*V_REF and smallest -0.40*V_REF (the negative side degrades gradually, 15 LSB at -0.40 growing to 101 LSB at -0.78). INFORMATIONAL only: a measurement of the unmodified schematic that grades no row of spec/target-spec.md, proposes no design change (DR-021's switching scheme is out of scope), supersedes nothing and never moves records/LATEST.",
+          "records": ["sim/full-conversion-transient/records/20261115-084232-ad7393c6.md"]
         }
       ]
     },

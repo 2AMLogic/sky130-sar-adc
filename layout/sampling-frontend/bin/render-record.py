@@ -52,11 +52,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 from _record_common_strict import (  # noqa: E402
     build_argparser_strict,
     failing_checks,
-    git_field,
+    git_identity,
     load_json_strict,
+    render_blocks_table,
+    render_drc_coverage,
+    render_lvs_counts_row,
     render_lvs_findings,
     render_net_correspondence,
     render_provenance_header,
+    render_verdict_checklist,
     resolve_pdk_info_strict,
     tool_version_strict,
 )
@@ -92,7 +96,6 @@ EXPECTED_DEVICE_COUNTS = {
 
 
 _load = load_json_strict
-_git = git_field
 
 
 def _anonymous(net: str | None) -> bool:
@@ -182,9 +185,7 @@ def main() -> int:
     lvs_bad_dev = _load(out_dir / "lvs.broken-device.json")
     lvs_bad_top = _load(out_dir / "lvs.broken-topology.json")
 
-    sha = _git(args.repo_root, "rev-parse", "HEAD")
-    branch = _git(args.repo_root, "rev-parse", "--abbrev-ref", "HEAD")
-    dirty = _git(args.repo_root, "status", "--porcelain") != ""
+    sha, branch, dirty = git_identity(args.repo_root)
 
     klt_version = tool_version_strict(args.klt, "--version")
     pdk_info = resolve_pdk_info_strict(args.klt, args.pdk_variant)
@@ -256,7 +257,6 @@ def main() -> int:
     ]
     all_pass = all(ok for _, ok in checks)
 
-    counts = lvs.get("counts", {})
     coverage = drc.get("coverage") or {}
     lines: list[str] = []
     a = lines.append
@@ -273,11 +273,9 @@ def main() -> int:
         "from `layout/sampling-frontend/bin/build_layout.py`."
     )
     a("")
-    a("## Overall verdict: " + ("PASS" if all_pass else "FAIL"))
-    a("")
-    for desc, ok in checks:
-        a(f"- [{'x' if ok else ' '}] {desc}")
-    a("")
+    for line in render_verdict_checklist(checks):
+        a(line)
+
     if dirty_blocks:
         a(f"Blocks not clean in isolation: {', '.join(dirty_blocks)}")
         a("")
@@ -384,20 +382,8 @@ def main() -> int:
     )
     a("")
 
-    a("## Blocks (`klt gen`)")
-    a("")
-    a("| Block | Cell | Devices | bbox (um) | own DRC |")
-    a("| --- | --- | --- | --- | --- |")
-    for block in BLOCKS:
-        report = _load(out_dir / f"{block}.json")
-        bbox = report.get("bbox_um", {})
-        a(
-            f"| `{block}` | `{report.get('cell_name')}` | "
-            f"{report.get('device_count')} | "
-            f"{bbox.get('x0')},{bbox.get('y0')} .. {bbox.get('x1')},{bbox.get('y1')} | "
-            f"{block_drc.get(block, {}).get('status')} |"
-        )
-    a("")
+    for line in render_blocks_table(out_dir, BLOCKS, block_drc):
+        a(line)
 
     a("## Composition")
     a("")
@@ -452,15 +438,8 @@ def main() -> int:
         f"unbiased_pmos_body_nets={len(unbiased)}, "
         f"single_terminal_nets={len(single_terminal)} |"
     )
-    a(
-        f"| LVS (good reference) | {lvs.get('status')} | "
-        f"devices {counts.get('devices', {}).get('matched')}/"
-        f"{counts.get('devices', {}).get('reference')} matched, "
-        f"nets {counts.get('nets', {}).get('matched')}/"
-        f"{counts.get('nets', {}).get('reference')} matched, "
-        f"pins {counts.get('pins', {}).get('matched')}/"
-        f"{counts.get('pins', {}).get('reference')} matched |"
-    )
+    for line in render_lvs_counts_row(lvs, "good reference"):
+        a(line)
     for label, envelope in (
         ("body-tie", lvs_bad_body),
         ("device-parameter", lvs_bad_dev),
@@ -473,22 +452,8 @@ def main() -> int:
         )
     a("")
 
-    a("## DRC coverage (what the deck did and did not check)")
-    a("")
-    a(
-        "Recorded straight from `klt drc`'s own `coverage` block rather than "
-        "asserted in prose, so a later deck release changing it shows up as a "
-        "diff in the next record."
-    )
-    a("")
-    a(f"- rule families in scope: {coverage.get('deck_scope')}")
-    a(f"- layers checked: {coverage.get('layers_checked')}")
-    a(
-        "- layers present in the stream with **no** rule: "
-        f"{coverage.get('layers_in_stream_without_rules')}"
-    )
-    a(f"- rules skipped (layer absent from the stream): {coverage.get('rules_skipped')}")
-    a("")
+    for line in render_drc_coverage(coverage):
+        a(line)
 
     for line in render_net_correspondence(lvs):
         a(line)

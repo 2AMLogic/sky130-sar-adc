@@ -18,11 +18,15 @@ paths, `$setuphold`, `$recrem`, `$width`) are what `$sdf_annotate` attaches the
 SDF's IOPATH / timing-check entries to, so the SDF-annotated regression needs
 this file; the zero-delay regression keeps using the functional one.
 """
-import argparse, hashlib, os, re, subprocess, sys, tempfile
+import argparse, hashlib, re, subprocess, sys, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 REPO = HERE.parent.parent
+sys.path.append(str(REPO / "sim"))
+
+from harness import pdk  # noqa: E402
+
 CELLS = sorted({
     m for nl in ("layout/sar-sequencer/netlist/sar_sequencer.v",
                  "layout/top-glue/netlist/top_glue.v")
@@ -45,16 +49,31 @@ def post_route_cells():
 
 
 def find_verilog_dir(root):
-    cands = [Path(root)] if root else []
-    cands += [Path(p) for p in map(os.path.expanduser, (
-        "~/.ciel/ciel/sky130/versions/*/sky130A", "~/.volare/sky130A"))]
-    for c in cands:
-        import glob
-        for g in sorted(glob.glob(str(c)), key=lambda x: (".bak" in x, x)) or [str(c)]:
-            d = Path(g).resolve() / "libs.ref/sky130_fd_sc_hd/verilog"
-            if (d / "sky130_fd_sc_hd.v").is_file():
-                return d
-    sys.exit("no sky130_fd_sc_hd verilog dir found; pass --pdk-root <.../sky130A>")
+    """The sky130_fd_sc_hd Verilog directory: under `--pdk-root` when given,
+    else under the variant directory `sim/harness/pdk.py` resolves from
+    `sim/pdk.json`'s search roots (issue #859 -- one definition of the order,
+    so a re-pin is a one-file change, and the tree read here is the one
+    `toolchain.check_env()`'s pin-drift gate inspects).
+
+    `.resolve()` so `rev` in main() still reads the `versions/<commit>` path
+    component ciel/volare put behind the variant symlink. A missing file is an
+    error naming the resolved tree, never a glob over whatever other versions
+    happen to be unpacked: the ENABLED variant is the pinned one, and this
+    script writes a committed model file.
+    """
+    if root:
+        base = Path(root).expanduser()
+    else:
+        info = pdk.resolve()
+        if not info.found:
+            sys.exit(f"extract-cell-models.py: {info.error}; "
+                     "pass --pdk-root <.../sky130A>")
+        base = info.variant_dir
+    d = base.resolve() / "libs.ref/sky130_fd_sc_hd/verilog"
+    if not (d / "sky130_fd_sc_hd.v").is_file():
+        sys.exit(f"extract-cell-models.py: no sky130_fd_sc_hd.v under {d}; "
+                 "pass --pdk-root <.../sky130A>")
+    return d
 
 
 def main():

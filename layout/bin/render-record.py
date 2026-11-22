@@ -33,8 +33,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _record_common_strict import (  # noqa: E402
     build_argparser_strict,
-    git_field,
+    git_identity,
     load_json_strict,
+    render_verdict_checklist,
     resolve_pdk_info_strict,
     tool_version_strict,
 )
@@ -45,7 +46,6 @@ from _record_common_strict import (  # noqa: E402
 EXPECTED_INJECTED_RULE = "diff.width.1"
 
 _load = load_json_strict
-_git = git_field
 
 
 def main() -> int:
@@ -62,9 +62,7 @@ def main() -> int:
     draw = _load(out_dir / "draw.json")
     drc_injected = _load(out_dir / "drc.injected.json")
 
-    sha = _git(args.repo_root, "rev-parse", "HEAD")
-    branch = _git(args.repo_root, "rev-parse", "--abbrev-ref", "HEAD")
-    dirty = _git(args.repo_root, "status", "--porcelain") != ""
+    sha, branch, dirty = git_identity(args.repo_root)
 
     klt_version = tool_version_strict(args.klt, "--version")
     pdk_info = resolve_pdk_info_strict(args.klt, args.pdk_variant)
@@ -109,11 +107,9 @@ def main() -> int:
         "its verdicts are falsifiable on this toolchain."
     )
     a("")
-    a("## Overall verdict: " + ("PASS" if all_pass else "FAIL"))
-    a("")
-    for desc, ok in checks:
-        a(f"- [{'x' if ok else ' '}] {desc}")
-    a("")
+    for line in render_verdict_checklist(checks):
+        a(line)
+
     a("## Flow")
     a("")
     a(

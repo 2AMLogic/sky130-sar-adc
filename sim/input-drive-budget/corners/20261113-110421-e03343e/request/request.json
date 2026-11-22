@@ -1,0 +1,1217 @@
+{
+ "netlist": "tb.spice",
+ "engine": "ngspice",
+ "models": {
+  "pdk": "sky130A",
+  "lib": "libs.tech/combined/sky130.lib.spice"
+ },
+ "corners": {
+  "process": [
+   "ff",
+   "fs",
+   "sf",
+   "ss",
+   "tt"
+  ],
+  "supply_v": {
+   "vsup": [
+    1.62,
+    1.8,
+    1.98
+   ]
+  },
+  "temperature_c": [
+   -40.0,
+   27.0,
+   125.0
+  ]
+ },
+ "analysis_steps": [
+  {
+   "name": "worst_r0",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 330.000000n"
+   },
+   "alter": {
+    "Rsp": 1e-06,
+    "Rsn": 1e-06,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      3.1e-07,
+      1.0,
+      3.102e-07,
+      0.0,
+      3.3e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=305.000000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=305.000000n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "worst_r100",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 330.000000n"
+   },
+   "alter": {
+    "Rsp": 100.0,
+    "Rsn": 100.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      3.1e-07,
+      1.0,
+      3.102e-07,
+      0.0,
+      3.3e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=305.000000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=305.000000n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "worst_r300",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 330.000000n"
+   },
+   "alter": {
+    "Rsp": 300.0,
+    "Rsn": 300.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      3.1e-07,
+      1.0,
+      3.102e-07,
+      0.0,
+      3.3e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=305.000000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=305.000000n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "worst_r1000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 330.000000n"
+   },
+   "alter": {
+    "Rsp": 1000.0,
+    "Rsn": 1000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      3.1e-07,
+      1.0,
+      3.102e-07,
+      0.0,
+      3.3e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=305.000000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=305.000000n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "worst_r3000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 330.000000n"
+   },
+   "alter": {
+    "Rsp": 3000.0,
+    "Rsn": 3000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      3.1e-07,
+      1.0,
+      3.102e-07,
+      0.0,
+      3.3e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=305.000000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=305.000000n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "worst_r10000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 330.000000n"
+   },
+   "alter": {
+    "Rsp": 10000.0,
+    "Rsn": 10000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      3.1e-07,
+      1.0,
+      3.102e-07,
+      0.0,
+      3.3e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=305.000000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=305.000000n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "worst_r30000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 330.000000n"
+   },
+   "alter": {
+    "Rsp": 30000.0,
+    "Rsn": 30000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      3.1e-07,
+      1.0,
+      3.102e-07,
+      0.0,
+      3.3e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=305.000000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=305.000000n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "worst_r100000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 330.000000n"
+   },
+   "alter": {
+    "Rsp": 100000.0,
+    "Rsn": 100000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      3.1e-07,
+      1.0,
+      3.102e-07,
+      0.0,
+      3.3e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=305.000000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=305.000000n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "legacy_r0",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 646.666667n"
+   },
+   "alter": {
+    "Rsp": 1e-06,
+    "Rsn": 1e-06,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      6.266666666666668e-07,
+      1.0,
+      6.268666666666668e-07,
+      0.0,
+      6.466666666666668e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=621.666667n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=621.666667n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "legacy_r100",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 646.666667n"
+   },
+   "alter": {
+    "Rsp": 100.0,
+    "Rsn": 100.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      6.266666666666668e-07,
+      1.0,
+      6.268666666666668e-07,
+      0.0,
+      6.466666666666668e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=621.666667n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=621.666667n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "legacy_r300",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 646.666667n"
+   },
+   "alter": {
+    "Rsp": 300.0,
+    "Rsn": 300.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      6.266666666666668e-07,
+      1.0,
+      6.268666666666668e-07,
+      0.0,
+      6.466666666666668e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=621.666667n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=621.666667n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "legacy_r1000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 646.666667n"
+   },
+   "alter": {
+    "Rsp": 1000.0,
+    "Rsn": 1000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      6.266666666666668e-07,
+      1.0,
+      6.268666666666668e-07,
+      0.0,
+      6.466666666666668e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=621.666667n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=621.666667n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "legacy_r3000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 646.666667n"
+   },
+   "alter": {
+    "Rsp": 3000.0,
+    "Rsn": 3000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      6.266666666666668e-07,
+      1.0,
+      6.268666666666668e-07,
+      0.0,
+      6.466666666666668e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=621.666667n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=621.666667n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "legacy_r10000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 646.666667n"
+   },
+   "alter": {
+    "Rsp": 10000.0,
+    "Rsn": 10000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      6.266666666666668e-07,
+      1.0,
+      6.268666666666668e-07,
+      0.0,
+      6.466666666666668e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=621.666667n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=621.666667n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "legacy_r30000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 646.666667n"
+   },
+   "alter": {
+    "Rsp": 30000.0,
+    "Rsn": 30000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      6.266666666666668e-07,
+      1.0,
+      6.268666666666668e-07,
+      0.0,
+      6.466666666666668e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=621.666667n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=621.666667n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "legacy_r100000",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.02n 646.666667n"
+   },
+   "alter": {
+    "Rsp": 100000.0,
+    "Rsn": 100000.0,
+    "Vsmp_ctl": {
+     "pwl": [
+      0.0,
+      0.0,
+      1e-08,
+      0.0,
+      1.02e-08,
+      1.0,
+      1.1e-07,
+      1.0,
+      1.1020000000000001e-07,
+      0.0,
+      1.6e-07,
+      0.0,
+      1.602e-07,
+      1.0,
+      6.266666666666668e-07,
+      1.0,
+      6.268666666666668e-07,
+      0.0,
+      6.466666666666668e-07,
+      0.0
+     ]
+    }
+   },
+   "measurements": [
+    {
+     "name": "budget_p",
+     "spice": ".meas tran budget_p find v(TOP_P) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "budget_n",
+     "spice": ".meas tran budget_n find v(TOP_N) at=560.100000n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_p",
+     "spice": ".meas tran confirm_p find v(TOP_P) at=621.666667n",
+     "unit": "V"
+    },
+    {
+     "name": "confirm_n",
+     "spice": ".meas tran confirm_n find v(TOP_N) at=621.666667n",
+     "unit": "V"
+    }
+   ]
+  }
+ ],
+ "options": {
+  "timeout_s": 300.0,
+  "keep_artifacts": true
+ },
+ "exclude": [
+  {
+   "process": "ff",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  }
+ ]
+}

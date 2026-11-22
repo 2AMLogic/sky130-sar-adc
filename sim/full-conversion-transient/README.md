@@ -15,6 +15,7 @@ every point of the ratified PVT corner grid.
 | Quantity | How |
 | --- | --- |
 | Captured code vs ideal code | 5 DC differential inputs spanning the code range (`-0.78`, `-0.25`, `0.00`, `+0.25`, `+0.78` × `V_REF`), read mid-`SAMPLE` of each conversion, decoded against `LSB = 2·V_REF/2^N` (`spec/target-spec.md`, RATIFIED DR-003) |
+| Converging-range boundary (`--input-sweep`, issue #913) | the same observable with the DC level as a swept `vin_frac` parameter: signed inputs across the `0.25..0.78*V_REF` band, one `klt sim` unit per level at `tt_27c_1.80v`, boundary located per sign to the sweep step (informational; DR-021's Open item) |
 | Conversion completion | `BUSY` and `PH_SAMPLE` (`SAMPLE_INT`) sampled in the middle of each of the 12 CLK periods of every measured conversion — the "12 CLK periods, no missing or duplicated phase" check |
 | Average supply/reference current and power | `.meas tran ... avg i(<source>)` over one whole steady-state conversion, per rail (`VDD`, `VPWR`, `VREFP`, `VCM`, `VREFN`) |
 
@@ -35,28 +36,30 @@ circuit does at 12 MHz; it proposes no sample rate and no power target
 source sim/env.sh                                                    # PDK_ROOT / PDK
 python3 sim/full-conversion-transient/run_conversion.py --check-env  # toolchain + PDK pin
 
-# a reference campaign (9 ratified OAT corner points + the mechanism probe)
-# under the DR-023 solver policy -- moves records/LATEST:
+# a reference campaign (9 ratified OAT corner points) under the DR-023
+# solver policy -- moves records/LATEST:
 SIM_NGSPICE_TIMEOUT_S=3600 python3 sim/full-conversion-transient/run_conversion.py \
-    --corners --record --mechanism-probe --jobs 3
+    --corners --record --jobs 3
 
 # reproduce the superseded pre-DR-023 campaign (20261001-105439-c324f80, the
 # LATEST before issue #638) on the settings it ran under -- a labelled
 # SOLVER-CONTROL record that never moves LATEST:
 SIM_NGSPICE_TIMEOUT_S=3600 python3 sim/full-conversion-transient/run_conversion.py \
-    --corners --record --mechanism-probe --jobs 3 --solver-profile ngspice-default
+    --corners --record --jobs 3 --solver-profile ngspice-default
 ```
 
 Both run from a clean checkout against the pinned PDK (`sim/pdk.json`) and
 toolchain (`sim/toolchain.json`). Every record minted before DR-023 ran on
 `ngspice-default`: to reproduce one, add `--solver-profile ngspice-default` to
 the command in its **Written by** line (allowed with `--corners`, every
-diagnostic mode and `--coherent-sine`; never with `--supersedes`). Other
+diagnostic mode and `--coherent-sine`; never with `--supersedes`). The two
+records that carry mechanism-probe output are the exception — that mode is
+retired, so they are reproduced from their own recorded commit (see
+"The retired mechanism probe" below). Other
 useful invocations:
 
 ```sh
 python3 sim/full-conversion-transient/run_conversion.py                 # baseline corner only
-python3 sim/full-conversion-transient/run_conversion.py --mechanism-probe
 python3 sim/full-conversion-transient/run_conversion.py --node-trace      # issue #259 node-level trace
 python3 sim/full-conversion-transient/run_conversion.py --cm-trace        # issue #265 common-mode trace
 python3 sim/full-conversion-transient/run_conversion.py --decision-margin-trace  # issue #263 / DR-009
@@ -87,18 +90,36 @@ python3 sim/full-conversion-transient/run_conversion.py --record --solver-profil
 # ^ a single labelled SOLVER-CONTROL baseline run on the pre-DR-023 settings
 #   (never moves records/LATEST, may not --supersedes); add --corners or a
 #   diagnostic mode to reproduce a pre-DR-023 grid/diagnostic record
+python3 sim/full-conversion-transient/run_conversion.py --input-sweep --record
+# ^ issue #913 converging-range boundary sweep (DR-021 open item): 24 levels
+#   x 1 baseline corner, one `klt sim` unit per level (a ~2.3 us transient
+#   each); informational, never moves records/LATEST. Narrow the band with
+#   --input-levels=-0.78,-0.5,-0.25,0.25,0.78 (equals form; anchors
+#   +-0.25/+-0.78 are required in any recorded sweep).
 python3 sim/full-conversion-transient/gen_full_conversion_tb.py --check  # fragment freshness
 python3 -m unittest discover -s sim/tests -t sim/tests                   # PDK-free unit tests
 ```
 
-**Runtime.** One corner point is a ~6.3 µs transient over the whole ADC and
-takes roughly 3–6 minutes on the reference toolchain (longer on a contended
-machine; about 2 minutes on a GitHub-hosted runner under the DR-023 solver
-policy, 1.66x the old ngspice-default time -- see "Transient solver policy"
-below), so the 120 s `sim/harness` default timeout is far too small —
-`SIM_NGSPICE_TIMEOUT_S` must be raised, as above. `--jobs N` runs N corner
-points concurrently (independent ngspice processes; it changes runtime only,
-never results).
+**Runtime.** One corner point is a ~6.3 µs transient over the whole ADC. The
+committed corner logs carry per-point wall-clock (`Total elapsed time (seconds)`):
+219–1290 s per point, median ~399 s (n=72), across the eight pre-DR-023 PVT
+campaigns `20260910-190240-2d1d196` .. `20261001-105439-c324f80`
+(2026-09-10 to 2026-10-01; minted on ngspice-46 under the then-default
+`ngspice-default` solver settings — above the `ngspice_min_major: 46` floor
+and predating today's `ngspice_reference: 47`; the records do not state
+their host), so a point is typically several minutes and contention
+stretches it further — the 120 s `sim/harness` default timeout is far too
+small, and `SIM_NGSPICE_TIMEOUT_S` must be raised, as above. Under the
+DR-023 solver policy, re-mint campaign `20261011-112119-188e94c` (CI run
+38134032661, 2026-10-11) measured 124–135 s per point on a GitHub-hosted
+runner. One qualification on the attribution: the cross-era comparison
+crosses two axes at once — ngspice major (46 -> 47) and solver policy
+(`ngspice-default` -> `reltol-gear`) — and the re-mint is faster even
+though `reltol-gear` costs 1.66x like-for-like, so the gap is not
+attributable to the host class alone -- see "Transient solver policy"
+below.
+`--jobs N` runs N corner points concurrently (independent ngspice processes;
+it changes runtime only, never results).
 
 ## Timing schedule (DR-006)
 
@@ -128,14 +149,16 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 | --- | --- |
 | `gen_full_conversion_tb.py` | Generates the committed fragment; owns the timing schedule, the input set and the ideal-code mapping. `--check` fails if the committed fragment is stale (also pinned byte-for-byte by `sim/tests/test_full_conversion.py`). |
 | `testbench/full_conversion_tb_fragment.spice` | The generated, committed testbench: sources, `.tran`, and every `.meas` card. Rail-referenced via `{vdd_val}` so one fragment serves every supply point. |
-| `run_conversion.py` | Deck assembly, corner loop, decoding, record writing. |
+| `run_conversion.py` | The CLI entry point: module docstring, argument parser and `main()`. Every invocation in this README goes through it, unchanged. |
+| `full_conversion_campaigns/` | The campaigns behind that CLI, one module each (issue #861's behavior-preserving split, mirroring `comparator_campaigns/` and `supply_impedance_campaigns/`): `common` (corner axes, DR-023 solver policy, deck assembly, decode, run loop, gain/offset fit, and the node-trace and switching-event-trace cores more than one campaign uses), then `dc_codes`, `node_trace`, `cm_trace`, `decision_margin`, `coherent_sine`, `solver_audit` and `input_sweep` (issue #913). Each campaign module imports `common` only. |
 | `testbench/coherent_sine_tb_fragment.spice` | `--coherent-sine`'s generated, committed testbench (issue #603): same supplies/clock/code reads as the DC fragment, coherent antiphase sine input. Pinned byte-for-byte by `sim/tests/test_dynamic_enob_fft.py`. |
+| `testbench/input_sweep_tb_fragment.spice` | `--input-sweep`'s generated, committed testbench (issue #913): same supplies/clock/code reads as the DC fragment, with the differential input as the top-level `.param vin_frac` (one unit per swept level). Pinned byte-for-byte by `sim/tests/test_full_conversion.py`. |
 | `dynamic_enob.py` | Stdlib-only radix-2 FFT and SNDR/ENOB/SFDR analyzer for `--coherent-sine` (no numpy -- `sim/` runs without a venv). |
 | `corners/<record-id>/coherent-sine-<corner-id>.log` | `--coherent-sine` raw output, with the exact fragment that ran beside it. |
 | `netlist-snapshots/<record-id>.spice` | The frozen DUT netlist the record was produced from (byte-identical to `design/sar_adc_top.spice` at the recorded commit). |
 | `corners/<record-id>/<corner-id>.log` | Raw ngspice output, one per ratified corner point. |
-| `diagnostics/<record-id>/*.log` | `--mechanism-probe` raw output (see below). Kept separate from `corners/` because one of the two runs is on a **modified** netlist and must never be read as a corner result. |
-| `diagnostics/<record-id>/node-trace-<corner-id>.log` | `--node-trace` raw output (issue #259, see below) — on the **unmodified** DUT, unlike the mechanism probe. |
+| `diagnostics/<record-id>/as-committed.log`, `diagnostics/<record-id>/comparator-strobe-delayed.log` | Raw output of the **retired** `--mechanism-probe` (see below). Present in exactly two records; no current mode writes these. Kept separate from `corners/` because one of the two runs was on a **modified** netlist and must never be read as a corner result. |
+| `diagnostics/<record-id>/node-trace-<corner-id>.log` | `--node-trace` raw output (issue #259, see below) — on the **unmodified** DUT. |
 | `diagnostics/<record-id>/cm-trace-<corner-id>.log` | `--cm-trace` raw output (issue #265, see below) — on the **unmodified** DUT. |
 | `diagnostics/<record-id>/decision-margin-<variant>-<corner-id>.log` | `--decision-margin-trace` raw output (issue #263 / DR-009, see below). Two variants per corner: `as-committed` (unmodified DUT) and `unbalanced-control` (testbench-only modification — never a corner result). |
 | `diagnostics/<record-id>/solver-audit-<profile>-<corner-id>.log` | `--solver-audit` raw output, one per solver profile (issue #637, see "Transient solver policy" below). |
@@ -152,25 +175,73 @@ sampling switch open, so the step cannot disturb the conversion in flight.
 2. **The `sky130_fd_sc_hd` combined-cell `.include`**, exactly as
    `sim/sar-sequencer-behavioral/run_testbench.py` does it.
 
-## The mechanism probe (`--mechanism-probe`)
+## The retired mechanism probe (`--mechanism-probe`, retired by issue #873)
 
-A **diagnostic**, not evidence for any spec row. It runs the same stimulus
-twice at the baseline corner: once on the unmodified DUT, and once on a
-**testbench-only modified** copy in which the comparator instance's strobe is
-re-pointed from `CLK` to a separate `CLK_CMP` node driven half a CLK period
-later. Its only job is to separate "the comparator's decision never reaches the
-register" from "the register captures a decision that is itself wrong" when a
-code comes out wrong. The modified netlist exists only inside the run's scratch
-deck — nothing is ever written back to `design/`, and the modified run never
-contributes to a corner result.
+**This mode no longer exists.** `--mechanism-probe` is not a recognised flag;
+the runner's argument parser rejects it.
+
+**What it was.** A diagnostic, never evidence for any spec row. It ran the
+same stimulus twice at the baseline corner: once on the unmodified DUT, and
+once on a testbench-only modified copy in which the comparator instance's
+strobe was re-pointed from `CLK` to a separate `CLK_CMP` node driven half a
+CLK period later. Its only job was to separate "the comparator's decision
+never reaches the register" from "the register captures a decision that is
+itself wrong". The modified netlist existed only inside the run's scratch
+deck; nothing was ever written back to `design/`, and the modified run never
+contributed to a corner result.
+
+**Why it was retired.** The question it asked was answered, and the answer
+was built into the design by issue #264 (`c54c9566`, 2026-09-11, "strobe the
+SAR comparator from CLKN so bit capture lands at the end of evaluate"). The
+comparator is now strobed from `CLKN = NOT(CLK)`, so the committed design
+already does what the probe's modified variant did — the probe's
+"as-committed vs. strobe-delayed" pair stopped contrasting two different
+things. From that commit on the probe could not run at all: its modified
+variant anchored on the literal instance-line prefix `xcmp VDD CLK `, which
+the committed netlist (`xcmp VDD CLKN ...`) no longer matches, so the mode
+refused on its second variant and produced nothing (issue #873). The later
+diagnostics — `--node-trace`, `--cm-trace`, `--decision-margin-trace` — run
+on the current netlist and cover the ground that came after.
+
+**Its only output, and how to reproduce it.** Exactly two records carry
+mechanism-probe output, both minted before `c54c9566`:
+`records/20260910-190240-2d1d196.md` and `records/20260911-071010-f0e45fa.md`,
+with raw logs under `diagnostics/<those two record ids>/`. Both are
+append-only evidence and are unchanged by this retirement. Their probe
+bullets are **not** reproducible from the current tree, and not by adding
+`--solver-profile ngspice-default` to a current command either: the probe's
+delayed variant refuses against any netlist at or after `c54c9566`, so it was
+already unreproducible on `main` before the flag was removed.
+
+Re-running one means going back to the commit named in that record's own
+`git:` line and adding `--mechanism-probe` to the command in its **Written
+by** line — both records' **Written by** lines read `run_conversion.py
+--corners --record` and omit the flag that produced their probe bullet, so
+adding it back is required. How far that gets is different for each record,
+and neither is an exact reproduction:
+
+- `20260911-071010-f0e45fa` records `f0e45fa87897f36f3f90bb51148930d06f2bac42`,
+  which is in this repository's history.
+- `20260910-190240-2d1d196` records
+  `2d1d19666ecb7aae78fb8448df90cc34095bf20c`, which is **not** present in this
+  repository — its `feature/issue-254` branch was squash-merged and that
+  commit pruned. There is nothing to check out, so its probe bullet stands as
+  archived evidence only.
+- Both records are stamped `(dirty)`: the tree that ran them was not exactly
+  the recorded commit either way. Both also predate the DR-023 solver policy
+  and ran on ngspice-46, not the currently pinned ngspice-47.
+
+This is the one place the "every record minted before DR-023 stays
+reproducible under `--solver-profile ngspice-default`" property (issue #637)
+does not hold; the 9-corner campaigns and every other section of those two
+records are unaffected.
 
 ## The node-level trace (`--node-trace`, issue #259)
 
 A second, more targeted **diagnostic**, not a corner campaign and not
-evidence for any spec row. Unlike `--mechanism-probe`, it runs the
-**as-committed, unmodified** DUT — it only appends read-only `.meas tran ...
-find v(...)` probes after the committed fragment, never re-points any
-instance's strobe. At each of the two corners issue #259's Acceptance
+evidence for any spec row. It runs the **as-committed, unmodified** DUT — it
+only appends read-only `.meas tran ... find v(...)` probes after the
+committed fragment, never re-points any instance's strobe. At each of the two corners issue #259's Acceptance
 Criteria name (the binding corner and the corner where the
 phase-timing/completion check itself also fails), it samples `COMP_OUT`
 (`OUTP`) and its differential partner `OUTN_NC` (`OUTN`) against `CLK`, at
@@ -249,7 +320,7 @@ disagrees with the *sign of the comparator's own input* is a comparator
 defect by construction; one that agrees, while the code still comes out
 wrong, is a search or decode defect.
 
-Like `--mechanism-probe` (and unlike `--node-trace`) it runs the DUT twice:
+Unlike `--node-trace`, it runs the DUT twice:
 `as-committed`, and an `unbalanced-control` copy with DR-009's two
 comparator-output balancing dummy instances deleted at deck-assembly time,
 which reproduces the pre-DR-009 asymmetric loading. **The pair is the
@@ -493,6 +564,45 @@ is bit-for-bit identical. The solver-control record supersedes nothing. It
 makes a different claim, a control, and is not a replacement capture.
 `20261010-070734-f968286` remains superseded via `57a55c1`, as before.
 
+## The converging-range input sweep (`--input-sweep`, issue #913)
+
+**What it answers.** The DC corner campaign (records/LATEST, the newest DC
+corner campaign) resolves the three mid-scale inputs within ±1 LSB and
+misses the two `±0.78*V_REF` inputs at every corner — the near-full-scale
+common-mode droop DR-021 proposes to fix. Nothing between those points had
+been measured. This sweep is DR-021's own **"Converging-range boundary
+sweep" Open item**: signed DC input levels across the `0.25..0.78*V_REF`
+band, one level per `klt sim` unit of ONE request, at `tt_27c_1.80v` under
+the reference solver policy, locating the boundary per sign to the sweep's
+step (`0.05*V_REF` rungs from 0.25 to 0.75 plus the 0.78 endpoint, both
+signs).
+
+**How the level is swept.** The committed
+`testbench/input_sweep_tb_fragment.spice` (generated by
+`gen_full_conversion_tb.py`, pinned byte-for-byte like the other two
+fragments) carries the differential input as a top-level `.param vin_frac`
+instead of per-conversion literals — one committed fragment serves every
+level, the same convention `sim/reference-drive-budget/` uses for its
+`r_ref`. Each unit holds ONE DC level from t = 0 (two conversions: a
+discarded start-up conversion, then the measured one), so the schedule has
+no input steps at all. The deck body, the request and the report decode
+live in `full_conversion_campaigns/input_sweep.py`; the CLI is
+`--input-sweep [--input-levels=<fractions>] --record`. The submit goes
+through the shared `sim/harness` `klt_sim.submit()` path with its default
+capacity wait — never a hand-launched local SPICE grid.
+
+**What its record is.** Informational: a measurement of the AS-COMMITTED
+schematic that locates where conversion stops being correct. It grades no
+`spec/target-spec.md` row, proposes no design change (DR-021's switching
+scheme is out of scope), supersedes nothing, and never moves
+`records/LATEST`; `--supersedes` is refused with the mode, as is any
+`--solver-profile` (there is no pre-DR-023 record on this path to
+reproduce). A refused submit mints a NOT RUN record quoting the refusal —
+there is no local fallback. Every `--input-sweep` run, `--record` or not,
+must carry the `±0.25` and `±0.78` anchors (the committed record's
+known-converging and known-failing rows), so any boundary statement the run
+can support is never reached by interpolation.
+
 ## Transient solver policy (issue #637, DR-023)
 
 Solver settings are a **named policy** applied at deck assembly
@@ -512,10 +622,12 @@ evidence: a corner campaign, `records/LATEST`, or a `--supersedes` chain.
 A control may run the baseline-corner DC transient (`--record --solver-profile
 P`), `--coherent-sine --solver-profile P`, or `--solver-audit`.
 `ngspice-default` may additionally run `--corners` and every diagnostic mode
-(`--mechanism-probe`, `--node-trace`, `--cm-trace`,
-`--decision-margin-trace`), so every pre-DR-023 record -- `records/LATEST`'s
-9-corner campaign included -- stays reproducible; the resulting record is
-still a labelled SOLVER CONTROL. The runner refuses the single-setting
+(`--node-trace`, `--cm-trace`, `--decision-margin-trace`), so every
+pre-DR-023 record this runner can still mint -- `records/LATEST`'s 9-corner
+campaign included -- stays reproducible; the resulting record is still a
+labelled SOLVER CONTROL. The single exception is the retired
+`--mechanism-probe` output in the two records named above, which is
+reproduced from its own commit instead. The runner refuses the single-setting
 controls (`reltol-only`, `gear-only`) with `--corners` or a diagnostic mode,
 and every control with `--supersedes`, before any simulation starts.
 `write_record()` also refuses a superseding control, and a control record

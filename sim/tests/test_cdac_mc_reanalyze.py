@@ -14,6 +14,7 @@ different numbers than the original run, undermining DR-007's evidence."""
 
 from __future__ import annotations
 
+import shutil
 import statistics
 import sys
 import unittest
@@ -24,7 +25,13 @@ CDAC_DIR = SIM_DIR / "cdac-array-transfer"
 sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(CDAC_DIR))
 
-from run_mc import reanalyze_from_logs  # noqa: E402
+import run_mc  # noqa: E402
+from run_mc import (  # noqa: E402
+    DRAFT_INL_DNL_TARGET_LSB,
+    reanalysis_prose_line,
+    reanalyze_from_logs,
+    target_provenance_prose,
+)
 
 SOURCE_RECORD_ID = "20260828-005006-0c70212"
 
@@ -66,6 +73,191 @@ class TestReanalyzeFromLogs(unittest.TestCase):
     def test_missing_source_record_raises(self):
         with self.assertRaises(FileNotFoundError):
             reanalyze_from_logs("no-such-record-id")
+
+
+class TestTargetProvenanceProse(unittest.TestCase):
+    """The target-provenance prose is keyed on the LIMIT actually used, not
+    on whether the run is a reanalysis (issue #912): at the DRAFT
+    target-spec row's limit (1.0 LSB) the record must name
+    `spec/target-spec.md`'s DRAFT row -- DR-007 proposes 2.0 LSB, so
+    labelling a 1.0 LSB evaluation as DR-007's proposal would put a false
+    provenance claim about a spec target into an append-only record."""
+
+    def test_draft_limit_names_target_spec_row_not_dr007(self):
+        provenance = target_provenance_prose(DRAFT_INL_DNL_TARGET_LSB, 0.99)
+        claim = provenance.claim_body
+        target_desc = provenance.target_desc
+        self.assertIn("1 LSB", claim)
+        self.assertIn("spec/target-spec.md", claim)
+        self.assertIn("DRAFT", claim)
+        self.assertNotIn("CANDIDATE REVISED", claim)
+        self.assertNotIn("DR-007", claim)
+        self.assertIn("spec/target-spec.md", target_desc)
+        self.assertIn("DRAFT", target_desc)
+        self.assertNotIn("CANDIDATE REVISED", target_desc)
+        self.assertNotIn("DR-007", target_desc)
+
+    def test_non_draft_limit_still_names_dr007(self):
+        provenance = target_provenance_prose(2.0, 0.99)
+        claim = provenance.claim_body
+        target_desc = provenance.target_desc
+        self.assertIn("CANDIDATE REVISED", claim)
+        self.assertIn("DR-007", claim)
+        self.assertIn("2 LSB", claim)
+        self.assertIn("CANDIDATE REVISED", target_desc)
+        self.assertIn("DR-007", target_desc)
+        self.assertIn("2 LSB", target_desc)
+        self.assertNotIn("DRAFT (not ratified) INL/DNL target row", target_desc)
+
+    def test_draft_limit_is_exactly_the_constant(self):
+        # The DRAFT branch must trigger on the constant itself (the CLI
+        # default), so the mint at AC5's limit cannot drift into the DR-007
+        # branch through a float-typo'd default.
+        provenance = target_provenance_prose(DRAFT_INL_DNL_TARGET_LSB, 0.99)
+        self.assertNotIn("DR-007", provenance.claim_body)
+        self.assertEqual(DRAFT_INL_DNL_TARGET_LSB, 1.0)
+
+
+class TestFreshClaimProse(unittest.TestCase):
+    """Mirror of TestTargetProvenanceProse for the FRESH (non-reanalysis)
+    branch's Claim bullet (issue #948): that branch previously hardcoded the
+    DRAFT row's `<= +-1 LSB` limit, so a fresh `--record
+    --target-limit-lsb 2.0` run would mint a record whose Claim names the
+    DRAFT row while its own yield-evidence sentence names DR-007's CANDIDATE
+    REVISED proposal -- a self-contradicting provenance claim in an
+    append-only record. Guards are case-insensitive, per the
+    TestReanalysisProseLine docstring's stated reason (a case-sensitive
+    grep missed the #912 defect)."""
+
+    def test_draft_limit_names_target_spec_row_not_dr007(self):
+        provenance = target_provenance_prose(DRAFT_INL_DNL_TARGET_LSB, 0.99)
+        body = provenance.fresh_claim_body
+        self.assertIn("1 LSB", body)
+        self.assertIn("spec/target-spec.md", body)
+        self.assertIn("DRAFT", body)
+        lowered = body.lower()
+        self.assertNotIn("candidate revised", lowered)
+        self.assertNotIn("dr-007", lowered)
+
+    def test_non_draft_limit_names_dr007_not_draft_row(self):
+        provenance = target_provenance_prose(2.0, 0.99)
+        body = provenance.fresh_claim_body
+        self.assertIn("CANDIDATE REVISED", body)
+        self.assertIn("DR-007", body)
+        self.assertIn("2 LSB", body)
+        lowered = body.lower()
+        self.assertNotIn("1 lsb", lowered)
+        self.assertNotIn("draft", lowered)
+        self.assertNotIn("spec/target-spec.md", lowered)
+
+    def test_claim_and_yield_sentence_agree_at_both_limits(self):
+        # The invariant whose violation IS this issue: a fresh record's
+        # Claim bullet and its own "Against {target_desc}, ..." sentence
+        # must name the SAME target source and the SAME limit.
+        for limit in (DRAFT_INL_DNL_TARGET_LSB, 2.0):
+            provenance = target_provenance_prose(limit, 0.99)
+            body = provenance.fresh_claim_body.lower()
+            desc = provenance.target_desc.lower()
+            limit_str = f"{limit:g} lsb"
+            self.assertIn(limit_str, body, f"limit {limit}: body")
+            self.assertIn(limit_str, desc, f"limit {limit}: desc")
+            is_draft = limit == DRAFT_INL_DNL_TARGET_LSB
+            source_terms = (
+                ("spec/target-spec.md", "draft")
+                if is_draft
+                else ("dr-007", "candidate revised")
+            )
+            other_terms = (
+                ("dr-007", "candidate revised")
+                if is_draft
+                else ("spec/target-spec.md", "draft")
+            )
+            for term in source_terms:
+                self.assertIn(term, body, f"limit {limit}: body {term!r}")
+                self.assertIn(term, desc, f"limit {limit}: desc {term!r}")
+            for term in other_terms:
+                self.assertNotIn(term, body, f"limit {limit}: body {term!r}")
+                self.assertNotIn(term, desc, f"limit {limit}: desc {term!r}")
+
+    def test_default_limit_body_is_byte_identical_to_pre_change_literal(self):
+        # At the CLI default the fresh-branch mint must be unchanged: pin
+        # the pre-#948 hardcoded string exactly.
+        provenance = target_provenance_prose(DRAFT_INL_DNL_TARGET_LSB, 0.99)
+        self.assertEqual(
+            provenance.fresh_claim_body,
+            "`spec/target-spec.md#target-table` -- DNL/INL DRAFT target row "
+            "(`<= +-1 LSB`, target value, NOT ratified: target-spec.md's own \"Not "
+            "ratified by this record\" list names ENOB/INL-DNL target values as still "
+            "open pending this Monte-Carlo campaign, issue #29). This record supplies "
+            "that campaign's DNL/INL evidence: mismatch-driven Monte Carlo statistics "
+            "of design/cdac/cdac_array.sch's own DAC transfer characteristic, in "
+            "isolation from the sampling front end, comparator, and SAR logic -- "
+            "informs, but (per #53's own precedent) does not by itself substantiate a "
+            "full end-to-end ADC DNL/INL claim (see the UNITS/scope note below).",
+        )
+
+    def test_explicit_default_float_takes_draft_branch(self):
+        # A float equal-but-not-identical to the constant (e.g. from
+        # float("1.0")) must still take the DRAFT branch.
+        provenance = target_provenance_prose(float("1.0"), 0.99)
+        lowered = provenance.fresh_claim_body.lower()
+        self.assertIn("draft", lowered)
+        self.assertNotIn("dr-007", lowered)
+        self.assertNotIn("candidate revised", lowered)
+
+    def test_intermediate_limit_takes_dr007_branch_verbatim(self):
+        # A limit between the two spec values must take the DR-007 branch
+        # and state its OWN limit -- not silently round to either row.
+        provenance = target_provenance_prose(1.5, 0.99)
+        body = provenance.fresh_claim_body
+        self.assertIn("1.5 LSB", body)
+        lowered = body.lower()
+        self.assertIn("dr-007", lowered)
+        self.assertNotIn("1 lsb", lowered)
+        self.assertNotIn("2 lsb", lowered)
+
+
+class TestReanalysisProseLine(unittest.TestCase):
+    """The reanalysis bullet is a mechanism description shared by every
+    reanalysis mint, so it must be limit-NEUTRAL -- the **Claim** bullet
+    directly above it carries the limit-keyed provenance. The pre-#912 text
+    hardcoded "the candidate revised limit", which at the DRAFT 1.0 LSB
+    default made the record assert (in prose, two lines below a correct
+    Claim) that the run was scored against DR-007's candidate; a
+    case-SENSITIVE grep for the uppercase constants missed it (issue #912
+    review). These guards are case-insensitive for exactly that reason."""
+
+    def test_is_limit_neutral(self):
+        line = reanalysis_prose_line("20261001-124049-5207381")
+        self.assertIn("against the target limit named above", line)
+        lowered = line.lower()
+        self.assertNotIn("candidate revised", lowered)
+        self.assertNotIn("dr-007", lowered)
+
+    def test_names_the_source_record(self):
+        line = reanalysis_prose_line("20261001-124049-5207381")
+        self.assertIn("`mc-draws/20261001-124049-5207381/`", line)
+        self.assertIn(
+            "`sim/cdac-array-transfer/records/20261001-124049-5207381.md`", line
+        )
+        self.assertIn("NO new ngspice invocation", line)
+
+
+class TestKltEnvProse(unittest.TestCase):
+    """klt_env_prose() must never raise and must always say something honest
+    about the klt it found (or did not find); when a klt with the yield pair
+    IS on PATH it names all three versions."""
+
+    def test_never_raises_and_names_klt(self):
+        prose = run_mc.klt_env_prose()
+        self.assertTrue(prose)
+        self.assertIn("klt", prose)
+
+    def test_names_yield_pair_when_available(self):
+        if shutil.which("klt") is None:
+            self.skipTest("no klt on PATH")
+        prose = run_mc.klt_env_prose()
+        self.assertIn("klt yield envelope", prose)
 
 
 if __name__ == "__main__":

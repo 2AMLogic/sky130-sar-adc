@@ -16,8 +16,11 @@ dedicated-pad budget from the assumed 0–4 to the published 1–3. Update
 2026-11-13: re-fetched at the same byte count, with a sha256 now pinned in
 §2.2.2, so §2.2.1's figures stand; §2.2.2 extends the reconciliation to the
 page's proposal-content, repository-hygiene and design-conformance
-requirements, which the first pass did not grade. Proposals are due
-2026-11-23.**
+requirements, which the first pass did not grade. Further update, same day:
+§2.2.3 grades `get-involved.html`, a second governing page neither earlier
+pass fetched, whose proposal-content I/O item is worded longer than
+`rules-4.html`'s — the per-pad special-requirements declaration it asks for
+now lives there. Proposals are due 2026-11-23.**
 
 **Source repository**: `2AMLogic/sky130-sar-adc` (`visibility: public`,
 flipped 2026-08-25 per Epic #542 Phase 4A — confirmed via `gh repo view`
@@ -125,7 +128,7 @@ structure's *0–4* dedicated pads, which `rules-4.html` does not repeat.)
 | `VDD` | supply | 1.8 V analog rail | — (rail, not a slot line item) | The **analog** supply: sampling front end, CDAC array, comparator, and the DR-009 offset network. Same 1.8 V supply point as the digital rail below, but a **separate domain** — see the `VPWR`/`VGND` row and §2.1 |
 | `VINP`, `VINN` | in, dedicated (2 pads) | dedicated pad (budget: 1–3) | 2 | Differential analog input, driven onto the sampling front end (`design/sampling_frontend.sch`), 0–`V_REF` single-ended range each side |
 | `VREFP`, `VREFN` | in, dedicated (2 pads) | harness-supplied bandgap reference — **mismatch flagged below** | 2 | Differential reference into the CDAC array's bottom-plate switches. **Open item**: this design's reference is differential (two nodes), while the common structure names a single "bias/bandgap reference." Whether the harness can supply a differential pair, or whether this design would need to derive `VREFN` locally from a single-ended harness reference, is unresolved — named here, not guessed (see §7) |
-| `VCM` | in, dedicated | dedicated pad (budget: 1–3) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists, full-ratified-PVT-grid on every one of its four legs (bare `R_source` at both the worst-case and legacy windows, `C_decouple` at both windows) — **re-derived this pass (2026-09-15) against the post-issue-#236 sampling front end** (the `Sa` gate-net move and `Cmsw` `W=1 µm`→`W=16 µm` widening that fixed the sampling acquisition-window bottleneck, §4/§7 Item 2, also changed this budget's own DUT netlist, per issues #245/#248 via PRs #249/#250). All four legs, at every one of the 9 ratified corners, now come back right-censored at ≤ 100 kΩ bare `R_source` (both the 1-LSB and 0.1-LSB thresholds) and ≤ 1000 pF `C_decouple` — a materially looser, corner-invariant result than the pre-#236 data superseded below (which spanned 1 kΩ–30 kΩ and hit zero bare-impedance margin at 4/9 legacy-window corners) ([`sim/vcm-drive-budget/records/20260908-074408-80df05e.md`](../../sim/vcm-drive-budget/records/20260908-074408-80df05e.md), [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md); each `Supersedes` its pre-#236 counterpart, [`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md) / [`20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md) / [`20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md) / [`20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md) / [`20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md), respectively), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
+| `VCM` | in, dedicated | dedicated pad (budget: 1–3) | 1 | Common-mode bias, `V_REF/2 = 0.9 V` nominal. Every functional testbench in this repo still drives it from an ideal source — no on-chip `VCM` buffer/reference network exists in this design. A drive-impedance/decoupling *budget* now exists, full-ratified-PVT-grid on every one of its four legs (bare `R_source` at both the worst-case and legacy windows, `C_decouple` at both windows) — **re-derived this pass (2026-09-15) against the post-issue-#236 sampling front end** (the `Sa` gate-net move and `Cmsw` `W=1 µm`→`W=16 µm` widening that fixed the sampling acquisition-window bottleneck, §4/§7 Item 2, also changed this budget's own DUT netlist, per issues #245/#248 via PRs #249/#250). All four legs, at every one of the 9 ratified corners, now come back right-censored at ≤ 100 kΩ bare `R_source` (both the 1-LSB and 0.1-LSB thresholds) and ≤ 1000 pF `C_decouple` — a materially looser, corner-invariant result than the pre-#236 data superseded below (which spanned 1 kΩ–30 kΩ and, at 4/9 legacy-window corners, found no nonzero swept resistance inside 1 LSB at all — the smallest nonzero value that window sweeps being 10 kΩ, so "no positive budget found", not a measured 0 Ω). **Update this pass (2026-11-13, issue #880):** in both of the current `C_decouple` records every one of the 9 corners carries a marginal `R_source` of 100 kΩ, which is the sweep-ceiling value their runner falls back to when no swept bare resistance exceeds 1 LSB (their companion bare records are right-censored at ≤ 100 kΩ at all 9 corners, both tiers) — so those two legs bound the error with decoupling added on top of an already-passing resistance, and are not evidence that decoupling rescues a failing corner (§7 Item 6) ([`sim/vcm-drive-budget/records/20260908-074408-80df05e.md`](../../sim/vcm-drive-budget/records/20260908-074408-80df05e.md), [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md); each `Supersedes` its pre-#236 counterpart, [`sim/vcm-drive-budget/records/20260905-201703-f012255.md`](../../sim/vcm-drive-budget/records/20260905-201703-f012255.md) / [`20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md) / [`20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md) / [`20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md) / [`20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md), respectively), quantifying — not yet closing — the same class of gap the port-parity sibling `gf180-sar-adc` names for its own `V_CM` row (see §7 Item 6) |
 | `CLK` | in | digital control input (budget: ≤24) | 1 | Master clock; provisional range 1.2–12 MHz (DRAFT, [DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md), not re-derived from settling data) |
 | `RST_B` | in | digital control input | 1 | Active-low synchronous reset into the ring sequencer |
 | `DOUT9..DOUT0` | out | digital test output (budget: ≤12) | 10 | 10-bit parallel output register, `DOUT9` = MSB |
@@ -223,7 +226,7 @@ and no row of §4 is relaxed or moved by this pass.
 | "An outline of a test plan for validating the IP block through measurement" | §5, written against the current port list and gated for port parity by the citation gate's test-plan check | **MET** |
 | "List of any equipment available for use in testing" and "CVs of the designers", both "sent separately from the proposal document" | Outside this document by the page's own instruction, and outside what this repository holds: both are operator-held material | **N/A here — operator action** |
 | "personal and institutional details are to be left out of the main proposal document" | This document names no individual. The single institutional string in it is §8's Apache-2.0 attribution line ("Copyright 2026 2AM Logic"), which is a licence fact rather than designer identification — removing it would misstate the licence this repository ships under | **Flagged, not changed** — whether the organisers read a licence copyright line as an institutional detail is theirs to say, not this pass's to assume |
-| "Avoid putting unnecessary data dumps into the repository … Simulation results should be summarized in plots, not raw data, but it must be possible to reproduce the raw data from the design sources in the repository on demand" | The repository tracks **zero** image artifacts (`git ls-files` filtered on `*.png`/`*.svg`/`*.jpg`/`*.jpeg`/`*.pdf`/`*.gif`: 0 as of this pass). Every `sim/` result is reported as Markdown tables inside append-only records, with per-corner raw artifacts committed beside them; reproduction is documented per flow in [`sim/README.md`](../../sim/README.md) | **Reproducibility MET; "summarized in plots" UNMET** (§7 item 12) |
+| "Avoid putting unnecessary data dumps into the repository … Simulation results should be summarized in plots, not raw data, but it must be possible to reproduce the raw data from the design sources in the repository on demand" | Five summary figures are tracked under [`docs/plots/`](../plots/) (`git ls-files` filtered on `*.png`/`*.svg`/`*.jpg`/`*.jpeg`/`*.pdf`/`*.gif`: 5 as of this pass; this row read **zero** until #835 landed), rendered by [`sim/report/plots.py`](../../sim/report/plots.py) from evidence already committed under `sim/` — no simulation is run to draw them — and re-checked by `sim/report/plots.py --check` through `npm run check:ci`. Every `sim/` result is still reported as Markdown tables inside append-only records, with per-corner raw artifacts committed beside them; reproduction is documented per flow in [`sim/README.md`](../../sim/README.md) | **Reproducibility MET; "summarized in plots" MET for the five figures §7 item 13 lists** — the one summary it deliberately leaves undrawn (linearity from the 5-code transfer bench), and the untouched "avoid unnecessary data dumps" half of the same sentence, are recorded there |
 | "Sign-off data is required (i.e., final DRC and LVS results)" | `signoff/` carries the block manifest, the graded [`signoff/t1-report.json`](../../signoff/t1-report.json) and [`signoff/run-signoff.sh`](../../signoff/run-signoff.sh)`--check`, plus the hash re-derivation CI runs over every cited artifact | **Mechanism MET**; the DRC/LVS *content* is still §4's two sign-off-bar rows (DRC MET, LVS device match UNMET / post-layout PVT UNMET — §7 item 1) |
 | "Every design should follow the repository template (once it has been made available)", whose "scripts for running basic sign-off verification … must be able to run by anyone cloning the repository and show a verified result" | The Chipalooza template is still unpublished (the page offers the IHP-challenge template as generally applicable). This repository's own equivalent runs from a bare clone today: `signoff/run-signoff.sh --check` needs only the `klt` pin in [`signoff/requirements.txt`](../../signoff/requirements.txt) — no PDK, no KLayout engine — and exits 2 rather than silently passing when `klt` is absent; `npm run check:ci` runs the headless gate set | **Runnable verified result MET; template adoption PENDING publication** |
 | "The design must be verifiable with open source EDA tools … AI may be used in support of circuit design but must not be a requirement for the end user of the IP block to use, verify, or modify the IP block" | Directly relevant: this block is AI-designed, which `CLAUDE.md` states openly. Every verification entry point is open-source and agent-free — xschem, ngspice, `klt`/KLayout, driven by committed shell and Python (`package.json`'s `check:ci`, `sim/README.md`'s per-flow cold-start commands, `signoff/run-signoff.sh`). No step of using, verifying or modifying this block requires an AI agent | **MET** — the AI provenance is disclosed, and no verification path depends on it |
@@ -231,11 +234,96 @@ and no row of §4 is relaxed or moved by this pass.
 | "Proposals are due two weeks from the beginning of the challenge, which is November 23, 2026", with proposal review the week of November 23 | **10 days after this pass.** This document is still headed "DRAFT design record, not a submission-ready proposal", and two of the rows above (CVs, equipment list) are operator-held material no automation here can produce | **Operator decision** — whether, when and under whose name to submit |
 
 Nothing in this table moves a §4 verdict, and none is claimed to. Three rows
-open genuinely new gaps that were invisible while the rules were unpublished
+opened genuinely new gaps that were invisible while the rules were unpublished
 (absolute limits, plot summaries, the mid-design ratification exposure); they
 are carried as §7 item 12 — and the first two as issues #834 and #835 — rather
-than folded into §4, because none of them is a spec row. The two conflicts
+than folded into §4, because none of them is a spec row. Of those three, the
+plot-summary gap is the one this pass closes: #835's rendering step landed as
+§7 item 13, and item 12(b) now records it as closed; the absolute-limits gap
+(#834) and the mid-design ratification exposure stay open. The two conflicts
 §2.2.1 found are tracked as #836, routed to an operator.
+
+### 2.2.3 Per-pad special requirements (added 2026-11-13): what `get-involved.html` asks for and `rules-4.html` does not
+
+Issue #839. The challenge is published across more than one page, and the page
+its own landing page names for *what a proposal must contain* words the I/O
+item longer than `rules-4.html` does. Fetched 2026-11-13 from
+`https://opencircuitdesign.com/chipalooza/get-involved.html`: HTTP 200,
+4 245 bytes, sha256 prefix `6cc41a25`, server `Last-Modified` Mon, 09 Nov 2026
+18:14:16 GMT (`Last-Modified` is a server-stated header, trusted exactly that
+far; the digest is this pass's own measurement of the bytes received). Its
+proposal-content list states:
+
+> "List of I/O, including test ports. **Note any special requirements such as
+> low resistance to the pad.**"
+
+`rules-4.html` carries the first sentence and **not** the second. §2.2.2's "List
+of I/O" row grades the shorter wording and stands exactly as written; this
+section grades the longer one. Against it, §2.2's pad table and §2.3's verbatim
+port list categorise every port against a slot but state a *special requirement*
+for none of them — no pad was silent about its slot and every pad was silent
+about its requirements.
+
+The table below is this document's answer to that clause: one row per port of
+§2.3's `.subckt sar_adc_top` list, every port covered exactly once, no cell
+blank.
+
+**How to read it.** A *declared requirement* is a constraint this design states
+on what the harness or board must provide at that pad. A **figure** appears only
+where a dated `sim/` record puts one there, and the row links it. **"No
+evidence"** means the pad plausibly carries a requirement of this class and no
+campaign in this repository has measured it; the row names the issue that would
+produce the number, and no number is guessed in its place — per `CLAUDE.md`'s
+no-claim-without-a-testbench rule, that is the honest entry, and it is *not*
+the same entry as "none". **"None declared"** is a statement about the
+interface's own shape rather than a measurement, and every such row says what
+it does not cover.
+
+| Port | Special requirement | Where it comes from |
+|---|---|---|
+| `VINP`, `VINN` | **Low source impedance — required, no figure declared.** During the SAMPLE window these two pads charge the CDAC top plates through the sampling switches, so a series source impedance forms an RC with the sampled capacitance inside the acquisition window DR-006 allocates — the same mechanism the `VCM` row below has a measured budget for, on the pads that carry the signal instead of the bias | **No evidence.** [`sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice`](../../sim/full-conversion-transient/testbench/full_conversion_tb_fragment.spice) drives both from ideal `PWL` sources with nothing in series, and no `sim/` campaign sweeps a source impedance at *these pads*. Two campaigns do put a resistance on nets of the same name one level down, and neither is a budget for this pad: [`sim/comparator-decision/comparator_campaigns/kickback.py`](../../sim/comparator-decision/comparator_campaigns/kickback.py) lands a **fixed 1 kΩ** series `Rsrc` on the *comparator's* own `VINP`/`VINN` input pins (`KICKBACK_RSRC_OHM` — a kickback-stimulus shape at one value, not a sweep), and [`sim/comparator-decision/testbench/comparator_core_extracted.spice`](../../sim/comparator-decision/testbench/comparator_core_extracted.spice) carries ~203 Ω extracted interconnect parasitics inside that same comparator's layout. The campaign that would produce this pad's figure is **#847**; until it lands, no number is declared here |
+| `VREFP`, `VREFN` | **Low drive impedance — required, no figure declared.** The CDAC draws transient charge from the reference at **every** bit trial, so these are the pads the brief's own example ("low resistance to the pad") lands on most directly. **No ohm value is declared for them**, here or anywhere else in this document | **No evidence** — the same finding §7 item 11(a)(iii) already records. [`sim/vcm-drive-budget/`](../../sim/vcm-drive-budget/) budgets `VCM`; [`sim/supply-impedance-sensitivity/run_supply_impedance.py`](../../sim/supply-impedance-sensitivity/run_supply_impedance.py) budgets the four supply terminals and states that `VREFP`/`VREFN`/`VCM` "stay ideal at the die". The campaign that would produce the figure is **#841**, which §7 item 11(a)(iii) also waits on before the shared-analog-bus route could be chosen |
+| `VCM` | **No low-resistance requirement *shown on the sampled differential error*; the common-mode level at the pad is not budgeted.** A source resistance of **100 kΩ** still holds the sampled differential error inside 0.1 provisional LSB at all nine ratified PVT corners, at both acquisition windows — that error is the only quantity the four cited records budget. 100 kΩ is the largest value swept, so the budget is **right-censored**: the tolerance is at least that and the measurement does not say where it ends. On-die decoupling is right-censored at the 1000 pF top of its own sweep too, on the full grid at both windows — but **at the 1-LSB tier only**, not the 0.1-LSB tier this row's bare-`R_source` sentence covers, and both decoupling records warn the error is **not monotonic** in `C_decouple`, so that censored value is not necessarily the smallest sufficient one. **Update this pass (2026-11-13, issue #880):** in both of those decoupling records every one of the 9 corners carries a marginal `R_source` of 100 kΩ — the sweep-ceiling value their runner falls back to when no swept bare resistance exceeds 1 provisional LSB, matching the two companion bare records' right-censored ≤ 100 kΩ at all 9 corners in both tiers — so the decoupling column measures what a capacitor does on top of a resistance that was already passing bare, and shows no corner being rescued. **What the same records show at that resistance.** Their `VCM(end)` column, read at 100 kΩ with `C_decouple = 0` — the bare-`R_source` condition the 0.1-LSB figure above rests on — gives **1.566 V to 1.747 V** at eight corners and **0.919 V** at `tt_125c_1.80v` ([`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md), worst-case window), and **1.342 V to 1.522 V** at eight corners and **0.913 V** at `tt_125c_1.80v` ([`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md), legacy window), against the `V_REF/2 = 0.9 V` nominal §2.2's `VCM` row gives. So at the resistance this row declares acceptable, the bias node sits far from that nominal at eight of the nine corners while the differential error stays inside the tier above. **What that departure does to the composed ADC is not measured by this campaign**: its DUT is the sampling front end's own fragment, and [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) states it "does not, on its own, establish what R_source/C_decouple an actual on-chip VCM buffer or off-chip reference network would present". No record in this repository shows that departure is harmless, and none shows it breaks anything; what instant `VCM(end)` probes beyond its column name, and why `tt_125c_1.80v` departs from the other eight corners, are both untraced here | Measured, full ratified 9-point PVT grid: [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) (DR-006 worst-case 83.333 ns window) and [`sim/vcm-drive-budget/records/20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md) (legacy 400 ns testbench-convention window), both right-censored at the 100 kΩ sweep ceiling at the 1-LSB and 0.1-LSB tiers alike; the decoupling axis on the same grid in [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md) (worst-case window) and [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md) (legacy window), each reporting a 1-LSB budget column only. **Scope**: the DUT is the sampling front end's own fragment, not the composed top level, and the budget is the one §2.2's `VCM` row describes |
+| `VDD` | **Its own bond, and no on-die metal tie to the digital rail** ([DR-010](../../spec/decision-records/DR-010-digital-supply-domain-partition.md)). No resistance figure is declared | DR-010 ratifies the domain partition. The one measured point is [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/)'s `package` arm — all four terminals bonded through the [DR-015](../../spec/decision-records/DR-015-package-parasitic-assumption.md) package R+L — whose captured codes are unchanged against the ideal control. That is **one** corner (tt/27 °C/1.80 V), not the ratified grid, and the R+L is a stated package-style assumption rather than a measurement of any package; figures and caveats in §7 item 9 |
+| `GND` | **Its own bond to the board star point: this pad may not reach the board only through the p-substrate.** Structural, not numeric — there is no resistance figure to meet, there is a bond to provide | [DR-012](../../spec/decision-records/DR-012-analog-ground-pad.md) ratifies the pad, and `sim/supply-impedance-sensitivity/`'s `no-gnd-pad` arm is the option DR-012 rejected: against the `package` arm it raises the die-side analog-ground excursion while changing **no** captured code. One corner, and at a lumped substrate stand-in whose magnitude comes from DR-012's own prose rather than from extraction (DR-015) — so it prices a resistive return of that order, not this die's substrate. Figures and that caveat in §7 item 9 |
+| `VPWR` | **Its own bond, kept off `VDD` in metal on-die** (DR-010): the standard-cell bank switches coincident with the comparator decision by construction, so a shared metal rail would put its switching current on the comparator's own supply. No resistance figure is declared | DR-010, and the same single-corner `package` arm as the `VDD` row — on which `VPWR` carries the largest die-side excursion of the four terminals (§7 item 9) |
+| `VGND` | **Its own bond, so the digital return travels off-die rather than through the die's substrate past the comparator.** One electrical node with `GND` in bulk sky130 — this block's own composed extraction reports them as one net — but a second bond point, which is the intended shape (§2.2). No resistance figure is declared | DR-010 and DR-012/[DR-013](../../spec/decision-records/DR-013-analog-ground-mesh.md), plus the same single-corner `package` arm (§7 item 9) |
+| `CLK` | **None declared.** A static CMOS gate input with no DC path to the pad: at the provisional ≤ 12 MHz clock (DR-006, DRAFT) a pad-scale series resistance costs RC delay against the input capacitance, not conversion accuracy | Design statement, **unmeasured**: every committed `.spice`/`.cir` deck drives `CLK` from an ideal `V` or `B` source with nothing in series. One campaign does put a resistance on a net of this name one level down, and it is not a budget for this pad: [`sim/comparator-decision/testbench/comparator_core_extracted.spice`](../../sim/comparator-decision/testbench/comparator_core_extracted.spice) carries **183–403 Ω** `RCLK_t*` extracted interconnect parasitics on the *comparator's* own clock pin — the same case the `VINP`/`VINN` row names. **What this row does not cover**: an edge-rate or duty-cycle requirement at the pad. This document declares none and no campaign measures one, so the "none" is about resistance to the pad and about nothing else |
+| `RST_B` | **None declared**, on the same basis as `CLK` — a static CMOS gate input into the ring sequencer, asserted on the reset sequence rather than per conversion | Design statement, **unmeasured**, with the same uncovered edge-rate question as the `CLK` row |
+| `DOUT9..DOUT0` | **None declared on resistance to the pad, and no off-chip load is specified.** These are standard-cell outputs read as digital test outputs; a pad-scale series resistance costs RC delay against whatever the harness presents, not the accuracy of the conversion that produced the code | Design statement, **unmeasured at pad scale**: no deck places an off-chip or pad-scale load on these outputs, and no deck places a series resistance on them at all. The only load any committed deck puts on them is [`sim/digital-partition/`](../../sim/digital-partition/)'s declared **5 fF** per-output interface load ([`records/20261010-132019-f757b0e.md`](../../sim/digital-partition/records/20261010-132019-f757b0e.md), that campaign's current record) (`digital_char.LOADS_F["DOUT"]`, labelled there an *experiment assumption* standing in for the on-die downstream readout gate load — not a ratified spec value and not a pad-scale figure), emitted into that campaign's committed decks as e.g. `Cld14 DOUT0 0 5.0000e-15`. **What this row does not cover**: a maximum harness-side load capacitance the harness's digital output pad may present — none is declared or measured here, and [`sim/digital-sta/`](../../sim/digital-sta/) grades the two digital macros' own routed timing against a Liberty corner set, not an off-chip load |
+| `BUSY` | **None declared**, on the same basis as `DOUT9..DOUT0` — a conversion-in-progress strobe out of the same standard-cell bank | Design statement, **unmeasured at pad scale**, on exactly that row's basis: no off-chip or pad-scale load and no series resistance in any deck, and the same declared 5 fF on-die interface load (`digital_char.LOADS_F["BUSY"]`, emitted as `Cld13 BUSY 0 5.0000e-15`), with the same uncovered harness-side-load question |
+
+**Coverage.** Eleven rows covering **22 of 22** ports of §2.3's `.subckt
+sar_adc_top` list, each port exactly once: `VINP`/`VINN` (2), `VREFP`/`VREFN`
+(2), `VCM` (1), `VDD` (1), `GND` (1), `VPWR` (1), `VGND` (1), `CLK` (1),
+`RST_B` (1), `DOUT9..DOUT0` (10), `BUSY` (1). Ports are grouped into one row
+only where the declaration and its basis are identical, the same convention
+§2.2's pad table uses for `DOUT9..DOUT0`. This is a **separate** table from
+§2.2's deliberately: §2.2's columns are what check 10 of the
+[citation gate](check_proposal_citations.py) reads port-for-port against
+`design/sar_adc_top.spice`, and a declaration column does not belong in a
+machine-checked slot categorisation.
+
+**Verdict against `get-involved.html`'s longer wording: PARTIAL.** Every pad now
+carries a declaration, which is what the clause asks for, and nine of the eleven
+rows carry either a measured figure or a reasoned "none declared" with its own
+uncovered question stated. What is still missing is the one quantity the clause's
+own example names: **no ohm value exists for `VREFP`/`VREFN`** (#841) **or for
+`VINP`/`VINN`** (#847), because no campaign in this repository has measured
+either, and those two rows say so rather than borrowing a number. In particular
+`rules-4.html`'s "less than 5 ohms" rating for the shared analog multiplexer
+switches is **not** adopted as this block's reference requirement: that figure
+describes the harness's own switches, bussed to all eighteen projects, and says
+nothing about what this CDAC needs. Carried as §7 item 14.
+
+**What this section does not establish.** A declared requirement is this
+design's statement of what it needs, not an organiser-confirmed property of any
+slot. The harness repository's I/O configuration is still TBD (§2.2.1), so a pad
+whose requirement the published harness cannot meet would be a new conflict at
+that point — the pad-budget conflict already known is §2.2.1's, tracked as #836.
+**No §4 verdict moves because of this section, no row of
+[`spec/target-spec.md`](../../spec/target-spec.md) changes, and §2.2's pad table
+and its machine-checked totals are untouched.**
 
 ### 2.3 What this repo's own port list is, verbatim
 
@@ -1154,7 +1242,23 @@ the [citation gate](check_proposal_citations.py), whose rationale is in
 [`docs/citation-gate.md`](../citation-gate.md) — is what replaces the
 blanket claim:
 
-> of the **45** (spec row, `sim/` record) citation pairs in Section 4's table, **19** name a record that declares the full **9**-point grid, **19** name one that declares a smaller PVT point set, and **7** name one that declares no PVT point set of its own: `sim/cdac-array-transfer/records/20260828-005006-0c70212.md` (**1** point), `sim/cdac-array-transfer/records/20260828-022618-f36913e.md` (**1** point), `sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md` (**1** point), `sim/comparator-decision/records/20260924-041815-afcb1b5.md` (**1** point), `sim/comparator-decision/records/20260925-050027-0259924.md` (**1** point), `sim/comparator-decision/records/20260925-182138-23ad4d8.md` (**1** point), `sim/enob-estimate/records/20260906-082749-7724af3.md` (no PVT point set), `sim/enob-estimate/records/20261001-141249-7487784.md` (no PVT point set), `sim/enob-estimate/records/20261008-233032-8bc3d1f.md` (no PVT point set), `sim/full-conversion-transient/records/20261010-070734-f968286.md` (**1** point), `sim/full-conversion-transient/records/20261010-204225-57a55c1.md` (**1** point), `sim/full-conversion-transient/records/20261011-021527-8d0c19a.md` (**1** point), `sim/full-conversion-transient/records/20261011-022915-877794b.md` (**1** point), `sim/full-conversion-transient/records/20261011-023419-877794b.md` (**1** point), `sim/full-conversion-transient/records/20261011-110009-320dbc6.md` (**1** point), `sim/mc-smoke/records/20260814-021002-98d9186.md` (**1** point), `sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md` (**1** point), `sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md` (no PVT point set), `sim/sampling-frontend/records/20260821-072657-433a294.md` (no PVT point set), `sim/sar-sequencer-behavioral/records/20261106-193256-8d6bce2.md` (no PVT point set), `sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md` (**1** point), `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md` (**1** point), `sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md` (**1** point), `sim/supply-impedance-sensitivity/records/20261106-200009-13a2d50.md` (**1** point), `sim/supply-impedance-sensitivity/records/20261106-205217-9c9a7c9.md` (**1** point), `sim/top-plate-cpar/records/20261101-183325-60421e38.md` (no PVT point set).
+> of the **47** (spec row, `sim/` record) citation pairs in Section 4's table, **21** name a record that declares the full **9**-point grid, **19** name one that declares a smaller PVT point set, and **7** name one that declares no PVT point set of its own: `sim/cdac-array-transfer/records/20260828-005006-0c70212.md` (**1** point), `sim/cdac-array-transfer/records/20260828-022618-f36913e.md` (**1** point), `sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md` (**1** point), `sim/comparator-decision/records/20260924-041815-afcb1b5.md` (**1** point), `sim/comparator-decision/records/20260925-050027-0259924.md` (**1** point), `sim/comparator-decision/records/20260925-182138-23ad4d8.md` (**1** point), `sim/enob-estimate/records/20260906-082749-7724af3.md` (no PVT point set), `sim/enob-estimate/records/20261001-141249-7487784.md` (no PVT point set), `sim/enob-estimate/records/20261008-233032-8bc3d1f.md` (no PVT point set), `sim/full-conversion-transient/records/20261010-070734-f968286.md` (**1** point), `sim/full-conversion-transient/records/20261010-204225-57a55c1.md` (**1** point), `sim/full-conversion-transient/records/20261011-021527-8d0c19a.md` (**1** point), `sim/full-conversion-transient/records/20261011-022915-877794b.md` (**1** point), `sim/full-conversion-transient/records/20261011-023419-877794b.md` (**1** point), `sim/full-conversion-transient/records/20261011-110009-320dbc6.md` (**1** point), `sim/mc-smoke/records/20260814-021002-98d9186.md` (**1** point), `sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md` (**1** point), `sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md` (no PVT point set), `sim/sampling-frontend/records/20260821-072657-433a294.md` (no PVT point set), `sim/sar-sequencer-behavioral/records/20261106-193256-8d6bce2.md` (no PVT point set), `sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md` (**1** point), `sim/supply-impedance-sensitivity/records/20260925-073912-0e385e5.md` (**1** point), `sim/supply-impedance-sensitivity/records/20260925-204633-7339971.md` (**1** point), `sim/supply-impedance-sensitivity/records/20261106-200009-13a2d50.md` (**1** point), `sim/supply-impedance-sensitivity/records/20261106-205217-9c9a7c9.md` (**1** point), `sim/top-plate-cpar/records/20261101-183325-60421e38.md` (no PVT point set).
+
+**Update (2026-11-13, issue #841).** 45 → **46** pairs and 19 → **20**
+declaring the full grid: the **Sample rate** row now also cites
+`sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md`, whose own
+`Corner matrix run` line declares the ratified nine-point grid, so it joins
+the full-grid count rather than either exception list. Neither exception
+list changes.
+
+**Update (2026-11-13, issue #847).** 46 → **47** pairs and 20 → **21**
+declaring the full grid: the **Sample rate** row also cites
+`sim/input-drive-budget/records/20261113-110421-e03343e.md`, whose own
+`Corner matrix run` line declares the same ratified nine-point grid, so it
+too joins the full-grid count rather than either exception list. Neither
+exception list changes. This update and the #841 one above landed on the
+same day from the same base, so each census here is the merged total
+restated from `--stats`, not either branch's intermediate figure.
 
 **Caveat on the last entry (2026-11-01, issue #754).** The `sim/top-plate-cpar/` record is listed as declaring no PVT point set because the census reads a point set from the shapes it already recognises; the record itself states `Corners: 13/13 complete` and names all 13 corners (the ratified nine plus the four MiM r+c corners) on its own `Corners` line. The list is the census's output, not a claim that the record ran fewer corners.
 
@@ -1296,7 +1400,7 @@ audience with an explicit Challenge-brief verdict column.
 | Comparator input-referred noise | `≤ 1.0148 mV rms` (baseline) / `≤ 0.5859 mV rms` (stretch) | **RATIFIED** (DR-003 via #27) | **MET** vs. baseline at binding corner `tt_125c_1.80v` = 0.8643 mV rms; **UNMET** vs. stretch at the same corner. Reduced-sub-model methodology named ([DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md)). Re-measured this pass against issue #175's amended (reset-integrity-fixed) device set — the binding-corner figure moved from 0.9591 to 0.8643 mV rms; the pass/fail outcome is unchanged | [`sim/comparator-decision/records/20260906-065109-eedd532.md`](../../sim/comparator-decision/records/20260906-065109-eedd532.md) |
 | Kickback | `≤ 5 mV` peak pin disturbance into a `1 kΩ` series source impedance, single decision edge (target); stretch `≤ 2 mV` | DRAFT (new row, DR-011 candidate) | **Informational only — no ratified line exists to grade against.** This row is new as of 2026-09-24 ([DR-011](../../spec/decision-records/DR-011-comparator-kickback-target-row.md) via #361), and its bound is **adopted verbatim** from the sibling `2AMLogic/sky130-comparator` canary's own DR-002-ratified row as a stated interim choice — not derived from this block's own system-level budget (DR-011 "Alternatives considered" names the derivation this repo cannot do yet, and why). Against it, informationally: the cited record measures **73.3673 mV** worst-case peak pin disturbance (`Vindiff = +50 mV`, `VINP` at 5.108 ns), i.e. `≈ 14.7×` the `≤ 5 mV` target and `≈ 36.7×` the `≤ 2 mV` stretch. **Single corner only** (`tt`/27 °C/1.8 V, 1 PVT point) — this is a first-pass baseline, not a corner campaign, so the figure is not a worst-case-over-PVT one. Against the record's own `Vindiff = 0 mV` control row (**−70.3419 mV**, `VINP` at 5.108 ns): `≈ 95.9 %` of that peak is already present with no decision to make, and `3.0254 mV` (`≈ 4.1 %`) is what the `+50 mV` point adds on top of it. **That subtraction is not a common-mode/differential split, and this row does not read it as one** — until 2026-09-25 it stated the `≈ 4.1 %` term as "the decision transient itself", which overstates what a per-pin subtraction can separate: both figures above are the extremum over *either* pin independently (`sim/comparator-decision/run.py`'s `run_kickback_sweep` tracks one maximum and one minimum across `VINP` and `VINN` together), so neither bounds the *differential* part of the disturbance. The cited record now measures that split directly, and this row reads it off the measurement instead of inferring it: the record's own `Measured value(s)` table carries **9** columns — `Vindiff (mV)`, `peak+ (mV)`, `pin / time (ns)`, `peak- (mV)`, `pin / time (ns)`, `CM+ (mV) @ t (ns)`, `CM- (mV) @ t (ns)`, `diff+ (mV) @ t (ns)`, `diff- (mV) @ t (ns)` — at least one of them is a common-mode or differential quantity, so restate the split from the record instead of subtracting per-pin peaks. **The measured split** (issue #390, the first gate [DR-014](../../spec/decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md) names, record `20260925-050027-0259924` superseding #346's baseline): the common-mode component barely moves with overdrive — `−70.3419 mV` at the `Vindiff = 0 mV` symmetry-control point, `−70.4415 mV` at `+50 mV` — so essentially all of the `73.3673 mV` per-pin figure is common-mode, which a differential top-plate CDAC rejects to first order. The differential component, which it does not reject and which therefore lands on a decision, is `−10.9153 mV` at `+50 mV` (`≈ 2.2×` the `≤ 5 mV` target) and `+4.1918 mV` at the half-LSB overdrive `+1.7578 mV` that a marginal SAR decision actually presents (`≈ 0.84×` the target, `≈ 2.1×` the `≤ 2 mV` stretch). Both components are back below `0.001 mV` by `t = 10 ns`, about 4.9 ns after the CLK ramp ends. So the `≈ 14.7×` above stands as the multiple on the quantity the row bounds, while the decision-relevant component is a far smaller multiple of it — not negligible, and still over the target at the large-overdrive point. DR-011's Context reads the old subtraction as a clock-coupled/decision-coupled split, and its Consequences §3 draws a mitigation direction from it ("clock-edge and reset/tail-switch shaping … matters far more here"); that direction was read off a per-pin quantity, and the measured split above is what any re-derivation of it now has to rest on. **Mitigation selection is no longer open work on #349.** [DR-014](../../spec/decision-records/DR-014-comparator-kickback-mitigation-no-static-preamp.md) (2026-09-25, the record #349 closed on) answers DR-011's "Mitigation selection" open item by adopting **no** mitigation: a static preamp is not adopted and [DR-004](../../spec/decision-records/DR-004-comparator-topology-and-noise-budget.md) Decision §1 stands, on DR-003 Item 1's `876.9 mV` common-mode headroom stack against a continuously biased stage at this rail, and clock-edge shaping is rejected as a gap-closer in the same record. So the `≈ 14.7×` above is a gap left **unmitigated by decision**, not one awaiting a chosen fix. DR-014's own first gate was #390's split rather than a topology change, and that gate is now measured (above); what remains open on this track is DR-014 Consequences §4 — measuring the headroom-neutral mitigation classes it names, now that the differential component is known to exceed the target at large overdrive. That follow-on was filed as #434 (double-tail latch, cross-coupled neutralization, complementary-clock charge compensation, per DR-014 §(c)/Open items), and one of the three is now measured. **Cross-coupled neutralization** — added to the same 11-device latch as an EXPERIMENTAL, non-adopted DUT variant (`sim/comparator-decision/testbench/comparator_core_neutralized.spice`; no `design/comparator.sch` change), sized from the input pair's own BSIM4 `Cgd` overlap term rather than fitted or hand-tuned — moves the worst-case peak differential deviation from `−10.9153 mV` to `−10.8355 mV` at `Vindiff = +50 mV` (`≈ −0.7 %`; `sim/comparator-decision/records/20260925-182138-23ad4d8.md`, informational, not graded against the DRAFT row per `spec/README.md`), and the worst-case peak per-pin disturbance from `73.3673 mV` to `69.9461 mV` (`≈ −4.7 %`). **[DR-016](../../spec/decision-records/DR-016-kickback-headroom-neutral-mitigation-measurement.md)** (2026-09-25, the record #434 closed on) weighs that result: a `0.7 %` differential reduction does not close enough of the gap to reconsider a mitigation, so **DR-014's Decision stands** — no static preamp, no mitigation adopted — and this measured class is why: the input pair's own coupling capacitance is a small fraction of the charge this latch's larger, `CLK`-gated tail and reset devices inject, so neutralizing only that path barely moves the differential figure. The double-tail latch and complementary-clock charge compensation classes remain unmeasured; per #434's own acceptance criteria, landing one class was sufficient to close it, so it is closed on this evidence rather than left open pending the other two. `sim/spec-coverage.json` carries that disposition too — its Kickback row's `tracking` field now names DR-016 alongside DR-014/#390/#434 — and check 22 of the [citation gate](check_proposal_citations.py) fails this row if it falls behind that field again. Ratification would additionally oblige a full-corner kickback campaign (DR-011 Consequences §5) | [`sim/comparator-decision/records/20260924-041815-afcb1b5.md`](../../sim/comparator-decision/records/20260924-041815-afcb1b5.md) (#346's baseline, superseded 2026-09-25); [`sim/comparator-decision/records/20260925-050027-0259924.md`](../../sim/comparator-decision/records/20260925-050027-0259924.md) (#390's decomposition, the record this row's figures are re-derived from) |
 | Corners | −40/27/125 °C, ±10 % supply, sky130 process corners | **RATIFIED** (DR-003 via #27) | **MET** — corner runner switches `.lib` process sections correctly, harness self-test negative control passes | [`sim/harness-corner-smoke/records/20260814-020959-98d9186.md`](../../sim/harness-corner-smoke/records/20260814-020959-98d9186.md), [`sim/mc-smoke/records/20260814-021002-98d9186.md`](../../sim/mc-smoke/records/20260814-021002-98d9186.md) — each campaign's only record, cited by path since 2026-10-03 (this cell named the two `records/` directories until then, which check 37 does not count as a citation) |
-| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **UNMEASURED as an end-to-end figure (all four constituent mechanisms now checked individually and all four now PVT-complete; the one mechanism previously found NOT to clear the phase budget at any ratified corner has since been fixed by issue #236 and now clears it at all 9/9 — see (d)'s "Update this pass (2026-09-08)")** — **Update this pass (2026-09-15): a full-hierarchy, whole-ADC code-correctness campaign now exists (`sim/full-conversion-transient/`, issue #254) — this row previously stated none did; that is now stale.** Its most recent full-grid run ([`records/20261011-112119-188e94c.md`](../../sim/full-conversion-transient/records/20261011-112119-188e94c.md), the current `records/LATEST`, issue #638's re-mint under DR-023's reference solver policy `reltol-gear` on the pinned ngspice-47, superseding the pre-DR-023 `ngspice-default` record `20261001-105439-c324f80`, which was issue #498's re-run against DR-019's resized `C_u` and itself superseded `20260912-002315-9aaf1ca`) found 0/9 corners code-correct. Every per-input and per-corner verdict is unchanged from the superseded record: the three mid-scale inputs are within ±1 LSB and the two near-full-scale inputs fail at all nine corners, phase structure is 5/5 everywhere, and the binding corner is still `tt_27c_1.62v` (124 LSB). Five captured codes moved by 1 LSB under the new solver policy and are recorded as solver-sensitive observations of the old policy, not converter changes: `-0.78·V_REF` at `ff_27c_1.80v` (205 → 204) and `sf_27c_1.80v` (201 → 200), and `+0.00·V_REF` 512 → 511 (still within ±1 LSB) at `sf_27c_1.80v`, `tt_-40c_1.80v` and `tt_125c_1.80v`. Issue #498's earlier resize had left every captured code bit-identical, so the resize neither fixes nor worsens this; several of the defects it surfaced have since been fixed (DR-008, DR-009) but two architecture/sizing decisions remain unresolved (issues #267 and #269 — both de-escalated from operator-decision by the operator on 2026-10-02/03 and each routed to a decision record that is not yet ratified or implemented: DR-021 merged as `proposed`, DR-022 still in unmerged PR #530. Issue #267 itself was closed on 2026-10-03 by PR #540, which only names DR-021's ratification vehicle; DR-021 stays `proposed` and nothing is implemented, so the decision is still open even though the issue is not; §7 Item 8 carries their dated tracking state) before a fresh 9-corner re-run would be meaningful. **Citation note (this pass)**: that record is also what `sim/full-conversion-transient/records/LATEST` resolves to (verified against the pointer file this pass); the pointer is `records/LATEST`, not `reports/LATEST` as this row previously wrote it, and this row now cites the record by full path so the citation does not depend on the pointer at all. See §7 Item 8 for the full campaign history and root causes. The four *mechanism-level* timing-budget checks below (a)–(d) are a distinct, narrower claim (does each stage clear its DR-006 phase budget in isolation) from this whole-ADC *code-correctness* campaign (does the assembled loop converge to the right code) — both are now evidenced, and both are open in different ways. The 1.2–12 MHz timing budget itself is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). (a) The CDAC array's own settling is now **PVT-complete** (full ratified OAT grid, 9 corners): binding corner `tt_27c_1.62v` at 13.2466 ns (bit 8/MSB, rise), 6.3× inside the DR-006-derived 83.333 ns phase budget; fastest corner `tt_27c_1.98v` at 10.3138 ns (8.1×); worst-to-best spread only 1.28× across the grid, and the tt/27 °C/1.8 V point sits at 11.3994 ns. **Re-measured 2026-10-01 (#498)** against DR-019's grid-legal `C_u` (`W=L=1.8988 → 1.9000 µm`, +0.116% capacitance): this mechanism's own time constant is `tau_i = R_on·C_i·(1 − C_i/C_total)`, linear in `C_u`, so the prediction was +0.116% on every row — measured, the binding corner went 13.2312 → 13.2466 ns (+0.116%) and the tt baseline 11.3861 → 11.3994 ns (+0.117%). Nothing else moved: same binding and fastest corners, same 6.3×/8.1× margins, same 1.28× spread, same 7 bit-0 rows without a crossing. All 9/9 corners clear the budget — not the bottleneck anywhere on the grid. A secondary, non-gating finding: the smallest-swing diagnostic row (bit 0, ~0.2% of VDD swing) failed to produce a 99%-settling crossing at 5/9 corners, root-caused (confirmed window-invariant out to 300 ns, not asserted without evidence) to a small, genuine, already-converged offset between the real simulated circuit and the analytic closed-form ideal — negligible against bit 8's own ~1.8 V swing but exceeding 1% of bit 0's own ~4 mV swing at some corners; bit 8 (the array's own true worst case, confirmed by its own tau_i(i) derivation) crossed cleanly at all 9/9 corners, so this does not affect the worst-case finding (see §7 Item 2 for the full root-cause trace). (b) The comparator's decision delay is now PVT-complete after issue #175 (DR-004 Amendment A) closed the reset-integrity defect: 9/9 corners' Vindiff = 0 mV negative control HELD, all 27/27 input-driven points decided, binding corner `tt_27c_1.62v` at +0.5 mV = 4.3575 ns, 19.1× inside the DR-006 budget (see §7 Item 2 and the now-resolved §7 Item 3). (c) The SAR sequencer's own CLK-to-phase-output logic delay is now **PVT-complete** (full ratified OAT grid, 9 corners), covering all 11 of its own ring-sequencer phase transitions at every corner (99 phase measurements): binding corner `ss_27c_1.80v` at 0.4237 ns (phase `b1`), 196.7× inside the DR-006 budget; fastest corner `ff_27c_1.80v` at 0.2480 ns (336.1×); worst-to-best spread only 1.71× across the grid. All 9/9 corners clear the budget by more than two orders of magnitude — the smallest of the four mechanisms measured, and not the bottleneck at any ratified corner. (d) **The sampling front end's own acquisition of a new, worst-case (rail-to-rail) differential input value is now ALSO PVT-complete (full ratified OAT grid, 9 corners) — and it is the only mechanism of the four found NOT to clear the budget, at EVERY ratified corner**: the single-corner (`tt`/27 °C/1.8 V) finding of a 23.43 mV residual (~13.3× the provisional differential LSB's half-step), traced to the bootstrap precharge PFET `Sa`'s imperfect off-state once `BOOST_x` is boosted above `VDD`, was not a corner-specific artifact — every one of the 9 ratified corners exceeds the half-LSB reference scale, with a binding corner of `tt_27c_1.62v` at 67.19 mV (~38.2× the half-LSB, 2.9× worse than the tt/27 °C/1.8 V baseline) and a best corner of `tt_27c_1.98v` at 9.00 mV (~5.1×). This is the opposite outcome from mechanisms (a)–(c); the front end's own acquisition, not the CDAC, comparator, or sequencer, is the likely bottleneck for an end-to-end sample-rate figure at the fast end of the DRAFT range, across the full ratified PVT grid, not just one corner — strengthening, not merely narrowing, the open item, and consistent with DR-006's own deferred "non-uniform phase allocation" alternative. The design-fix follow-up this finding implies (a topology/sizing fix for the bootstrap precharge PFET `Sa`, or adopting the non-uniform-phase-allocation alternative) is now tracked as issue #236, filed this pass, since this document compiles evidence rather than designing circuit fixes. **Update this pass (2026-09-08): issue #236 closed with a circuit fix, not a phase reallocation — `design/sampling_frontend.sch`'s uniform DR-006 phase budget is UNCHANGED.** Instrumenting `BOOST_x` directly isolated two independent limiters, both fixed: (1) `Sa`'s gate moved from `SAMPLE` to the switch's own gate node `G_{p,n}` — `Sa`'s source is the boosted node itself, so gating it from a VDD-level `SAMPLE` left `V_sg ~= VIN` (an ON device discharging `BOOST_x` throughout the sample phase, not a leaky off one); gating it from `G_{p,n}` instead (GND during hold via `Sd`, shorted to `BOOST_x` by `Se` during sampling) makes `V_sg ~= 0`, genuinely off; (2) once (1) was applied, the common-mode reference transmission gate `Cmswn/Cmswp` — in series with `Csamp` on the acquisition path via the floating `BPREF_x` node — was the limiter that remained, fixed by widening it from W=1 µm to W=16 µm. Re-running the full ratified PVT grid ([`sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md`](../../sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md)) with both fixes applied: **all 9/9 ratified corners now clear the DR-006 worst-case (12 MHz) phase budget, worst case 0.380 mV (`tt_27c_1.62v`, ~0.2× the half-LSB) vs. the pre-fix 67.19 mV (~38.2×) at the same corner** — the sampling front end's own acquisition is no longer the standout bottleneck the pre-#236 schematic made it, alongside mechanisms (a)–(c). **Update this pass (2026-09-26): that grid reads the front-end fragment ALONE, and mechanism (d) has now been re-measured at the load the top level actually presents** — `design/sar_adc_top.sch` ties the same `TOP_P`/`TOP_N` to the CDAC array too, so the assembled top-plate load is the front end's own `Csamp_p`/`Csamp_n` (~4.43 pF/side, DR-004) **plus** the array's own ~4.43 pF/side of bit capacitance: roughly double what the record above was run against. Same stimulus, same two fixed-time probe instants, same 9 ratified OAT points, only the load differs ([`sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md`](../../sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md), this campaign's own new `--corners` mode; replaced 2026-10-01 by [`sim/sampling-cdac-handoff/records/20261001-135431-7487784.md`](../../sim/sampling-cdac-handoff/records/20261001-135431-7487784.md), the current `records/LATEST`, issue #498's re-run of that grid against DR-019's resized `C_u`: the binding-corner residual moves 0.9260 → 0.9280 mV, i.e. very slightly larger as more top-plate capacitance predicts, and all 9/9 corners still land inside the reference scale). **All 9/9 corners still clear the DR-006 worst-case (12 MHz) phase budget at the assembled load**: binding corner `tt_27c_1.62v` at 0.926 mV (0.53× the provisional differential half-LSB reference scale) against the front-end-only grid's 0.380 mV at that same corner — a factor ~2.4 for the doubled load — and every other corner at or below 0.053 mV. So mechanism (d)'s PVT-complete status is now a statement about the assembled load, not only about the front end in isolation; before this pass the qualifier belonged in this cell, and the reason it is gone is a measurement, not a rewording. The one pre-existing combined-load figure in the tree — 5.33 mV single-ended at one directional `ss` point in [`sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md`](../../sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md), which that record itself deferred to "a future timing pass" — is retired by the new grid rather than by argument: it predates #236 and measured a different quantity (the error at the end of a 400 ns SAMPLE window, not the residual at the DR-006 budget). The new record **extends rather than supersedes** it, because that record's own question (does the array's previous code corrupt the sampled value) is answered and still stands — the new run reproduces its code-state independence at the baseline corner as its own control (worst-node residual varies by 0.010 mV across all three previous-code states). This does not itself produce an end-to-end sample-rate figure (still open, per the summary cell above). Three things this fix touched were explicitly NOT re-derived by #236 itself: `sim/vcm-drive-budget/`'s R_source/C_decouple budget (the wider `Cmsw` draws more peak current from the shared `VCM` rail), and `layout/sampling-frontend/`'s LVS match and `layout/sar-adc-top/`'s composition of it (both stale against the schematic's new `Sa` gate net and `Cmsw` width) — tracked as follow-up issue #245 (and its own follow-up, #248) rather than asserted clean here. **Update this pass (2026-09-15): all three have since been re-derived (issues #245/#248 via PRs #249/#250, merged 2026-09-08), closing this gap.** `layout/sampling-frontend/`'s reference netlist and drawn geometry were updated to match the post-#236 schematic and re-verified DRC-clean/LVS-clean (24/24 devices, 17/17 nets, 12/12 pins, all three negative-control fixtures still correctly mismatching) — [`layout/sampling-frontend/reports/20261027-183401-b96026c2/record.md`](../../layout/sampling-frontend/reports/20261027-183401-b96026c2/record.md) (issue #733's 2026-10-27 via1-pad-widening re-run, the current `reports/LATEST`; its `drc.json` and `lvs.json` differ from the superseded record's only in input hashes), which superseded [`layout/sampling-frontend/reports/20261021-104725-ddc1d72/record.md`](../../layout/sampling-frontend/reports/20261021-104725-ddc1d72/record.md) (issue #708's 2026-10-21 re-run under `open_pdks` `f6eeac7`, then `reports/LATEST`; its `drc.json` and `lvs.json` are byte-identical to those of [`layout/sampling-frontend/reports/20260924-232823-66dca3c/record.md`](../../layout/sampling-frontend/reports/20260924-232823-66dca3c/record.md), the previous `reports/LATEST`, and only the PDK-commit, PDK-root and repo-commit lines of `record.md` differ), the earlier record having been re-pointed 2026-09-24 onto issue #377's `GND` pin promotion (same 24/24/17/17/12/12 counts; supersedes `20260918-191227-935ce76`). `layout/sar-adc-top/`'s composition was re-run against the updated sub-block GDS — DRC clean, and its LVS device-match verdict came back numerically identical to the pre-#245 baseline (869/869/794 devices, 444/446/412 nets, the same mismatch categories), confirming the pre-existing `combine_devices`-scoping gap (§7 Item 1) is unaffected and no new blocker was introduced — [`layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md`](../../layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md), superseded 2026-09-24 by issue #355's digital supply-rail tie, then by #362's analog ground pad (`20260924-214710-b323061`), then by issue #377's analog ground mesh (`20260924-234053-66dca3c`), then on 2026-09-26 by issue #440's placement of DR-017's two per-domain decoupling capacitors (`20260926-081248-203cca3`), and later the same day by issue #465's 2×2 via arrays at those four decoupling ties (`20260926-184816-e1176e3`), and on 2026-10-01 by issue #401's re-composition of the top level against the current schematic, [`layout/sar-adc-top/reports/20261001-022205-455b772/record.md`](../../layout/sar-adc-top/reports/20261001-022205-455b772/record.md), and later the same day by issue #501's re-composition against DR-019's resized `cdac_array`/`halflsb_offset`, [`layout/sar-adc-top/reports/20261001-211249-1ca34e6/record.md`](../../layout/sar-adc-top/reports/20261001-211249-1ca34e6/record.md), and on 2026-10-03 by issue #103's re-measurement of that same composition on an unreleased `klt` build (PR #534), [`layout/sar-adc-top/reports/20261027-193335-4433671f/record.md`](../../layout/sar-adc-top/reports/20261027-193335-4433671f/record.md) (the current `reports/LATEST`: issue #738's 2026-10-27 met2-pad-widening re-run at the released `klt 0.6.0`; DRC clean at 0 violations, LVS `mismatch` at 67 mismatches and 66 errors with the same 1095/1095/1046 devices, 554/555/519 nets and 21/22/22 pins and the same four mismatch categories as the record it supersedes; its `record.md` differs from that record's only in the repo-commit line and the DR-009 dummy-load wire areas (`COMP_OUT` 258.271 → 258.286 µm², `OUTN_NC` 241.379 → 241.394 µm², imbalance 6.5% in both), and its `compose.json` `bbox_um` is unchanged; this pass did not investigate what moves the wire areas), superseding [`layout/sar-adc-top/reports/20261027-183429-b96026c2/record.md`](../../layout/sar-adc-top/reports/20261027-183429-b96026c2/record.md) (the previous `reports/LATEST`: issue #733's 2026-10-27 via1-pad-widening re-run at the released `klt 0.6.0`; DRC clean at 0 violations, LVS `mismatch` at 67 mismatches and 66 errors with the same 1095/1095/1046 devices, 554/555/519 nets and 21/22/22 pins, the same four mismatch categories and the same composed `bbox_um` as the record it supersedes; the one difference in the LVS summary is that the `device.geometry_not_compared` warning is absent, 68 → 67. The record it supersedes and the one before it carry the unreleased `klt 0.6.0+g65b1b4d9b6e6` build string and this one carries `0.6.0`, and the pad geometry also changed, so two things differ and the absence is not attributed to either; issue #733 did not investigate it), superseding [`layout/sar-adc-top/reports/20261021-104926-ddc1d72/record.md`](../../layout/sar-adc-top/reports/20261021-104926-ddc1d72/record.md), the previous `reports/LATEST` (issue #708's 2026-10-21 re-run under `open_pdks` `f6eeac7`: its DRC/LVS verdict fields and counts and composed `bbox_um` are identical to [`layout/sar-adc-top/reports/20261003-041400-571f036/record.md`](../../layout/sar-adc-top/reports/20261003-041400-571f036/record.md), the previous `reports/LATEST`, which it supersedes; only the PDK-commit, PDK-root and repo-commit lines and the recorded paths and hashes differ, and the rest of this sentence describes that earlier record) (#355's was the first hop whose DRC/LVS verdict is NOT field-identical: 21/21/21 pins and 88 mismatches, an improvement; #362 moved the pins to 21/22/22; #377 moved nothing at all; #440 moved devices 869 → **871** on both sides with 804 matched and one more `device.unmatched` entry, 88 → **89**; #465 moved nothing; and #401 moved the most of any hop — 871 → **1095** devices on both sides, **1046** matched, 89 → **67** mismatches — because it composes `top_glue` + `halflsb_offset` in place of the DR-008-superseded `seln_inverters` bank, i.e. it changes what the compare is *of* rather than how a net is drawn; and #501 moved not one DRC/LVS field, the mismatch list being identical entry-for-entry; and #103's 2026-10-03 re-measurement moved only the mismatch count, 67 → **68**, by one new `device.geometry_not_compared` warning the newer build emits, every one of the 66 error entries and every device/net/pin count unchanged — and none of the eight is a simulation, so this row's UNMEASURED status is untouched). **Both citations re-pointed 2026-09-16** off the `20260908-070934-80df05e` / `20260908-072857-80df05e` records that originally established these two claims, again 2026-09-18 off `20260915-120718-1e90b14` / `20260915-234004-76f48b9` onto issue #326's minimum-area re-runs (`20260918-191227-935ce76` / `20260918-191315-935ce76`), and the `layout/sar-adc-top/` half once more 2026-09-19 onto this issue's own `--abstract-cells` ablation-probe re-run (`20260919-050355-fb11617`), and 2026-09-23 onto issue #103's `klayout-tools==0.6.0` pin-bump re-run (`20260923-131726-fa1e0af`); each is its own flow's current `reports/LATEST` — every hop again field-identical on `drc.json` and `lvs.json` to the record it supersedes — the first §4 row found stale by this document's new [citation gate](check_proposal_citations.py) rather than by a hand re-read, and stale since 2026-09-08 (every other §4 row had been re-pointed in the meantime; this one, buried mid-narrative in the sample-rate cell, had not). Neither number above moves, and that is verified from the artefacts rather than assumed from the re-runs' intent: `layout/sampling-frontend/`'s `lvs.json` is field-identical across the two records (`status: "match"`, 24/24 devices, 17/17 nets, 12/12 pins, `category_counts: {device.body_unverified: 1, topology: 1}`) with `drc.json` clean in both, and all three negative controls still mismatch in the current record; `layout/sar-adc-top/`'s `lvs.json` is likewise field-identical (`status: "mismatch"`, `mismatch_count: 98`, `error_count: 97`, 869/869/794 devices, 444/446/412 nets, 19/19/19 pins, `category_counts: {device.unmatched: 75, net.merged: 12, net.split: 10, topology.flattened: 1}`) with `drc.json` clean in both. What the newer records add is provenance, not verdicts: both were re-run under `klayout-tools` `v0.5.0` rather than `0.4.0` (the sampling front end's MIM-cap arrays grow 0.92 µm in y under `v0.5.0`, the same growth §4's Area row already tracks — it changes no device, net, or pin count), and the top-level record additionally carries PR #287's capacitor-device-class restore. A follow-up pass (#250) then folded `layout/sampling-frontend-wells/` (issue #122) forward onto the same post-#236 device table too (byte-identical composed GDS confirmed, so `layout/sar-adc-top/`'s own composition needed no further re-run) and took the VCM drive budget's remaining `--corners` legs to the full ratified PVT grid — see §7 Item 6 for that budget's own (materially different, and looser) post-#236 results | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC mechanism, single-corner first pass); [`sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md`](../../sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md) (CDAC mechanism, full ratified PVT grid, PVT-complete — extends, does not formally supersede, the single-corner record; itself replaced 2026-10-01 by the DR-019 re-run beside it); [`sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md`](../../sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md) (current `records/LATEST`, issue #498's re-run of the identical 54-deck grid against DR-019's resized `C_u` — see mechanism (a) above for the measured +0.116% and what did not move); [`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md) (comparator mechanism, full grid, PVT-complete); [`sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md`](../../sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md) (sequencer mechanism, single-corner first pass); [`sim/sequencer-logic-delay/records/20260906-230516-0904419.md`](../../sim/sequencer-logic-delay/records/20260906-230516-0904419.md) (sequencer mechanism, full ratified PVT grid, PVT-complete — extends, does not formally supersede, the single-corner record); [`sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md`](../../sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md) (front-end acquisition mechanism, single-corner first pass, pre-#236); [`sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md`](../../sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md) (front-end acquisition mechanism, full ratified PVT grid, pre-#236, superseded); [`sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md`](../../sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md) (front-end acquisition mechanism, full ratified PVT grid, post-#236 fix, PVT-complete, all 9/9 corners clear the budget); [`sim/vcm-drive-budget/records/20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md) (the interface *precondition* on mechanism (d) — how much external `VCM` drive resistance the front end tolerates while still acquiring inside these windows; full ratified PVT grid, bare `R_source`, DR-006 worst-case window, post-#236) and [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md) (the same budget's `C_decouple` axis at the legacy window, full grid, post-#236 — the record this campaign's current `records/LATEST` resolves to; all four post-#236 legs are listed in §7 Item 6, which is also where this budget's own open item lives). This last campaign is indexed under this row in [`sim/spec-coverage.json`](../../sim/spec-coverage.json) — "rather than under a row of its own", since it measures the same quantity as the acquisition bench with the `VCM` drive made non-ideal — and was cited only from §7 until this pass, which check 11 reports as a gap in this row rather than in that section |
+| Sample rate | provisional 100 kS/s–1 MS/s | DRAFT | **UNMEASURED as an end-to-end figure (all four constituent mechanisms now checked individually and all four now PVT-complete; the one mechanism previously found NOT to clear the phase budget at any ratified corner has since been fixed by issue #236 and now clears it at all 9/9 — see (d)'s "Update this pass (2026-09-08)")** — **Update this pass (2026-09-15): a full-hierarchy, whole-ADC code-correctness campaign now exists (`sim/full-conversion-transient/`, issue #254) — this row previously stated none did; that is now stale.** Its most recent full-grid run ([`records/20261011-112119-188e94c.md`](../../sim/full-conversion-transient/records/20261011-112119-188e94c.md), the current `records/LATEST`, issue #638's re-mint under DR-023's reference solver policy `reltol-gear` on the pinned ngspice-47, superseding the pre-DR-023 `ngspice-default` record `20261001-105439-c324f80`, which was issue #498's re-run against DR-019's resized `C_u` and itself superseded `20260912-002315-9aaf1ca`) found 0/9 corners code-correct. Every per-input and per-corner verdict is unchanged from the superseded record: the three mid-scale inputs are within ±1 LSB and the two near-full-scale inputs fail at all nine corners, phase structure is 5/5 everywhere, and the binding corner is still `tt_27c_1.62v` (124 LSB). Five captured codes moved by 1 LSB under the new solver policy and are recorded as solver-sensitive observations of the old policy, not converter changes: `-0.78·V_REF` at `ff_27c_1.80v` (205 → 204) and `sf_27c_1.80v` (201 → 200), and `+0.00·V_REF` 512 → 511 (still within ±1 LSB) at `sf_27c_1.80v`, `tt_-40c_1.80v` and `tt_125c_1.80v`. Issue #498's earlier resize had left every captured code bit-identical, so the resize neither fixes nor worsens this; several of the defects it surfaced have since been fixed (DR-008, DR-009) but two architecture/sizing decisions remain unresolved (issues #267 and #269 — both de-escalated from operator-decision by the operator on 2026-10-02/03 and each routed to a decision record that is not yet ratified or implemented: DR-021 merged as `proposed`, DR-022 still in unmerged PR #530. Issue #267 itself was closed on 2026-10-03 by PR #540, which only names DR-021's ratification vehicle; DR-021 stays `proposed` and nothing is implemented, so the decision is still open even though the issue is not; §7 Item 8 carries their dated tracking state) before a fresh 9-corner re-run would be meaningful. **Citation note (this pass)**: that record is also what `sim/full-conversion-transient/records/LATEST` resolves to (verified against the pointer file this pass); the pointer is `records/LATEST`, not `reports/LATEST` as this row previously wrote it, and this row now cites the record by full path so the citation does not depend on the pointer at all. See §7 Item 8 for the full campaign history and root causes. The four *mechanism-level* timing-budget checks below (a)–(d) are a distinct, narrower claim (does each stage clear its DR-006 phase budget in isolation) from this whole-ADC *code-correctness* campaign (does the assembled loop converge to the right code) — both are now evidenced, and both are open in different ways. The 1.2–12 MHz timing budget itself is still a mechanical consequence of the DRAFT rate range, not independently derived ([DR-006](../../spec/decision-records/DR-006-sar-sequencer-bit-count-and-timing-budget.md)). (a) The CDAC array's own settling is now **PVT-complete** (full ratified OAT grid, 9 corners): binding corner `tt_27c_1.62v` at 13.2466 ns (bit 8/MSB, rise), 6.3× inside the DR-006-derived 83.333 ns phase budget; fastest corner `tt_27c_1.98v` at 10.3138 ns (8.1×); worst-to-best spread only 1.28× across the grid, and the tt/27 °C/1.8 V point sits at 11.3994 ns. **Re-measured 2026-10-01 (#498)** against DR-019's grid-legal `C_u` (`W=L=1.8988 → 1.9000 µm`, +0.116% capacitance): this mechanism's own time constant is `tau_i = R_on·C_i·(1 − C_i/C_total)`, linear in `C_u`, so the prediction was +0.116% on every row — measured, the binding corner went 13.2312 → 13.2466 ns (+0.116%) and the tt baseline 11.3861 → 11.3994 ns (+0.117%). Nothing else moved: same binding and fastest corners, same 6.3×/8.1× margins, same 1.28× spread, same 7 bit-0 rows without a crossing. All 9/9 corners clear the budget — not the bottleneck anywhere on the grid. A secondary, non-gating finding: the smallest-swing diagnostic row (bit 0, ~0.2% of VDD swing) failed to produce a 99%-settling crossing at 5/9 corners, root-caused (confirmed window-invariant out to 300 ns, not asserted without evidence) to a small, genuine, already-converged offset between the real simulated circuit and the analytic closed-form ideal — negligible against bit 8's own ~1.8 V swing but exceeding 1% of bit 0's own ~4 mV swing at some corners; bit 8 (the array's own true worst case, confirmed by its own tau_i(i) derivation) crossed cleanly at all 9/9 corners, so this does not affect the worst-case finding (see §7 Item 2 for the full root-cause trace). (b) The comparator's decision delay is now PVT-complete after issue #175 (DR-004 Amendment A) closed the reset-integrity defect: 9/9 corners' Vindiff = 0 mV negative control HELD, all 27/27 input-driven points decided, binding corner `tt_27c_1.62v` at +0.5 mV = 4.3575 ns, 19.1× inside the DR-006 budget (see §7 Item 2 and the now-resolved §7 Item 3). (c) The SAR sequencer's own CLK-to-phase-output logic delay is now **PVT-complete** (full ratified OAT grid, 9 corners), covering all 11 of its own ring-sequencer phase transitions at every corner (99 phase measurements): binding corner `ss_27c_1.80v` at 0.4237 ns (phase `b1`), 196.7× inside the DR-006 budget; fastest corner `ff_27c_1.80v` at 0.2480 ns (336.1×); worst-to-best spread only 1.71× across the grid. All 9/9 corners clear the budget by more than two orders of magnitude — the smallest of the four mechanisms measured, and not the bottleneck at any ratified corner. (d) **The sampling front end's own acquisition of a new, worst-case (rail-to-rail) differential input value is now ALSO PVT-complete (full ratified OAT grid, 9 corners) — and it is the only mechanism of the four found NOT to clear the budget, at EVERY ratified corner**: the single-corner (`tt`/27 °C/1.8 V) finding of a 23.43 mV residual (~13.3× the provisional differential LSB's half-step), traced to the bootstrap precharge PFET `Sa`'s imperfect off-state once `BOOST_x` is boosted above `VDD`, was not a corner-specific artifact — every one of the 9 ratified corners exceeds the half-LSB reference scale, with a binding corner of `tt_27c_1.62v` at 67.19 mV (~38.2× the half-LSB, 2.9× worse than the tt/27 °C/1.8 V baseline) and a best corner of `tt_27c_1.98v` at 9.00 mV (~5.1×). This is the opposite outcome from mechanisms (a)–(c); the front end's own acquisition, not the CDAC, comparator, or sequencer, is the likely bottleneck for an end-to-end sample-rate figure at the fast end of the DRAFT range, across the full ratified PVT grid, not just one corner — strengthening, not merely narrowing, the open item, and consistent with DR-006's own deferred "non-uniform phase allocation" alternative. The design-fix follow-up this finding implies (a topology/sizing fix for the bootstrap precharge PFET `Sa`, or adopting the non-uniform-phase-allocation alternative) is now tracked as issue #236, filed this pass, since this document compiles evidence rather than designing circuit fixes. **Update this pass (2026-09-08): issue #236 closed with a circuit fix, not a phase reallocation — `design/sampling_frontend.sch`'s uniform DR-006 phase budget is UNCHANGED.** Instrumenting `BOOST_x` directly isolated two independent limiters, both fixed: (1) `Sa`'s gate moved from `SAMPLE` to the switch's own gate node `G_{p,n}` — `Sa`'s source is the boosted node itself, so gating it from a VDD-level `SAMPLE` left `V_sg ~= VIN` (an ON device discharging `BOOST_x` throughout the sample phase, not a leaky off one); gating it from `G_{p,n}` instead (GND during hold via `Sd`, shorted to `BOOST_x` by `Se` during sampling) makes `V_sg ~= 0`, genuinely off; (2) once (1) was applied, the common-mode reference transmission gate `Cmswn/Cmswp` — in series with `Csamp` on the acquisition path via the floating `BPREF_x` node — was the limiter that remained, fixed by widening it from W=1 µm to W=16 µm. Re-running the full ratified PVT grid ([`sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md`](../../sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md)) with both fixes applied: **all 9/9 ratified corners now clear the DR-006 worst-case (12 MHz) phase budget, worst case 0.380 mV (`tt_27c_1.62v`, ~0.2× the half-LSB) vs. the pre-fix 67.19 mV (~38.2×) at the same corner** — the sampling front end's own acquisition is no longer the standout bottleneck the pre-#236 schematic made it, alongside mechanisms (a)–(c). **Update this pass (2026-09-26): that grid reads the front-end fragment ALONE, and mechanism (d) has now been re-measured at the load the top level actually presents** — `design/sar_adc_top.sch` ties the same `TOP_P`/`TOP_N` to the CDAC array too, so the assembled top-plate load is the front end's own `Csamp_p`/`Csamp_n` (~4.43 pF/side, DR-004) **plus** the array's own ~4.43 pF/side of bit capacitance: roughly double what the record above was run against. Same stimulus, same two fixed-time probe instants, same 9 ratified OAT points, only the load differs ([`sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md`](../../sim/sampling-cdac-handoff/records/20260926-231457-ebf79e8.md), this campaign's own new `--corners` mode; replaced 2026-10-01 by [`sim/sampling-cdac-handoff/records/20261001-135431-7487784.md`](../../sim/sampling-cdac-handoff/records/20261001-135431-7487784.md), the current `records/LATEST`, issue #498's re-run of that grid against DR-019's resized `C_u`: the binding-corner residual moves 0.9260 → 0.9280 mV, i.e. very slightly larger as more top-plate capacitance predicts, and all 9/9 corners still land inside the reference scale). **All 9/9 corners still clear the DR-006 worst-case (12 MHz) phase budget at the assembled load**: binding corner `tt_27c_1.62v` at 0.926 mV (0.53× the provisional differential half-LSB reference scale) against the front-end-only grid's 0.380 mV at that same corner — a factor ~2.4 for the doubled load — and every other corner at or below 0.053 mV. So mechanism (d)'s PVT-complete status is now a statement about the assembled load, not only about the front end in isolation; before this pass the qualifier belonged in this cell, and the reason it is gone is a measurement, not a rewording. The one pre-existing combined-load figure in the tree — 5.33 mV single-ended at one directional `ss` point in [`sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md`](../../sim/sampling-cdac-handoff/records/20260824-231304-144edeb.md), which that record itself deferred to "a future timing pass" — is retired by the new grid rather than by argument: it predates #236 and measured a different quantity (the error at the end of a 400 ns SAMPLE window, not the residual at the DR-006 budget). The new record **extends rather than supersedes** it, because that record's own question (does the array's previous code corrupt the sampled value) is answered and still stands — the new run reproduces its code-state independence at the baseline corner as its own control (worst-node residual varies by 0.010 mV across all three previous-code states). This does not itself produce an end-to-end sample-rate figure (still open, per the summary cell above). Three things this fix touched were explicitly NOT re-derived by #236 itself: `sim/vcm-drive-budget/`'s R_source/C_decouple budget (the wider `Cmsw` draws more peak current from the shared `VCM` rail), and `layout/sampling-frontend/`'s LVS match and `layout/sar-adc-top/`'s composition of it (both stale against the schematic's new `Sa` gate net and `Cmsw` width) — tracked as follow-up issue #245 (and its own follow-up, #248) rather than asserted clean here. **Update this pass (2026-09-15): all three have since been re-derived (issues #245/#248 via PRs #249/#250, merged 2026-09-08), closing this gap.** `layout/sampling-frontend/`'s reference netlist and drawn geometry were updated to match the post-#236 schematic and re-verified DRC-clean/LVS-clean (24/24 devices, 17/17 nets, 12/12 pins, all three negative-control fixtures still correctly mismatching) — [`layout/sampling-frontend/reports/20261027-183401-b96026c2/record.md`](../../layout/sampling-frontend/reports/20261027-183401-b96026c2/record.md) (issue #733's 2026-10-27 via1-pad-widening re-run, the current `reports/LATEST`; its `drc.json` and `lvs.json` differ from the superseded record's only in input hashes), which superseded [`layout/sampling-frontend/reports/20261021-104725-ddc1d72/record.md`](../../layout/sampling-frontend/reports/20261021-104725-ddc1d72/record.md) (issue #708's 2026-10-21 re-run under `open_pdks` `f6eeac7`, then `reports/LATEST`; its `drc.json` and `lvs.json` are byte-identical to those of [`layout/sampling-frontend/reports/20260924-232823-66dca3c/record.md`](../../layout/sampling-frontend/reports/20260924-232823-66dca3c/record.md), the previous `reports/LATEST`, and only the PDK-commit, PDK-root and repo-commit lines of `record.md` differ), the earlier record having been re-pointed 2026-09-24 onto issue #377's `GND` pin promotion (same 24/24/17/17/12/12 counts; supersedes `20260918-191227-935ce76`). `layout/sar-adc-top/`'s composition was re-run against the updated sub-block GDS — DRC clean, and its LVS device-match verdict came back numerically identical to the pre-#245 baseline (869/869/794 devices, 444/446/412 nets, the same mismatch categories), confirming the pre-existing `combine_devices`-scoping gap (§7 Item 1) is unaffected and no new blocker was introduced — [`layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md`](../../layout/sar-adc-top/reports/20260923-131726-fa1e0af/record.md), superseded 2026-09-24 by issue #355's digital supply-rail tie, then by #362's analog ground pad (`20260924-214710-b323061`), then by issue #377's analog ground mesh (`20260924-234053-66dca3c`), then on 2026-09-26 by issue #440's placement of DR-017's two per-domain decoupling capacitors (`20260926-081248-203cca3`), and later the same day by issue #465's 2×2 via arrays at those four decoupling ties (`20260926-184816-e1176e3`), and on 2026-10-01 by issue #401's re-composition of the top level against the current schematic, [`layout/sar-adc-top/reports/20261001-022205-455b772/record.md`](../../layout/sar-adc-top/reports/20261001-022205-455b772/record.md), and later the same day by issue #501's re-composition against DR-019's resized `cdac_array`/`halflsb_offset`, [`layout/sar-adc-top/reports/20261001-211249-1ca34e6/record.md`](../../layout/sar-adc-top/reports/20261001-211249-1ca34e6/record.md), and on 2026-10-03 by issue #103's re-measurement of that same composition on an unreleased `klt` build (PR #534), [`layout/sar-adc-top/reports/20261027-193335-4433671f/record.md`](../../layout/sar-adc-top/reports/20261027-193335-4433671f/record.md) (the current `reports/LATEST`: issue #738's 2026-10-27 met2-pad-widening re-run at the released `klt 0.6.0`; DRC clean at 0 violations, LVS `mismatch` at 67 mismatches and 66 errors with the same 1095/1095/1046 devices, 554/555/519 nets and 21/22/22 pins and the same four mismatch categories as the record it supersedes; its `record.md` differs from that record's only in the repo-commit line and the DR-009 dummy-load wire areas (`COMP_OUT` 258.271 → 258.286 µm², `OUTN_NC` 241.379 → 241.394 µm², imbalance 6.5% in both), and its `compose.json` `bbox_um` is unchanged; this pass did not investigate what moves the wire areas), superseding [`layout/sar-adc-top/reports/20261027-183429-b96026c2/record.md`](../../layout/sar-adc-top/reports/20261027-183429-b96026c2/record.md) (the previous `reports/LATEST`: issue #733's 2026-10-27 via1-pad-widening re-run at the released `klt 0.6.0`; DRC clean at 0 violations, LVS `mismatch` at 67 mismatches and 66 errors with the same 1095/1095/1046 devices, 554/555/519 nets and 21/22/22 pins, the same four mismatch categories and the same composed `bbox_um` as the record it supersedes; the one difference in the LVS summary is that the `device.geometry_not_compared` warning is absent, 68 → 67. The record it supersedes and the one before it carry the unreleased `klt 0.6.0+g65b1b4d9b6e6` build string and this one carries `0.6.0`, and the pad geometry also changed, so two things differ and the absence is not attributed to either; issue #733 did not investigate it), superseding [`layout/sar-adc-top/reports/20261021-104926-ddc1d72/record.md`](../../layout/sar-adc-top/reports/20261021-104926-ddc1d72/record.md), the previous `reports/LATEST` (issue #708's 2026-10-21 re-run under `open_pdks` `f6eeac7`: its DRC/LVS verdict fields and counts and composed `bbox_um` are identical to [`layout/sar-adc-top/reports/20261003-041400-571f036/record.md`](../../layout/sar-adc-top/reports/20261003-041400-571f036/record.md), the previous `reports/LATEST`, which it supersedes; only the PDK-commit, PDK-root and repo-commit lines and the recorded paths and hashes differ, and the rest of this sentence describes that earlier record) (#355's was the first hop whose DRC/LVS verdict is NOT field-identical: 21/21/21 pins and 88 mismatches, an improvement; #362 moved the pins to 21/22/22; #377 moved nothing at all; #440 moved devices 869 → **871** on both sides with 804 matched and one more `device.unmatched` entry, 88 → **89**; #465 moved nothing; and #401 moved the most of any hop — 871 → **1095** devices on both sides, **1046** matched, 89 → **67** mismatches — because it composes `top_glue` + `halflsb_offset` in place of the DR-008-superseded `seln_inverters` bank, i.e. it changes what the compare is *of* rather than how a net is drawn; and #501 moved not one DRC/LVS field, the mismatch list being identical entry-for-entry; and #103's 2026-10-03 re-measurement moved only the mismatch count, 67 → **68**, by one new `device.geometry_not_compared` warning the newer build emits, every one of the 66 error entries and every device/net/pin count unchanged — and none of the eight is a simulation, so this row's UNMEASURED status is untouched). **Both citations re-pointed 2026-09-16** off the `20260908-070934-80df05e` / `20260908-072857-80df05e` records that originally established these two claims, again 2026-09-18 off `20260915-120718-1e90b14` / `20260915-234004-76f48b9` onto issue #326's minimum-area re-runs (`20260918-191227-935ce76` / `20260918-191315-935ce76`), and the `layout/sar-adc-top/` half once more 2026-09-19 onto this issue's own `--abstract-cells` ablation-probe re-run (`20260919-050355-fb11617`), and 2026-09-23 onto issue #103's `klayout-tools==0.6.0` pin-bump re-run (`20260923-131726-fa1e0af`); each is its own flow's current `reports/LATEST` — every hop again field-identical on `drc.json` and `lvs.json` to the record it supersedes — the first §4 row found stale by this document's new [citation gate](check_proposal_citations.py) rather than by a hand re-read, and stale since 2026-09-08 (every other §4 row had been re-pointed in the meantime; this one, buried mid-narrative in the sample-rate cell, had not). Neither number above moves, and that is verified from the artefacts rather than assumed from the re-runs' intent: `layout/sampling-frontend/`'s `lvs.json` is field-identical across the two records (`status: "match"`, 24/24 devices, 17/17 nets, 12/12 pins, `category_counts: {device.body_unverified: 1, topology: 1}`) with `drc.json` clean in both, and all three negative controls still mismatch in the current record; `layout/sar-adc-top/`'s `lvs.json` is likewise field-identical (`status: "mismatch"`, `mismatch_count: 98`, `error_count: 97`, 869/869/794 devices, 444/446/412 nets, 19/19/19 pins, `category_counts: {device.unmatched: 75, net.merged: 12, net.split: 10, topology.flattened: 1}`) with `drc.json` clean in both. What the newer records add is provenance, not verdicts: both were re-run under `klayout-tools` `v0.5.0` rather than `0.4.0` (the sampling front end's MIM-cap arrays grow 0.92 µm in y under `v0.5.0`, the same growth §4's Area row already tracks — it changes no device, net, or pin count), and the top-level record additionally carries PR #287's capacitor-device-class restore. A follow-up pass (#250) then folded `layout/sampling-frontend-wells/` (issue #122) forward onto the same post-#236 device table too (byte-identical composed GDS confirmed, so `layout/sar-adc-top/`'s own composition needed no further re-run) and took the VCM drive budget's remaining `--corners` legs to the full ratified PVT grid — see §7 Item 6 for that budget's own (materially different, and looser) post-#236 results | [`sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md`](../../sim/cdac-bit-trial-settling/records/20260905-220919-bbf06dd.md) (CDAC mechanism, single-corner first pass); [`sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md`](../../sim/cdac-bit-trial-settling/records/20260907-013225-5f176a6.md) (CDAC mechanism, full ratified PVT grid, PVT-complete — extends, does not formally supersede, the single-corner record; itself replaced 2026-10-01 by the DR-019 re-run beside it); [`sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md`](../../sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md) (current `records/LATEST`, issue #498's re-run of the identical 54-deck grid against DR-019's resized `C_u` — see mechanism (a) above for the measured +0.116% and what did not move); [`sim/comparator-decision/records/20260906-074451-7724af3.md`](../../sim/comparator-decision/records/20260906-074451-7724af3.md) (comparator mechanism, full grid, PVT-complete); [`sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md`](../../sim/sequencer-logic-delay/records/20260906-192230-1b5c996.md) (sequencer mechanism, single-corner first pass); [`sim/sequencer-logic-delay/records/20260906-230516-0904419.md`](../../sim/sequencer-logic-delay/records/20260906-230516-0904419.md) (sequencer mechanism, full ratified PVT grid, PVT-complete — extends, does not formally supersede, the single-corner record); [`sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md`](../../sim/sampling-acquisition-settling/records/20260906-202424-cb7e7aa.md) (front-end acquisition mechanism, single-corner first pass, pre-#236); [`sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md`](../../sim/sampling-acquisition-settling/records/20260906-211700-00d26af.md) (front-end acquisition mechanism, full ratified PVT grid, pre-#236, superseded); [`sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md`](../../sim/sampling-acquisition-settling/records/20260908-051436-6ccd72d.md) (front-end acquisition mechanism, full ratified PVT grid, post-#236 fix, PVT-complete, all 9/9 corners clear the budget); [`sim/vcm-drive-budget/records/20261113-180119-8a49c8e1.md`](../../sim/vcm-drive-budget/records/20261113-180119-8a49c8e1.md) (the interface *precondition* on mechanism (d) — how much external `VCM` drive resistance the front end tolerates while still acquiring inside these windows; full ratified PVT grid, bare `R_source`, DR-006 worst-case window, post-#236 — the record this campaign's current `records/LATEST` resolves to; it supersedes `20260908-100413-f3e2914`, which it re-ran on the batch fleet under `klt sim` — issue #881 — with no corner's budget changing) and [`sim/vcm-drive-budget/records/20261113-175840-8a49c8e1.md`](../../sim/vcm-drive-budget/records/20261113-175840-8a49c8e1.md) (the same budget's `C_decouple` axis at the legacy window, full grid, post-#236; it supersedes `20260908-115336-f3e2914` under the same issue #881 re-run, and no corner's budget changed. That record's own Result section no longer claims a decoupling rescue: at every ratified corner the bare `R_source` sweep stayed inside 1 provisional LSB, so `marginal_r_source()` returned its fallback and there was nothing for decoupling to rescue; all four post-#236 legs are listed in §7 Item 6, which is also where this budget's own open item lives). This last campaign is indexed under this row in [`sim/spec-coverage.json`](../../sim/spec-coverage.json) — "rather than under a row of its own", since it measures the same quantity as the acquisition bench with the `VCM` drive made non-ideal — and was cited only from §7 until this pass, which check 11 reports as a gap in this row rather than in that section. **Added this pass (2026-11-13, issue #841)**: the same interface precondition on the REFERENCE side is now measured too — [`sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md`](../../sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md), the whole `design/sar_adc_top.spice` driven through a series `R_ref` on each of `VREFP`/`VREFN`, 54 units over the full ratified 9-corner grid in one `klt sim` request, every error referenced to that corner's own `R_ref = 0` control row rather than to the ideal code (which matters here precisely because this row's own campaign above reports the two near-full-scale inputs failing at every corner — that pre-existing error sits in both sides of the comparison and is not charged to the reference drive). The tolerated resistance is 200–800 Ω per corner at the 1 LSB tier and 5–800 Ω at the 0 LSB tier; `5 Ω` is a simulated point of the sweep and moves no captured code at 9/9 corners — on the four of five inputs that can register movement, the fifth (`+0.78·V_REF`) being already clipped at full scale in every control row, excluded from the count rather than carried as a zero, and not bounded by this campaign at all. It is informational against this DRAFT row exactly as the `VCM` budget is: it grades nothing, changes no spec row, and bounds only a pure series resistance at the DR-006 worst-case `f_clk` — not bus or pad capacitance, not inductance, not any other loading of a shared line (see §7 Item 11 route (iii), which is what asked for it). **Update (2026-11-13, issue #847):** the same interface precondition now has its INPUT-side twin — [`sim/input-drive-budget/records/20261113-110421-e03343e.md`](../../sim/input-drive-budget/records/20261113-110421-e03343e.md) (how much series source resistance the `VINP`/`VINN` pads tolerate while the front end still acquires a new full-scale differential input inside these same windows; full ratified PVT grid, both acquisition windows, 9/9 corners complete). Before it, no `sim/` testbench put any source impedance on the signal inputs at all. At the DR-006 worst-case (83.333 ns) window the 1-LSB budget is **1 kΩ** at eight corners and **300 Ω** at the binding corner `tt_27c_1.62v`; at the legacy (400 ns) window it is 10 kΩ at all nine. Nothing there is graded against a spec row, and it proposes no sample rate — but note that `spec/target-spec.md`'s DRAFT Kickback row already states a `1 kΩ` series source impedance on these pins, and at the worst-case window that value stays within this mechanism's own 1-LSB tier at eight corners (at most 0.1804 LSB control-relative) and exceeds it at the binding corner `tt_27c_1.62v` (1.67 LSB). Grading that row is not in this campaign's scope; the two numbers now at least sit on the same page. This campaign is likewise indexed under this row rather than one of its own, for the same reason as the `VCM` twin above. |
 | ENOB | > 7.5 bit (target), stretch > 8.0 (DR-007 candidate, was > 9.0/9.5) | DRAFT (target value, not ratified) | **Informational only — no ratified line exists to grade against.** Against `spec/target-spec.md`'s *current* DRAFT row (DR-007's candidate pair): 8.506 bit (mean-case CDAC mismatch) **meets** both the > 7.5 baseline and the > 8.0 stretch; 7.755 bit (worst-case CDAC mismatch) **meets the > 7.5 baseline but NOT the > 8.0 stretch**. Against the *original*, pre-DR-007 DRAFT row (> 9.0 / > 9.5) neither figure meets either bound. Re-composed this pass against DR-004 Amendment A's amended comparator-noise figure (0.8643 mV rms, down from 0.9591 — the same figure the comparator-noise row above already cites), moving the estimate from 8.491/7.749 to 8.506/7.755; the met/unmet outcome is unchanged in kind. **Correction**: this row previously headlined "DOES NOT MEET even the un-ratified DR-007 candidate", which overstated the shortfall — the source record's own scoring table marks the worst case as *meeting* the > 7.5 baseline, failing only the > 8.0 stretch (see §7 Item 4). **Re-pointed 2026-09-25** (issue #405, which minted this flow's first `records/LATEST` pointer): the DR-007-candidate citation now names `20260925-090023-c3a6872`, a same-inputs re-run of `20260906-173830-6f04f59` (identical `--cdac-mc-record`/target flags) that reproduces its figures byte-for-byte (8.506 / 7.755 bit) — the prior record is not wrong, just no longer this flow's `records/LATEST`; no verdict changes. **Re-composed 2026-10-01 (#498)** against DR-019's grid-legal `C_u`: this campaign executes no ngspice of its own, and one of its three composed inputs (the CDAC-mismatch term) moved, so it is re-composed on the re-run Monte Carlo record `20261001-124049-5207381`. The mismatch term's mean-case contribution goes 2.5281 → 2.5256 mV rms, total noise 2.8589 → 2.8567 mV rms, and mean-case ENOB **8.506 → 8.507 bit**; worst-case ENOB is unchanged at **7.755 bit** (that draw's max\|INL\| is bit-identical), so both met/unmet verdicts above stand exactly as stated. The new record also carries a `klt yield` table the superseded one could not produce, including its own "n=2, required_n_for_target=368, insufficient" verdict so the two-point set is not mistaken for a yield claim | [`sim/enob-estimate/records/20261008-233032-8bc3d1f.md`](../../sim/enob-estimate/records/20261008-233032-8bc3d1f.md) (current `records/LATEST`; #587's per-draw re-derivation from the same source CDAC campaign: 40 conditional analytical ENOB estimates, one per real CDAC mismatch draw, for `klt yield` instead of two aggregates; same 8.506/7.755 headline values, candidate targets unchanged, no yield verdict recorded because the native yield extension was absent on the minting host; a conditional estimate across CDAC mismatch draws only, not a transient/FFT ENOB and not a joint Monte Carlo), superseding [`sim/enob-estimate/records/20261001-141249-7487784.md`](../../sim/enob-estimate/records/20261001-141249-7487784.md) (#498's re-composition on the resized `C_u`, superseding `20260925-090023-c3a6872`, which was itself the DR-007-candidate scoring composed from the post-amendment comparator noise); [`sim/enob-estimate/records/20260906-082749-7724af3.md`](../../sim/enob-estimate/records/20260906-082749-7724af3.md) (identical figures scored against the original > 9.0 / > 9.5 row — the record `docs/characterization-report.md` pins); informational dynamic cross-check (issue #605): [`sim/full-conversion-transient/records/20261010-070734-f968286.md`](../../sim/full-conversion-transient/records/20261010-070734-f968286.md) — the first coherent-sine FFT on the whole transistor-level design, pinned ngspice-47, VALIDITY clean. It reports SNDR 2.17 dB / ENOB 0.068 bit at the tone amplitude (ideal quantizer on the same plan: 50.89 dB / 8.161 bit), but that figure is **not a clean converter measurement**: 31 of its 32 captured codes are within ±2 LSB of ideal, and a single conversion (conversion 9, near the zero crossing: 960 against an ideal 522, +438 LSB) dominates the error power and so the reported SNDR/ENOB (and very likely the SFDR). The outlier is tracked in issue #621: the runner now reports a per-code outlier diagnostic (bound 8 LSB; diagnostic-only, not a validity gate) for future records, and the re-run [`sim/full-conversion-transient/records/20261010-204225-57a55c1.md`](../../sim/full-conversion-transient/records/20261010-204225-57a55c1.md) (supersedes it for reporting; bit-identical codes) adds a read-only conversion-9 trace showing the comparator-input top plate TOP_P making the normal bit-4 step (0.860 V at the phase-5 mid-evaluate probe), then dropping to -0.505 V later in that same phase before capture and held below ground thereafter. Root cause (issue #621): the switching-event re-runs [`sim/full-conversion-transient/records/20261011-021527-8d0c19a.md`](../../sim/full-conversion-transient/records/20261011-021527-8d0c19a.md) and [`sim/full-conversion-transient/records/20261011-022915-877794b.md`](../../sim/full-conversion-transient/records/20261011-022915-877794b.md) (default ngspice settings, bit-identical stream, each superseding the previous) observe the already-rejected registers DOUT8/7/6 and DOUT2 switching 0→1 together, with no CLK rising edge, during the comparator's phase-5 regeneration. Their P bottom plates then pull TOP_P below ground. The solver control [`sim/full-conversion-transient/records/20261011-023419-877794b.md`](../../sim/full-conversion-transient/records/20261011-023419-877794b.md) (only `.options reltol=1e-4 method=gear` added) shows no such event: conversion 9 = 521 vs ideal 522, 0 outliers, SNDR 52.00 dB / ENOB 8.345 bit (ideal quantizer 50.89 dB / 8.161 bit on this N=32 plan). The inferred root cause is a numerical artefact of the default solver settings, not a converter decision. The control is a control, not replacement evidence. It grades nothing and no target value changes. **Reference re-mint (issue #638, DR-023):** [`sim/full-conversion-transient/records/20261011-110009-320dbc6.md`](../../sim/full-conversion-transient/records/20261011-110009-320dbc6.md) is the reference coherent-sine capture under `reltol-gear` (pinned ngspice-47, same N=32 / bin 7 / 0.25·V_REF plan), superseding `20261011-022915-877794b`. Its validity gate is clean: 32/32 phase structure, no missing measurement, peak bin = drive bin, no clipping, 0 outliers above 8 LSB, max \|error\| 2 LSB. Its 32 captured codes match the solver control `20261011-023419-877794b` code for code, and they match `20261011-022915-877794b` everywhere except conversion 9 (521 instead of 960). The unmodified stream gives SNDR 52.00 dB / ENOB 8.345 bit / SFDR 54.98 dB, against 50.89 dB / 8.161 bit for the ideal quantizer on this plan, where the excess is short-record estimator variance. This remains informational: one corner, N=32, no noise sources and -12 dBFS, so the DRAFT ENOB row is not graded and no target changes. The capture uses a different stimulus from the DC corner campaign [`sim/full-conversion-transient/records/20261011-112119-188e94c.md`](../../sim/full-conversion-transient/records/20261011-112119-188e94c.md) (the flow's newest corner-campaign record and `records/LATEST`, re-minted under the same policy, FAIL at every ratified corner), and this one small-amplitude, single-corner capture neither confirms nor retires that campaign's findings |
 | INL / DNL | ≤ ±2.0 LSB (target, DR-007 candidate, was ≤ ±1 LSB) | DRAFT (target value, not ratified) | **Informational only**: empirical yield 0.825 (DNL) / 0.925 (INL) at N=40 against the *original* ≤ ±1 LSB target's 0.99 yield bar — `klt yield`'s own sample-size verdict on both is "insufficient" for a tight yield-fraction claim. A re-scoring against DR-007's wider ±2.0 LSB candidate **does** exist in-repo (a pure re-parse of the same 40 committed mismatch draws, no new ngspice run): its worst single draw is max\|DNL\| = 1.9716 LSB and max\|INL\| = 1.3147 LSB, i.e. every sampled draw falls inside the ±2.0 LSB candidate bound — but `klt yield` produced no report in that record's environment (a known packaging gap — **re-checked live this pass (2026-09-26)**: klayout-tools#1061 is now `CLOSED`/`COMPLETED`, but only fixed the gap's *discoverability* (docs/`--help` text via #1078), not the gap itself; a second friction report on the same substantive ask, klayout-tools#2466, was also closed `COMPLETED` this way (docs-only #2474); the actual "publish `klt_yield_native` as a prebuilt wheel" ask has now been raised and closed twice without ever being attempted, and was untracked by any open issue as of this pass — filed fresh at klayout-tools#2531, kept generic per this repo's friction protocol), so there is **no machine-checked yield-fraction verdict against the candidate bound**, and N=40 is not sized for a tight yield-fraction claim in any case. Not graded met/unmet here: the candidate bound is not ratified | [`sim/cdac-array-transfer/records/20260828-005006-0c70212.md`](../../sim/cdac-array-transfer/records/20260828-005006-0c70212.md) (original ≤ ±1 LSB scoring — the record `docs/characterization-report.md` pins); [`sim/cdac-array-transfer/records/20260828-022618-f36913e.md`](../../sim/cdac-array-transfer/records/20260828-022618-f36913e.md) (DR-007-candidate re-scoring of the same draws) |
 | Gain error, systematic | `<= 1.42 LSB` span-referred (`<= 0.139 %` of full scale), untrimmed, excluding `V_REF` error | DRAFT (new row, DR-022 candidate) | **Informational only — no ratified line exists to grade against.** This row is new as of this pass ([DR-022](../../spec/decision-records/DR-022-cdac-gain-error-specified-not-sized.md) via #269); its candidate value is derived from DR-003 Item 3's `1.42 LSB` mismatch term by gf180-sar-adc DR-0012's equal-share method, not fitted to a measurement. Against it, informationally: DR-022 reads the CDAC gain off issue #263's decision-margin trace (the record DR-022's own header names as its evidence) as `g = 0.99200` at `tt_27c_1.80v` and `0.99190` at `tt_27c_1.62v` — a systematic gain error of `0.80 %`/`0.81 %` (`8.2`/`8.3 LSB` span-referred), `≈ 5.8×` the candidate. **Two corners only**, none of the MiM r+c corners the row's binding condition names, and no runner extracts the gain: DR-022 derived it by hand from that trace's tables, so the row is indexed `unbenched` in `sim/spec-coverage.json`. The gap is recorded, not relaxed; DR-022 shows no unit-cap or comparator resize can close it and names the closure options as open items. **Update (issue #754):** the `C_par` that gain figure rests on is no longer only DR-022's estimate: `sim/top-plate-cpar/records/20261101-183325-60421e38.md` measures it (AC capacitance of `TOP_P`/`TOP_N` of the as-committed `design/sar_adc_top.spice` in hold, `13/13` corners complete, including the four MiM r+c corners) at `3.962 C_u` at `tt_27c_1.80v` and `3.998 C_u` at `tt_27c_1.62v`, against DR-022's `4.13`/`4.18 C_u` — that record's own cross-check table. It measures `C_par`, not the gain, so no runner extracts the gain yet, the row stays `unbenched`, and nothing here is relaxed. Ratification is open | [DR-022](../../spec/decision-records/DR-022-cdac-gain-error-specified-not-sized.md) (the derivation and its evidence; the trace it reads the gain from is a diagnostic whose Claim names DR-009, not this row, so it is not cited here; the `C_par` record cited above has Claim `none -- characterization`) |
@@ -1446,7 +1550,16 @@ What can drift unnoticed is not that either set exists but its *size and
 membership*, so that is gated (check 18), in the same shape check 6 gates the
 pointer-claim census below:
 
-> of the **30** (spec row, evidence flow) citation pairs in Section 4's table, **21** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**9** records), `sim/comparator-decision` (**18** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
+> of the **32** (spec row, evidence flow) citation pairs in Section 4's table, **23** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**10** records), `sim/comparator-decision` (**18** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
+
+(30 → **31** pairs and 21 → **22** freshness-checked on 2026-11-13,
+issue #841: the **Sample rate** row's new `sim/reference-drive-budget`
+citation names a flow that does publish a `records/LATEST` pointer, so it
+joins the checked set and the pointerless list is unchanged — the direction
+this gate is meant to allow. 31 → **32** pairs and 22 → **23** the same day,
+issue #847: the **Sample rate** row's new `sim/input-drive-budget` citation
+likewise names a flow that publishes a `records/LATEST` pointer, so it joins
+the checked set too and the pointerless list is again unchanged.)
 
 `python3 docs/chipalooza/check_proposal_citations.py --stats` prints that
 sentence live, to be pasted back in when it moves. It is graded in both
@@ -1485,9 +1598,22 @@ harness self-tests `sim/harness-corner-smoke/` and `sim/mc-smoke/` (which the
 by record path from those two rows, no verdict moving, and the general case is
 gated:
 
-> of the **18** campaigns under `sim/` holding at least one committed record,
-> **18** are cited by path in this document and **0** are not: **none** — every
+> of the **20** campaigns under `sim/` holding at least one committed record,
+> **20** are cited by path in this document and **0** are not: **none** — every
 > campaign holding a committed record is cited by path
+
+(18 → **19** on 2026-11-13: issue #841's new `sim/reference-drive-budget/`
+campaign holds its first committed record, and §7 Item 11's route (iii)
+cites it by path. What that record measures is the series source resistance
+`VREFP`/`VREFN` tolerate before the captured codes move — the reference-side
+counterpart of `sim/vcm-drive-budget/`, which budgets `VCM` — so the count
+moves and the "every campaign is cited" qualification does not. 19 → **20**
+the same day: issue #847's new `sim/input-drive-budget/` campaign likewise
+holds its first committed record, cited by path from the **Sample rate** row
+above. What that record measures is the series source resistance `VINP`/`VINN`
+tolerate while the front end still acquires inside the DR-006 windows — the
+input-side counterpart of the same `VCM` budget — so again the count moves
+and the qualification does not.)
 
 `--stats` prints that sentence live too. "Cited by path" deliberately means a
 record path, not a mention of the campaign directory: saying a campaign exists
@@ -1521,8 +1647,15 @@ and an optional "the"/"record:" connector.
 **Census, machine-checked** (this paragraph counts itself, its own two quoted
 examples below included): of the **32** "current `…/LATEST`" phrases in this
 document, **19** are attached and therefore checked; of the **13** skipped,
-**8** name a record stamp within 200 characters after the phrase, and **5**
+**9** name a record stamp within 200 characters after the phrase, and **4**
 name none at all.
+
+(8 → **9** / 5 → **4** on 2026-11-13, issue #881: the `sim/vcm-drive-budget/`
+pointer claim in the Sample-rate row of §4's table moved from the record it
+used to name to the one `records/LATEST` now resolves to, and the clause
+that supersession added after it names the displaced record's stamp. The
+phrase is therefore no longer narration with no record after it; one phrase
+changed skipped-shape, and the attached/checked count did not move.)
 
 Those two skipped shapes are skipped for different reasons, and neither is a
 gap this document intends to close by rewriting itself:
@@ -4457,12 +4590,17 @@ tracker already owns.
    remains single-corner (`tt`/27 °C/1.8 V) only.
 
    **Result, stated plainly rather than smoothed over — the legacy window's
-   own single-corner finding of ≤ 0 Ω (zero margin) is itself
-   corner-dependent, not a uniform floor**: 4 of the 9 ratified corners
+   own single-corner finding of "no positive budget found" (both records
+   print that cell as a budget of `<= 0`) is itself corner-dependent, not a
+   uniform floor**: 4 of the 9 ratified corners
    (`tt_27c_1.80v`, `fs_27c_1.80v`, `tt_125c_1.80v`, `tt_27c_1.62v`)
-   reproduce that same ≤ 0 Ω floor — offering zero margin for any nonzero
-   drive impedance at those corners — but the remaining 5 corners recover a
-   positive budget: `ss_27c_1.80v` and `ff_27c_1.80v` at ≤ 10 kΩ, and
+   reproduce that same outcome — neither of the two nonzero resistances
+   this window sweeps (10 kΩ and 100 kΩ) stayed inside 1 LSB there, so what
+   the cell records is that no swept nonzero value passed, not a measured
+   budget of 0 Ω; the smallest nonzero value swept at this window is 10 kΩ,
+   so where the real limit sits below that is not resolved by this sweep —
+   but the remaining 5 corners recover a positive budget:
+   `ss_27c_1.80v` and `ff_27c_1.80v` at ≤ 10 kΩ, and
    `sf_27c_1.80v`, `tt_-40c_1.80v`, and `tt_27c_1.98v` at ≤ 100 kΩ
    (right-censored — every value up to the largest swept stayed under
    threshold, so the true budget for those three corners is ≥ 100 kΩ, not
@@ -4470,24 +4608,44 @@ tracker already owns.
    worst-case-window full-grid finding above**: there, the single-corner
    `tt`/27 °C/1.8 V point was the LOOSEST corner and the full grid tightened
    it by 10×; here, the single-corner `tt`/27 °C/1.8 V point is one of the
-   TIGHTEST (worst) corners, tied with three others at the zero-margin
-   floor, while a different subset of the grid (the `sf` process corner,
-   cold temperature, and high supply) recovers substantial margin instead.
+   TIGHTEST (worst) corners, tied with three others at that
+   no-budget-found floor, while a different subset of the grid (the `sf`
+   process corner, cold temperature, and high supply) recovers substantial
+   margin instead.
    Because `tt`/27 °C/1.8 V happens to already sit at the binding floor for
    this window, a future on-chip `VCM` buffer or off-chip reference network
    sized only against that single point would, for the legacy window
    specifically, not under-budget the true worst case — but this is
    coincidental to this window's own corner shape, not a general property:
    a design sized against a *different* single corner (e.g. `sf`'s own
-   generous 100 kΩ headroom) would badly under-budget the four zero-margin
-   corners. This sharpens, rather than merely confirms, the open item: this
-   budget is genuinely non-monotonic across the grid at the legacy window,
+   generous 100 kΩ headroom) would badly under-budget the four corners
+   where no swept nonzero resistance passed. This sharpens, rather than
+   merely confirms, the open item: this budget is genuinely non-monotonic
+   across the grid at the legacy window,
    not simply "the same everywhere" or "worse everywhere" as either
    window's own single-corner record alone could have shown — any eventual
    buffer/reference-network sizing must be checked against the full grid,
    not any single assumed-representative corner. With both full-PVT-grid
    `R_source` sweeps now complete, the only remaining single-corner-only
    leg of this budget is the `C_decouple` sweep (both windows).
+
+   **Update (2026-11-13, issue #880).** The result paragraph above
+   previously narrated those four corners as a measured budget of "≤ 0 Ω
+   (zero margin)". That phrasing came from the pre-#874 `find_budget()`,
+   which included the sweep's own `R_source = 0` control row among the
+   candidates; because every other row's error is referenced to that row,
+   its own error is identically zero by construction and it passed every
+   tier, so "no swept nonzero value worked" was reported as a budget of
+   `<= 0`. PR #876 (issue #874) excludes the control row, and the same data
+   now reports "none found". The restatement above changes the wording, not
+   the measurement:
+   [`sim/vcm-drive-budget/records/20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md)
+   is unedited — `sim/` records are append-only — and its table still reads
+   `<= 0` at those four corners (and at eight of nine for the 0.1-LSB
+   tier). The single-corner bullet near the top of this item needed no
+   restatement: it already says "the smallest nonzero `R_source` tested
+   (10 kΩ) already exceeds 1 LSB of error at 400 ns", which is the same
+   reading of the same cell.
 
    **Update this pass (2026-09-07, third full-grid campaign): the
    `C_decouple` sweep at the worst-case (83.333 ns) window was also taken
@@ -4546,6 +4704,31 @@ tracker already owns.
    one-window-per-pass precedent the two bare `R_source` full-grid passes
    established.
 
+   **Update (2026-11-13, issue #880): the "every one of the 9 ratified
+   corners" count above survives the post-#874 rescue convention, and is
+   restated here with its derivation.** PR #876 (issue #874) stopped
+   counting a corner whose marginal `R_source` is `marginal_r_source()`'s
+   fallback — the top of the bare sweep, returned when no swept resistance
+   at that corner exceeds 1 provisional LSB — as rescued: that corner's
+   `C_decouple` sweep ran against a resistance that was already passing
+   bare, so it had nothing to rescue and belongs on neither side of the
+   verdict. Derivation, read off the committed tables rather than re-run:
+   in
+   [`sim/vcm-drive-budget/records/20260907-104958-a546200.md`](../../sim/vcm-drive-budget/records/20260907-104958-a546200.md)
+   eight of the nine corners carry a marginal `R_source` of 3 kΩ–30 kΩ,
+   below the 100 kΩ top of this window's bare sweep, and a value below the
+   top can only come from a swept point that actually failed. The ninth,
+   `tt_-40c_1.80v`, sits at 100 kΩ, which is also the fallback's value; the
+   companion bare record for the same window, DUT netlist sha256 and sweep
+   list,
+   [`sim/vcm-drive-budget/records/20260907-052526-f589273.md`](../../sim/vcm-drive-budget/records/20260907-052526-f589273.md),
+   reports it at ≤ 30 kΩ rather than right-censored, so 100 kΩ did exceed
+   1 LSB there and that marginal is genuine too. All 9 corners therefore
+   needed rescuing, and all 9 have a 1-LSB `C_decouple` budget at a nonzero
+   swept value — so the count over the corners the new convention counts is
+   9 of 9, with no corner left out as having nothing to rescue. The record
+   itself is unedited (`sim/` records are append-only).
+
    **Update this pass (2026-09-08): the legacy (400 ns) window's own
    `C_decouple` sweep was also taken to the full ratified PVT grid** —
    closing the "sole remaining single-corner-only leg" flagged immediately
@@ -4558,17 +4741,26 @@ tracker already owns.
    corner's own bare legacy-window sweep in the same invocation (reproducing
    the legacy-window bare-`R_source` full-grid campaign's own per-corner
    shape: 10 kΩ at four corners, 100 kΩ at the other five) — never a value
-   borrowed from the `tt`/27 °C/1.8 V point. **Result: decoupling alone
-   brings the differential error inside 1 provisional LSB at all 9/9
-   ratified corners at this window too**, closing out the finding this
-   item's own legacy-window bare-`R_source` pass left open (that window
-   offers zero bare-impedance margin at 4 of 9 corners) — a decoupling
-   capacitor rescues every one of those corners when sized per-corner.
+   borrowed from the `tt`/27 °C/1.8 V point. **Result: 6 of the 9 ratified
+   corners had a bare legacy-window sweep that actually exceeded
+   1 provisional LSB, and decoupling alone brings all 6 of those back
+   inside it.** The other 3 — `sf_27c_1.80v`, `tt_-40c_1.80v` and
+   `tt_27c_1.98v` — had nothing to rescue: their marginal `R_source` is
+   the 100 kΩ sweep ceiling `marginal_r_source()` falls back to when no
+   swept resistance fails, and the legacy-window bare record reports those
+   same three right-censored at ≤ 100 kΩ, so their `C_decouple` sweep ran
+   against a resistance that was already passing bare (derivation in the
+   dated update below). The 6 that did need rescuing include all four
+   corners this item's own legacy-window bare-`R_source` pass left with no
+   positive budget — a decoupling capacitor does rescue every one of those
+   four when sized per-corner.
    The working values span three orders of magnitude across the grid
    (1 pF at `ss_27c_1.80v`, 10 pF at `ff_27c_1.80v`/`fs_27c_1.80v`/
    `tt_125c_1.80v`/`tt_27c_1.62v`, 100 pF at `tt_27c_1.80v`, 1000 pF,
    right-censored, at the remaining three: `sf_27c_1.80v`/`tt_-40c_1.80v`/
-   `tt_27c_1.98v`), the same
+   `tt_27c_1.98v` — the same three that had nothing to rescue, so their
+   entries bound the error with decoupling added rather than record a
+   rescue), the same
    non-corner-invariant, non-monotonic-in-`C_decouple` shape the
    worst-case-window campaign already established — so, as with that
    campaign, no single capacitor value read off this table covers every
@@ -4578,6 +4770,38 @@ tracker already owns.
    gated on corner coverage** — it stays open only because no on-chip `VCM`
    buffer or off-chip reference network exists yet in this design to size
    against the target these four campaigns jointly establish (§2.2).
+
+   **Update (2026-11-13, issue #880): the result sentence above is restated
+   from "all 9/9 ratified corners" to 6 of 6.** It previously read
+   "decoupling alone brings the differential error inside 1 provisional LSB
+   at all 9/9 ratified corners at this window too … a decoupling capacitor
+   rescues every one of those corners". PR #876 (issue #874) stopped
+   counting a corner whose marginal `R_source` is `marginal_r_source()`'s
+   fallback — the top of the bare sweep, returned when no swept resistance
+   at that corner exceeds 1 provisional LSB — as rescued, because that
+   corner's `C_decouple` sweep ran against a resistance that was not
+   failing on its own. Derivation, read off the committed tables rather
+   than re-run: in
+   [`sim/vcm-drive-budget/records/20260908-021006-f48a228.md`](../../sim/vcm-drive-budget/records/20260908-021006-f48a228.md)
+   the marginal `R_source` is 10 kΩ at `tt_27c_1.80v`, `fs_27c_1.80v`,
+   `tt_125c_1.80v` and `tt_27c_1.62v`, and 100 kΩ at the other five. This
+   window sweeps only `{0, 10, 100} kΩ`, so a marginal of 10 kΩ can only
+   come from a swept point that failed: those four needed rescuing. For the
+   five at 100 kΩ — the fallback's own value — the companion bare record
+   for the same window, DUT netlist sha256 and sweep list,
+   [`sim/vcm-drive-budget/records/20260907-090200-7768162.md`](../../sim/vcm-drive-budget/records/20260907-090200-7768162.md),
+   separates them: it reports `ss_27c_1.80v` and `ff_27c_1.80v` at a 1-LSB
+   budget of ≤ 10 kΩ, i.e. 100 kΩ did exceed 1 LSB there, so those two are
+   genuine marginals; it reports `sf_27c_1.80v`, `tt_-40c_1.80v` and
+   `tt_27c_1.98v` right-censored at ≤ 100 kΩ, i.e. no swept resistance
+   failed, so those three are the fallback and had nothing to rescue. That
+   leaves 6 corners the rescue claim can be about, and each of the 6 has a
+   1-LSB `C_decouple` budget at a nonzero swept value (100 pF at
+   `tt_27c_1.80v`, 1 pF at `ss_27c_1.80v`, 10 pF at `ff_27c_1.80v`,
+   `fs_27c_1.80v`, `tt_125c_1.80v` and `tt_27c_1.62v`) — 6 of 6 rescued.
+   The record itself is unedited (`sim/` records are append-only) and its
+   own result section still carries the "9 of 9 ratified corners"
+   sentence.
 
    No claim here is graded against a ratified spec row (`spec/target-spec.md`
    is entirely DRAFT, #1/#27; the DR-006 acquisition window is itself
@@ -4589,9 +4813,9 @@ tracker already owns.
    from `SAMPLE` to `G_{p,n}` and widened `Cmswn`/`Cmswp` from `W=1 µm` to
    `W=16 µm` — both devices this budget's own harness drives current
    through, so every number above (the 30× corner spread, the 4/9
-   zero-margin legacy-window corners, the per-corner marginal-`R_source`
-   values feeding the `C_decouple` tables) was measured against a netlist
-   this design no longer uses. Follow-up issues #245 and #248 (PRs #249 and
+   legacy-window corners with no positive bare budget, the per-corner
+   marginal-`R_source` values feeding the `C_decouple` tables) was
+   measured against a netlist this design no longer uses. Follow-up issues #245 and #248 (PRs #249 and
    #250, both merged 2026-09-08) re-ran all four legs — bare `R_source` and
    `C_decouple`, at both the worst-case and legacy windows — against the
    post-#236 DUT fragment, plus the single-corner seed:
@@ -4616,7 +4840,8 @@ tracker already owns.
    ratified corners, both windows, the bare `R_source` budget now comes back
    right-censored at ≤ 100 kΩ for both the 1-LSB and 0.1-LSB thresholds (a
    flat 1.0× worst-to-best spread — the pre-#236 30× corner spread and the
-   legacy window's 4-of-9 zero-margin corners are both gone), and the
+   legacy window's 4-of-9 corners with no positive bare budget are both
+   gone), and the
    `C_decouple` budget comes back right-censored at ≤ 1000 pF at all 9
    corners, both windows (up from the pre-#236 three-orders-of-magnitude
    spread, 1 pF–1000 pF). Every swept value in the current sweep lists stays
@@ -4632,6 +4857,29 @@ tracker already owns.
    superseded ones this item's own body still narrates in detail (kept,
    per `CLAUDE.md`'s append-only evidence convention, as the historical
    record of the pre-#236 finding — not as the current budget).
+
+   **Update (2026-11-13, issue #880): the two current `C_decouple` legs
+   bound the error under added decoupling; they are not evidence that
+   decoupling rescues a failing corner.** In
+   [`sim/vcm-drive-budget/records/20260908-113002-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-113002-f3e2914.md)
+   (worst-case window) and
+   [`sim/vcm-drive-budget/records/20260908-115336-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-115336-f3e2914.md)
+   (legacy window), every one of the 9 ratified corners carries a marginal
+   `R_source` of 100 kΩ — exactly the sweep-ceiling value
+   `marginal_r_source()` falls back to when no swept bare resistance at
+   that corner exceeds 1 provisional LSB, and consistent with their own
+   companion bare records
+   ([`20260908-100413-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-100413-f3e2914.md),
+   [`20260908-101358-f3e2914.md`](../../sim/vcm-drive-budget/records/20260908-101358-f3e2914.md)),
+   which are right-censored at ≤ 100 kΩ at all 9 corners in both the 1-LSB
+   and 0.1-LSB tiers. Each corner's `C_decouple` sweep therefore ran
+   against a resistance that was already inside 1 LSB bare, so what these
+   two legs show is what adding decoupling does to an already-passing case.
+   Under the post-#874 convention (PR #876) they count no corners as
+   needing rescue at all, so neither record's ≤ 1000 pF right-censored
+   result is rescue evidence. Both records are unedited (`sim/` records are
+   append-only) and both still carry their own "9 of 9 ratified corners"
+   sentences, written under the pre-#874 convention.
 
    A related, narrower gap surfaced during this re-derivation and was
    folded in by the same follow-up (#248 via PR #250, not itself a VCM
@@ -5575,7 +5823,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **225** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **243** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      (164 → **165** on 2026-10-03: issue #525's PR #533 added
@@ -5613,7 +5861,7 @@ tracker already owns.
      committed one more deck, `sim/cdac-array-transfer/testbench/klt/tb_body.spice`,
      a two-line wrapper that sets `vdd_val` and `.include`s the existing
      `tb_cdac_array_transfer.spice`; it carries no inductor card and models no
-     ground-return path, so the count moves and the qualification does not. 213 → **223** on 2026-11-06: issue #810's re-runs of the local-slice records committed ten more `.spice` files (nine per-record netlist snapshots and one coherent-sine fragment copy), all copies of decks already counted in kind; the census still reads **0** inductor cards. 223 → **225** on 2026-11-06: issue #814's two replay-control records committed one netlist snapshot each (`sim/sampling-frontend/netlist-snapshots/20261106-223403-31f2f3f.spice` and `sim/supply-impedance-sensitivity/netlist-snapshots/20261106-224934-31f2f3f.spice`), two more copies of decks already counted in kind, again with no inductor card and no ground-return model.)
+     ground-return path, so the count moves and the qualification does not. 213 → **223** on 2026-11-06: issue #810's re-runs of the local-slice records committed ten more `.spice` files (nine per-record netlist snapshots and one coherent-sine fragment copy), all copies of decks already counted in kind; the census still reads **0** inductor cards. 223 → **225** on 2026-11-06: issue #814's two replay-control records committed one netlist snapshot each (`sim/sampling-frontend/netlist-snapshots/20261106-223403-31f2f3f.spice` and `sim/supply-impedance-sensitivity/netlist-snapshots/20261106-224934-31f2f3f.spice`), two more copies of decks already counted in kind, again with no inductor card and no ground-return model. 225 → **229** on 2026-11-13: issue #841's `sim/reference-drive-budget/` campaign committed two records, each with its submitted circuit body and the frozen netlist snapshot of the same body — four decks, of a new kind — the whole ADC with a series *resistor* on each reference pad — which is exactly why they move the count and not the qualification: the impedance they add is resistive only, so none carries an inductor card, and all leave `VGND`/`GND` on ideal sources at the die, so none models a ground-return path either. The second record supersedes the first on the same cached `klt sim` report — a correction to the record's wording, not a re-simulation — and `sim/` being append-only, its decks are committed beside it rather than replacing the first record's. 229 → **231** on 2026-11-13: issue #847's `sim/input-drive-budget/` campaign committed its record's submitted circuit body and the frozen netlist snapshot of the same body — two decks, the sampling front end with a series *resistor* on each of `VINP`/`VINN`, so for the same reason they move the count and not the qualification: the added impedance is resistive only, so neither carries an inductor card, and both leave `VGND`/`GND` at the die on the ideal `0` node, so neither models a ground-return path. 231 → **239** on 2026-11-13: issue #881 ported `sim/vcm-drive-budget/`'s `--corners` paths from a local `ngspice` loop to `klt sim` and re-minted its four full-PVT-grid records, each committing its submitted circuit body and the frozen netlist snapshot of the DUT fragment — eight decks, all of a kind already counted: the sampling front end with a series *resistor* (and, on the `C_decouple` legs, a shunt *capacitor*) on `VCM`. The added impedance is resistive and capacitive only, so none carries an inductor card, and all leave `GND` at the die on the ideal `0` node, so none models a ground-return path either; the count moves and the qualification does not. 239 → **240** on 2026-11-15: issue #913's converging-range input sweep added `sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice`, a parameterized variant of the same experiment's DC-input fragment — the same ideal sources with the differential input lifted into a top-level `.param` the `klt sim` request sweeps; no inductor card and no ground-return model. 240 → **242** the same day: that sweep's record committed its submitted circuit body and the frozen netlist snapshot of the same body, two more copies of decks already counted in kind — the whole ADC with its differential input on the `.param` instead of per-conversion literals, every source ideal at the die — again with no inductor card and no ground-return model, so the count moves and the qualification does not. 242 → **243** on 2026-11-15: merging origin/main into this branch brought in issue #912's PR #938, which committed one more netlist snapshot (`sim/cdac-array-transfer/netlist-snapshots/20261115-014818-7adcfe77.spice`), a copy of a deck already counted in kind — again with no inductor card and no ground-return model, so the count moves and the qualification does not.)
 
      Read this census the way it already reads itself: **a floor on the gap,
      not a proof of it, and it never claimed to be the thing that retires
@@ -5827,7 +6075,7 @@ tracker already owns.
     > on the report `signoff/t1-report.json`, `klt signoff` **0.8.0** grades
     > **13** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `1 digital`, `4 analog`,
-    > `4 digital`, `11 analog`, `11 digital`; and its manifest cites
+    > `4 digital`, `6 analog`, `11 analog`, `11 digital`; and its manifest cites
     > `layout/sar-adc-top/erc-reports/LATEST` at **20261017-193237-9522693e**
     > against a pointer naming **20261021-104830-ddc1d72**,
     > `layout/sar-adc-top/reports/LATEST` at **20261001-211249-1ca34e6**
@@ -5862,6 +6110,25 @@ tracker already owns.
     `sar_sequencer` netlist rather than the later schematic (issue #680). No §4
     verdict moves because of it. The earlier "Three of twenty-two" bullet below
     describes an earlier grade and is left as written.
+
+    **Update (2026-11-20, issue #1015): the failed list gains a sixth cited
+    row, `6 analog`.** The manifest now declares the block's statistical rows
+    under `spec_rows."6.analog"` and cites the two freshness-pinnable
+    `klt yield` envelopes (ENOB `20261008-233032-8bc3d1f`, CDAC DNL/INL
+    `20261115-014818-7adcfe77`), each pinned to its committed `.samples.json`.
+    Both report `status: "fail"`, so `klt signoff` renders item 6 analog
+    `unmet` / `check_failed` with both citations under `failed_citations`,
+    both rows under `unratified_rows` (their target values are DRAFT), and
+    the DR-020 comparator-offset term under `declared_gaps`. The met count
+    does not move (13 of 22): `check_failed` is a more informative reason
+    than the `no_evidence` it replaces, not a different verdict. What the
+    citations assert and what would turn each row `met` are stated in
+    [`signoff/README.md`](../../signoff/README.md) "Item 6". The
+    "`check_failed` is not `no_evidence`" bullet below said "four rows" and
+    "the other fifteen unmet rows cite nothing at all"; as of this update
+    six rows cite evidence that was read and failed, and three cite
+    nothing. The bullet is left as written for the same reason as the
+    "Three of twenty-two" one.
 
     Four things that readout states, each read out of the committed report
     rather than asserted here:
@@ -5928,18 +6195,36 @@ tracker already owns.
     which is a design change — a single-to-differential reference network that
     does not exist in this design and has not been sized or simulated;
     (iii) **put the reference behind the shared analog bus**, which this
-    design leaves entirely unspent (0 of the 4 shared lines). This is *not*
-    answerable from this repository's evidence: the CDAC draws transient
-    charge from `VREFP`/`VREFN` at every bit trial, the page warns the shared
-    lines are switched through "less than 5 ohms" but bussed to all eighteen
-    projects and "should not be relied on for high-frequency analog
-    signaling", and **no `sim/` campaign here puts a drive impedance on the
-    reference at all** — [`sim/vcm-drive-budget/`](../../sim/vcm-drive-budget/)
-    budgets `VCM`, [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/)
-    budgets the four supply terminals and its own runner states that
-    `VREFP`/`VREFN`/`VCM` "stay ideal at the die". So this route needs a new
-    reference-drive-impedance campaign before it could be claimed, not just
-    permission;
+    design leaves entirely unspent (0 of the 4 shared lines). The CDAC draws
+    transient charge from `VREFP`/`VREFN` at every bit trial, and the page
+    warns the shared lines are switched through "less than 5 ohms" but bussed
+    to all eighteen projects and "should not be relied on for high-frequency
+    analog signaling". **The series-resistance half of that warning is now
+    measured** (issue #841,
+    [`sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md`](../../sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md)):
+    the whole `design/sar_adc_top.spice` driven through a series `R_ref` on
+    each reference pad, 54 units over the 9 ratified corners, each error
+    referenced to that corner's own `R_ref = 0` control. `5 Ω` is a
+    *simulated* point of that sweep, and at 9/9 corners it moves **no captured
+    code of the four inputs that can register movement** — the fifth,
+    `+0.78·V_REF`, is already clipped at full scale by the pre-existing DR-021
+    droop in every control row, so it reports a zero delta whatever the
+    reference does and the record excludes it (36 of the 45 corner-input pairs
+    are counted; the other 9 are named and explicitly not bounded). The
+    tolerance at the 1 LSB tier is 200–800 Ω per corner, one to two orders of
+    magnitude above 5 Ω. **This does not by itself make the route
+    claimable.** That testbench models two resistors: no bus or pad
+    capacitance, no inductance, no decoupling, and none of the other seventeen
+    projects' loading or switching activity — i.e. it says nothing about the
+    "not for high-frequency analog signaling" half of the page's warning,
+    which is the half that bears on a bussed reference. What changed is that
+    the route's series-resistance objection is now answered with evidence
+    rather than left open; the remaining objection is still open, and this is
+    still an operator decision (#836). The neighbouring campaigns remain what
+    they were — [`sim/vcm-drive-budget/`](../../sim/vcm-drive-budget/) budgets
+    `VCM` and [`sim/supply-impedance-sensitivity/`](../../sim/supply-impedance-sensitivity/)
+    budgets the four supply terminals, its own runner stating that
+    `VREFP`/`VREFN`/`VCM` "stay ideal at the die";
     (iv) **slot sharing**, which the page invites "especially where
     padframe-facing pins are being underutilized" — this design underutilizes
     the *digital* budget heavily (2 of ≤24 inputs, 11 of ≤12 outputs) but needs
@@ -5957,7 +6242,7 @@ tracker already owns.
 
 12. **Three brief requirements that no spec row covers (added 2026-11-13,
     issue #121 criterion 4, second pass; detail in §2.2.2).** Each is tracked:
-    (a) #834 — **addressed in part, 2026-11-13; see below**, (b) #835, (c) no
+    (a) #834 — **addressed in part, 2026-11-13; see below**, (b) #835 — closed by this pass, item 13 — (c) no
     separate issue — it is a standing note on this document's own two DRAFT
     rows rather than a unit of work. (a) **Absolute limits: stated this pass
     for most pin classes, four rows still open, and one conflict with the
@@ -5991,20 +6276,114 @@ tracker already owns.
     requirement to conform to the Sky130 process's own voltage limits is what
     makes it a live question rather than a footnote. The Corners row is
     neither relaxed nor re-graded, and **no §4 verdict moves**. (b) **No simulation
-    result is summarized in a plot.** The page asks for plots rather than raw
-    data, with the raw data reproducible on demand; this repository is the
-    inverse by construction — 0 tracked image artifacts, every result a
-    Markdown table inside an append-only record, raw per-corner artifacts
-    committed beside it. The reproducibility half is met and the summary half
-    is not; closing it means a rendering step in the evidence flows
-    (`sim/report/generate.py`, which renders this repository's characterization
-    tables today, is the natural place — scoped that way in #835). (c)
+    result was summarized in a plot — the gap this pass closes; see item
+    13.** The page asks for plots rather than raw data, with the raw data
+    reproducible on demand; when this sub-item was first recorded the
+    repository was the inverse by construction — 0 tracked image artifacts,
+    every result a Markdown table inside an append-only record, raw per-corner
+    artifacts committed beside it. The reproducibility half was met and the
+    summary half was not; closing it meant a rendering step in the evidence
+    flows (`sim/report/generate.py`, which renders this repository's
+    characterization tables today, was named as the natural place — scoped
+    that way in #835). That step is now in the tree: five figures under
+    [`docs/plots/`](../plots/), rendered from already-committed evidence and
+    gated through `sim/report/generate.py --check`. Item 13 states what they
+    cover and the one summary it deliberately leaves undrawn, so this
+    sub-item is recorded as closed rather than open. (c)
     **Ratifying a DRAFT row after
     submission would be a mid-design specification change**, which the page
     requires approval for. The two exposed rows are Sample rate and
     ENOB/INL-DNL (DR-007, still `proposed`). Recorded so that a later
     ratification is not mistaken for a purely internal `spec/` event. **No §4
     verdict moves because of this item**, and none is claimed to.
+
+13. **Simulation results are now summarized in plots, not only raw data
+    (added 2026-11-13, issue #835; this closes the "summarized in plots" gap
+    item 12(b) records).** The published brief asks that "simulation results
+    should be summarized in plots, not raw data", while requiring that the raw
+    data stay reproducible from the sources in the repository. The
+    reproducibility half was already over-met — every result is an append-only
+    record with its per-corner raw artifacts committed beside it, and
+    `sim/check_spec_coverage.py` gates that each record's documented cold-start
+    invocation is the one it was minted with — but until this pass the tree
+    held no image file at all, so the *summary* half was unmet. Five figures
+    now land under [`docs/plots/`](../plots/), rendered by
+    [`sim/report/plots.py`](../../sim/report/plots.py) from evidence that is
+    **already committed** (no simulation is run to draw them):
+    [`enob-distribution.svg`](../plots/enob-distribution.svg) (per-draw ENOB
+    against the DRAFT lower limit),
+    [`cdac-inl-distribution.svg`](../plots/cdac-inl-distribution.svg) (per-draw
+    worst-case |INL| and |DNL|, one panel each, against the DRAFT ±1 LSB
+    target),
+    [`cdac-transfer-spot-check.svg`](../plots/cdac-transfer-spot-check.svg)
+    (measured differential level at 5 codes across all 9 ratified corners, plus
+    the per-corner monotonicity margin),
+    [`bit-trial-settling-corners.svg`](../plots/bit-trial-settling-corners.svg)
+    (worst-case `t_settle_99%` per corner against the DR-006 phase budget), and
+    [`coherent-sine-spectrum.svg`](../plots/coherent-sine-spectrum.svg) (the
+    captured 32-code dynamic-test record's spectrum, measured vs an ideal
+    quantizer on the identical plan). Each figure stamps its own source Record
+    ID and that record's corner set onto its face, and
+    `python3 sim/report/plots.py --check` — stdlib-only, wired into `npm run
+    check:ci` through `sim/report/generate.py --check` — fails if a cited
+    evidence file, the renderer, or a committed SVG changes without a
+    re-render, if a figure's source record is superseded, or if a record's own
+    stated figures stop reproducing from the raw artifact. **No §4 verdict
+    moves because of this item**, and no evidence under `sim/` was edited: the
+    plots are a regenerable derived view, written outside every path
+    `sim/check_append_only.py` and `signoff/check_evidence_hashes.py` protect.
+    One deliberate gap is recorded rather than filled: no linearity figure is
+    derived from the 5-code transfer bench, whose own record states that DR-003
+    defers the DNL/INL budget to the Monte Carlo campaign. (Both Monte Carlo
+    series — max|INL| and max|DNL| — are re-derived from that campaign's own 40
+    committed raw draw logs by its own parser, not from the yield report's
+    persisted samples path, which is a scratch file.) The *first* half of the
+    same brief sentence — "avoid
+    unnecessary data dumps" — is untouched: the committed raw artifacts under
+    `sim/` stay as they are, since changing that would change the append-only
+    rule, which is a separate decision. See
+    [`sim/README.md`](../../sim/README.md) "Summary plots" for the location,
+    format and gate decisions and the cold-start regeneration command.
+
+14. **No pad carried a declared special requirement — now declared, with the
+    two figures the clause's own example asks for still missing (added
+    2026-11-13, issue #839; detail in §2.2.3).** `get-involved.html` — the page
+    the challenge's landing page names for what a proposal must contain — words
+    the proposal-content I/O item as "List of I/O, including test ports. Note
+    any special requirements such as low resistance to the pad."
+    `rules-4.html` carries only the first sentence, and §2.2.1 and §2.2.2 both
+    reconciled against `rules-4.html` alone, so the second sentence had never
+    been graded. §2.2.3 now declares one row per port of §2.3's
+    `.subckt sar_adc_top` list, 22 of 22, each stating a requirement or an
+    explicit "none declared" with what that "none" does not cover. Graded
+    **PARTIAL**: the declaration exists, and the one quantity the clause's own
+    example names does not. `VCM` is the only signal pad with a measured
+    impedance budget — right-censored at 100 kΩ across the ratified 9-point
+    PVT grid, and **on the sampled differential error only**: at that
+    resistance the same records show the `VCM` node itself far from its
+    `V_REF/2 = 0.9 V` nominal at eight of the nine corners, and what that
+    departure does to the composed ADC is unmeasured (§2.2.3's `VCM` row);
+    the four supply terminals carry a structural requirement — each its
+    own bond, the analog and digital rails untied in metal on-die (DR-010,
+    DR-012) — rather than a resistance figure; the digital pads (`CLK`,
+    `RST_B`, `DOUT9..DOUT0`, `BUSY`) declare none on resistance to the pad and
+    no off-chip load, unmeasured at pad scale, and say so — the only load any
+    committed deck places on `DOUT9..DOUT0`/`BUSY` is `sim/digital-partition`'s
+    declared 5 fF on-die interface-load assumption, which is neither a
+    pad-scale nor a harness-side figure; and **`VREFP`/`VREFN` and
+    `VINP`/`VINN` carry no ohm value at all**, because no campaign in this
+    repository puts a drive or source impedance on either pair *at the
+    top-level pads* (§2.2.3's `VINP`/`VINN` row names the two lower-level
+    comparator-pin resistances that must not be mistaken for such a budget).
+    Those two gaps are tracked as **#841**
+    (reference, whose evidence item 11(a)(iii) above also needs before the
+    shared-analog-bus route could be chosen) and **#847** (input). Borrowing
+    `rules-4.html`'s "less than 5 ohms" shared-multiplexer rating as this
+    block's own requirement was considered and rejected in §2.2.3: it is the
+    harness's figure for its own switches, bussed to all eighteen projects, and
+    not a statement about what this CDAC needs. **No §4 verdict moves because of
+    this item**, and none is claimed to.
+
 
 None of the above is treated as blocking the *existence* of this document —
 per this issue's acceptance criteria, the document itself, honestly stating
@@ -6020,11 +6399,7 @@ and is not claimed to be met.
   records, and every evidence record cited above — is licensed
   [Apache-2.0](../../LICENSE), Copyright 2026 2AM Logic. It satisfies the
   common structure's requirement for a standard open license with
-  modifiable sources public. (Note: `README.md`'s "Private for now" section
-  predates the 2026-08-25 visibility flip to public and is stale relative
-  to the repository's actual current visibility, confirmed via `gh repo
-  view` at authoring time — a pre-existing documentation gap, not
-  introduced by this document, and out of this issue's scope to fix here.)
+  modifiable sources public.
 - **Flow**: fully open-source. Schematic capture and netlisting via
   [xschem](https://xschem.sourceforge.io/); simulation via
   [ngspice](https://ngspice.sourceforge.io/); layout, DRC, LVS, and
@@ -6043,10 +6418,70 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **108** of the **113** records under `sim/*/records/` name both an `ngspice`
-  > version and a 40-hex `open_pdks` commit, while of the **114** records under
-  > `layout/*/reports/` and `layout/*/erc-reports/` **113** name a `klt`
-  > version and **76** name the `open_pdks` commit
+  > **117** of the **122** records under `sim/*/records/` name both an `ngspice`
+  > version and a 40-hex `open_pdks` commit, while of the **117** records under
+  > `layout/*/reports/` and `layout/*/erc-reports/` **116** name a `klt`
+  > version and **79** name the `open_pdks` commit
+
+  **Update (2026-11-15, merge of issue #912's PR #938):** merging origin/main
+  into this branch brings in
+  `sim/cdac-array-transfer/records/20261115-014818-7adcfe77.md` — the
+  freshness-pinnable DNL/INL yield envelope re-mint — which names both an
+  `ngspice` version (`ngspice-47`) and a 40-hex `open_pdks` commit
+  (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), so it counts as pinned: the
+  totals move 121 → **122** records and 116 → **117** pinned, which is the
+  figure the census above now states. That flow's own count of records naming
+  no commit is unchanged — six of its ten, all minted before 2026-10-02 — so
+  no flow newly pins the commit. No earlier record was rewritten.
+
+  **Update (2026-11-15, issue #913):** the converging-range input sweep
+  mints one record of the existing `sim/full-conversion-transient/` campaign —
+  `sim/full-conversion-transient/records/20261115-084232-ad7393c6.md`, its
+  first new record since the DR-023 re-mint — naming both an `ngspice` version
+  (`ngspice-47`) and a 40-hex `open_pdks` commit
+  (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), the pair the *executing* batch
+  workers reported, stated beside the submitting host's own. It counts as
+  pinned: the totals move 120 → **121** records and, because this flow's
+  newest records already pinned the commit, 115 → **116** pinned — the figure
+  the census block stated at that commit, since the `#912` entry above has
+  since moved it to **117** of the **122**. No flow's count of records naming no
+  commit changed, so no flow newly pins the commit. No earlier record was
+  rewritten.
+
+  **Update (2026-11-13, issue #881):** porting `sim/vcm-drive-budget/`'s
+  `--corners` paths from a local `ngspice` loop to a `klt sim` request mints
+  **four** superseding full-PVT-grid records — `20261113-180119-8a49c8e1`,
+  `20261113-174234-8a49c8e1`, `20261113-175231-8a49c8e1` and
+  `20261113-175840-8a49c8e1`, one per (`--sweep`, `--window`). Each names both
+  an `ngspice` version (`ngspice-47`) and a 40-hex `open_pdks` commit
+  (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), so all four count as pinned:
+  the totals move 116 → **120** records and 111 → **115** pinned, which is the
+  figure the census above now states. No flow's count of records naming no
+  commit changed, so no flow newly pins the commit. The version and the commit
+  are the ones the *executing* batch worker reported, which each record states
+  beside the submitting host's own. The four records they supersede stay on
+  disk unedited — `sim/` is append-only, so the re-run is a new record-id
+  pointing back through **Supersedes**, not a rewrite. No earlier record was
+  rewritten.
+
+  **Update (2026-11-13, issue #841):** this pass mints **two** records of a
+  new campaign — `sim/reference-drive-budget/records/20261113-105927-56f0a0c.md`
+  and the superseding `sim/reference-drive-budget/records/20261113-113808-6b72b9f3.md`,
+  the one the table above cites. Each names both an `ngspice` version
+  (`ngspice-47`) and a 40-hex `open_pdks` commit
+  (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), so both count as pinned: the
+  totals move 113 → **115** records and 108 → **110** pinned, and issue #847's
+  single `sim/input-drive-budget/records/20261113-110421-e03343e.md` — minted
+  the same day, naming the same `ngspice-47` and the same 40-hex
+  `open_pdks` commit, and likewise pinned — carries them to **116** records
+  and **111** pinned, which is the figure the census above states. Both the
+  version and the commit they name are the ones the *executing* batch workers
+  reported, which each record says in the line above them and which all eleven
+  of its shards agreed on; the submitting host happened to resolve the same
+  pair this time, which the records also state rather than leaving implied.
+  The superseded record stays on disk unedited — `sim/` is append-only, so
+  the correction is a new record-id pointing back through **Supersedes**, not
+  a rewrite. No earlier record was rewritten.
 
   **Update (2026-11-01, issue #754):** the new `sim/top-plate-cpar/records/20261101-183325-60421e38.md` is the first record of a new campaign and names both an `ngspice` version (`ngspice-46`) and a 40-hex `open_pdks` commit (`c6d73a35f524070e85faff4a6a9eef49553ebc2b`), so it counts as pinned; so does `sim/cdac-array-transfer/records/20261101-181403-60421e3.md` (issue #756, merged to `main` the same day, whose census text had not yet been restated). Together they move the totals 98 → **100** records and 94 → **96** pinned: both flows pin the commit. Its Environment block also records that the submitting host resolved a different `open_pdks` commit and `ngspice-42`, which the record flags as an uncontrolled difference. No earlier record was rewritten.
 

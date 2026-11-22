@@ -24,9 +24,7 @@ from pathlib import Path
 import digital_area
 import digital_char as dc
 
-DIGITAL_DIR = Path(__file__).resolve().parent
 DOC_REL = "docs/characterization-report-digital.md"
-ENVELOPE_REL = "signoff/evidence/digital-characterization.generic.json"
 
 
 def partition_netlist_sha(top_netlist_text: str) -> str:

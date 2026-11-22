@@ -27,8 +27,9 @@ the committed run is not a vacuous pass either.
 
 Pure stdlib -- no PDK, no KLayout, no `klt`: `build_layout.py` builds its
 geometry as plain integer rectangles and only hands them to `klt draw` as JSON,
-so this belongs to the headless tier (`npm run test` -> `test:unit`, CI's
-"Repo checks (headless, no PDK)" job), like
+so this belongs to the headless tier (`npm run test:unit` standalone; reached
+in CI through `check:ci` -> `npm run check:harness` -> `sim/selftest.sh`
+stage 1, in the "Repo checks (headless, no PDK)" job), like
 `sim/tests/test_layout_entrypoint_imports.py`.
 """
 

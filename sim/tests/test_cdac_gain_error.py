@@ -22,7 +22,7 @@ SOURCE_RECORD_ID = "20261001-124049-5207381"
 
 
 def _draw(seed, v_lo, v_hi):
-    return Draw(seed=seed, vdiff={ENDPOINT_LO: v_lo, ENDPOINT_HI: v_hi}, dnl_lsb={}, inl_lsb={},
+    return Draw(seed=seed, vdiff={ENDPOINT_LO: v_lo, ENDPOINT_HI: v_hi},
                 dnl_max_lsb=0.0, inl_max_lsb=0.0, log_text="")
 
 

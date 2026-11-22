@@ -20,7 +20,7 @@ regeneration curves -- not an apples-to-apples offset figure. That record's
 "Recommendation" section re-derives a corrected instant, **`PICKOFF_NS`
 =1.2ns / `PICKOFF_AT_NS`=6.3ns**, at which both legs give a clean,
 correctly-signed, non-saturated pick-off (spot-checked at `ss/-40C` and
-`ff/125C` too). `testbench.spice`/`pex_request.json`/`run_pex.py` now use
+`ff/125C` too). `testbench.spice`/the generated `pex_request_{zero,cal}.json`/`run_pex.py` now use
 that corrected instant, and a fresh `run_pex.py --record` run
 (`reports/20260906-152000-eace0b6/record.md`) reproduces AC3/AC4 with it:
 both legs' gains are now positive (schematic +22.7683 V/V, extracted
@@ -67,17 +67,26 @@ two results relate, and `layout/comparator/reports/<record-id>/record.md`
 - `testbench.spice` -- the one testbench `klt pex` runs on both legs:
   reset(CLK=0)->evaluate(CLK=VDD) transient stimulus, reusing
   `run.py`'s own pick-off methodology/timing constants (`RESET_NS`,
-  `RESET_TR_NS`, `PICKOFF_NS`). Two corner points via `corners.supply_v` on
-  literal `Vinp`/`Vinn` DC sources (see "the alter gotcha" below):
-  Vindiff=0 (isolates the routing/parasitic-driven imbalance, since neither
-  leg's devices are stochastically mismatched at this corner) and
-  Vindiff=+10mV (a `run.py` `VINDIFF_GAIN_CAL_MV` gain-calibration point).
-  Run unmodified for the schematic-side leg; `klt pex` itself generates the
-  extracted-side leg by swapping this file's one `.include` line for its
-  own freshly-extracted netlist (docs/cli/pex.md's "The DUT `.include`
-  swap") -- no hand-maintained extracted-side copy needed.
-- `pex_request.json` -- canonical `klt sim`/`klt pex`-format request
-  (corners, analysis, measurements), passed to `klt pex` as-is.
+  `RESET_TR_NS`, `PICKOFF_NS`). The evaluate clock tracks the rail at
+  every corner through an ideal switch onto the VDD rail node (issue
+  #1017's OAT re-mint; see the testbench header). The two Vindiff points
+  ride `corners.supply_v` on literal `Vinp`/`Vinn` DC sources (see "the
+  alter gotcha" below): Vindiff=0 (isolates the routing/parasitic-driven
+  imbalance, since neither leg's devices are stochastically mismatched)
+  and Vindiff=+10mV (a `run.py` `VINDIFF_GAIN_CAL_MV` gain-calibration
+  point). Run unmodified for the schematic-side leg; `klt pex` itself
+  generates the extracted-side leg by swapping this file's one `.include`
+  line for its own freshly-extracted netlist (docs/cli/pex.md's "The DUT
+  `.include` swap") -- no hand-maintained extracted-side copy needed.
+- `pex_request_{zero,cal}.json` -- GENERATED per run by `run_pex.py`
+  (issue #1017), not committed here: canonical `klt sim`/`klt pex`-format
+  requests, one per Vindiff point, each carving the ratified 9-point
+  one-at-a-time PVT grid out of its corner cross-product via `corners` +
+  `exclude` (the paired-tracking carve `layout/bin/pex_flow.py` builds,
+  same shape `sim/top-plate-cpar/run_top_plate_cpar.py` established). The
+  pre-#1017 static `pex_request.json` (two tt/27C points) was deleted when
+  this corner shape landed; every September record keeps its own copy
+  under its `reports/<record-id>/` directory, append-only.
 - `regen_probe.py` -- standalone investigation driver (issue #187) that
   re-derives `testbench.spice`'s fixed pick-off instant for a given
   topology by running `sim/comparator-decision/run.py`'s own reset->evaluate
@@ -100,7 +109,8 @@ two results relate, and `layout/comparator/reports/<record-id>/record.md`
   layout/bin/setup-venv.sh          # once, or after bumping requirements.txt
   source sim/env.sh                 # exports PDK_ROOT/PDK
   python3 layout/comparator/pex/run_pex.py --check-env
-  python3 layout/comparator/pex/run_pex.py --record
+  python3 layout/comparator/pex/run_pex.py --pilot    # tt/27C/1.8V, local
+  python3 layout/comparator/pex/run_pex.py --record   # 9 OAT corners x 2 vindiff, batch
   cat layout/comparator/reports/$(ls -t layout/comparator/reports | grep -v LATEST | head -1)/record.md
   ```
 

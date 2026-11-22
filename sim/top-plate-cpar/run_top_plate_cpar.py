@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import subprocess
 import sys
 import tempfile
@@ -51,7 +50,7 @@ SIM_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = SIM_DIR.parent
 sys.path.insert(0, str(SIM_DIR))
 
-from harness import corners as corners_mod  # noqa: E402
+from harness import corners as corners_mod, klt_sim  # noqa: E402
 
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 DUT_NETLIST = REPO_ROOT / "design" / "sar_adc_top.spice"
@@ -70,7 +69,6 @@ R_BIAS = "10G"
 #: Top-plate DC bias points: the endpoints of DR-022's traced common-mode range
 #: (565-871 mV at 1.8 V) and three evenly spaced points between them.
 BIASES_V = [0.565, 0.6415, 0.718, 0.7945, 0.871]
-TRACED_RANGE_V = (0.565, 0.871)
 N_UNITS = 512  # array side: 511 weighted + 1 termination unit cap (DR-005)
 CU_W_UM = 1.9000
 
@@ -248,34 +246,16 @@ def build_request(netlist_name: str, cids: list[str], *, timeout_s: float = 1800
 
 
 def read_report(report: dict) -> tuple[dict[str, dict[str, float | None]], dict]:
-    """{corner_id: {"<step>.<name>": value}} plus run info; refuses error
-    envelopes rather than inventing numbers."""
-    if not isinstance(report, dict):
-        raise ValueError("klt sim report is not a JSON object")
-    if "error" in report and "corners" not in report:
-        raise ValueError(f"klt sim error envelope: {report['error']}")
-    out: dict[str, dict[str, float | None]] = {}
-    for c in report.get("corners") or []:
-        sv = (c.get("supply_v") or {}).get(SUPPLY_KEY)
-        cid = corners_mod.corner_id(c["process"], float(c["temperature_c"]), float(sv))
-        vals = {m["name"]: m.get("value") for m in (c.get("measurements") or [])
-                if isinstance(m, dict) and "name" in m}
-        if c.get("status") in ("error", "inconclusive"):
-            vals = {k: None for k in vals}
-        out[cid] = vals
-    env = report.get("environment") or {}
-    remote = env.get("remote") or {}
-    worker = remote.get("worker_environment") or {}
-    banner = ((worker.get("simulator") or {}).get("version_banner") or "")
-    ngs = next((ln.strip("* ").strip() for ln in banner.splitlines() if "ngspice-" in ln), None)
-    return out, {"remote": env.get("remote"), "status": report.get("status"),
-                 "job_id": remote.get("job_id"),
-                 "worker_pdk": (worker.get("pdk") or {}).get("stamp_text"),
-                 "worker_ngspice": ngs}
+    """`({corner_id: {"<step>.<name>": value}}, run info)` -- the shared
+    reader `harness.klt_sim.measurements_by_corner`, which this campaign's
+    contract has always been (issue #904)."""
+    return klt_sim.measurements_by_corner(report, SUPPLY_KEY)
 
 
-def _finite(x) -> bool:
-    return isinstance(x, (int, float)) and math.isfinite(x)
+#: The shared guarded finite: this driver's private copy was the one the
+#: others were copied FROM, and it never picked up their
+#: `not isinstance(x, bool)` hardening (issue #904).
+_finite = klt_sim.finite
 
 
 def curve(values: dict[str, float | None], side: str) -> list[dict] | None:
@@ -339,47 +319,37 @@ def composition(per_variant: dict[str, list[dict]]) -> dict:
 # --------------------------------------------------------------------------
 # Submission (every simulation unit goes through `klt sim`)
 # --------------------------------------------------------------------------
-class SubmitError(RuntimeError):
-    pass
+#: The write-request / run-`klt sim` / read-report step is `harness.klt_sim`
+#: (issue #865), so this campaign carries the same fleet-capacity policy as
+#: every other batch campaign instead of its own copy -- it previously passed
+#: no capacity flag at all, which made a `batch_no_capacity` refusal a hard
+#: campaign failure rather than a wait.
+SubmitError = klt_sim.SubmitError
 
 
 def submit_variant(variant: str, cids: list[str], workdir: Path, backend: str | None,
-                   timeout_s: float) -> tuple[dict, dict, dict]:
+                   timeout_s: float, *,
+                   capacity_wait_s: float | None = klt_sim.DEFAULT_CAPACITY_WAIT_S,
+                   ) -> tuple[dict, dict, dict]:
     d = workdir / variant
     d.mkdir(parents=True, exist_ok=True)
     dut = DUT_NETLIST.read_text()
     (d / "tb.spice").write_text(build_body(dut, variant))
     req = build_request("tb.spice", cids, timeout_s=timeout_s, backend=backend)
     (d / "request.json").write_text(json.dumps(req, indent=1) + "\n")
-    rep_path = d / "report.json"
-    if rep_path.is_file():
-        report = json.loads(rep_path.read_text())
-    else:
-        argv = ["klt", "sim", str(d / "request.json"), "--format", "json", "-o", str(d / "out")]
-        if backend:
-            argv += ["--backend", backend]
-        done = subprocess.run(argv, capture_output=True, text=True, check=False)
-        try:
-            report = json.loads(done.stdout)
-        except json.JSONDecodeError:
-            try:
-                report = json.loads(done.stderr)
-            except json.JSONDecodeError as exc:
-                raise SubmitError(
-                    f"klt sim ({variant}) returned no JSON report (rc={done.returncode}): "
-                    f"{(done.stderr or done.stdout)[:600]}") from exc
-        if "error" in report and "corners" not in report:
-            raise SubmitError(f"klt sim ({variant}): {json.dumps(report['error'])}")
-        rep_path.write_text(json.dumps(report, indent=1) + "\n")
+    report = klt_sim.submit(d / "request.json", d / "out", backend=backend,
+                            capacity_wait_s=capacity_wait_s, label=variant)
     results, info = read_report(report)
     return results, info, req
 
 
-def collect(cids: list[str], workdir: Path, backend: str | None, timeout_s: float) -> dict:
+def collect(cids: list[str], workdir: Path, backend: str | None, timeout_s: float,
+            *, capacity_wait_s: float | None = klt_sim.DEFAULT_CAPACITY_WAIT_S) -> dict:
     """{variant: {cid: {"p": pts|None, "n": pts|None}}} + run info per variant."""
     data: dict = {"curves": {}, "runs": {}}
     for variant in VARIANTS:
-        results, info, _req = submit_variant(variant, cids, workdir, backend, timeout_s)
+        results, info, _req = submit_variant(variant, cids, workdir, backend, timeout_s,
+                                             capacity_wait_s=capacity_wait_s)
         info = dict(info, backend=backend or "(klt default / KLT_SIM_BACKEND)")
         data["runs"][variant] = info
         per = {}
@@ -561,6 +531,10 @@ def main(argv: list[str] | None = None) -> int:
                          "grid must go to the batch fleet, never be looped locally)")
     ap.add_argument("--workdir", type=Path, default=None)
     ap.add_argument("--timeout-s", type=float, default=1800.0)
+    ap.add_argument("--wait-for-capacity", type=float, default=klt_sim.DEFAULT_CAPACITY_WAIT_S,
+                    help="seconds to wait for batch fleet capacity instead of failing the "
+                         f"submit (default: {klt_sim.DEFAULT_CAPACITY_WAIT_S:g}; the host rule "
+                         "in CLAUDE.md). Not passed on --backend local.")
     evidence.add_supersedes_argument(ap)
     args = ap.parse_args(argv)
 
@@ -584,7 +558,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.probe:
         cid = corners_mod.corner_id("tt", 27.0, NOMINAL_SUPPLY_V)
         results, _info, _req = submit_variant("as-committed", [cid], workdir, "local",
-                                              args.timeout_s)
+                                              args.timeout_s, capacity_wait_s=None)
         for side in ("p", "n"):
             pts = curve(results[cid], side)
             if pts is None:
@@ -596,7 +570,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.record:
-        data = collect(cids, workdir, args.backend, args.timeout_s)
+        data = collect(cids, workdir, args.backend, args.timeout_s,
+                       capacity_wait_s=args.wait_for_capacity)
         write_record(analyze(data, cids), data, cids, args.supersedes, workdir)
         return 0
 

@@ -359,16 +359,19 @@ class FixtureTree:
     def add_arm_runner(self, *arms: str, table: str | None = None):
         """The supply-impedance runner's own `ARMS` table, for check 31.
 
-        Written as real Python in the runner's own shape -- an `ARMS: tuple`
-        annotation, one `Arm(...)` per arm with its `name=` on its own line
-        and a nested `bonds=` mapping -- because the parse under test is a
-        source-text read, and a fixture that flattened the arms to a bare list
-        of strings would pass while the real table went unrecognised. `table`
-        overrides the whole body, for the "shape this parse does not
-        recognise" case.
+        Written at `ARM_TABLE_SOURCE` -- the campaign package's `common.py`,
+        where issue #848's split left the table -- not at `ARM_RUNNER`, which
+        is the CLI path the proposal cites and no longer holds any of the three
+        tables these fixtures write. Written as real Python in the module's own
+        shape -- an `ARMS: tuple` annotation, one `Arm(...)` per arm with its
+        `name=` on its own line and a nested `bonds=` mapping -- because the
+        parse under test is a source-text read, and a fixture that flattened
+        the arms to a bare list of strings would pass while the real table went
+        unrecognised. `table` overrides the whole body, for the "shape this
+        parse does not recognise" case.
         """
-        runner = self.root / checker.ARM_RUNNER
-        runner.parent.mkdir(parents=True, exist_ok=True)
+        module = self.root / checker.ARM_TABLE_SOURCE
+        module.parent.mkdir(parents=True, exist_ok=True)
         if table is None:
             table = "ARMS: tuple[Arm, ...] = (\n"
             for arm in arms:
@@ -380,7 +383,7 @@ class FixtureTree:
                     "    ),\n"
                 )
             table += ")\n"
-        runner.write_text('"""fixture runner."""\n\n' + table)
+        module.write_text('"""fixture arm table."""\n\n' + table)
 
     def add_sweep_axes(
         self,
@@ -391,16 +394,17 @@ class FixtureTree:
     ):
         """The runner's own `--sweep` box constants, for check 32.
 
-        Appended to the runner rather than written over it: the real file
-        carries both the `ARMS` table check 31 parses and these two tuples,
-        and a fixture that could only hold one of them would let the two
-        source-text parses pass tests they never share a file in. Written as
-        real annotated tuple literals for `add_arm_runner`'s reason. `axes`
+        Written at `SWEEP_AXES_SOURCE` -- the `--sweep` campaign's own module
+        since issue #848's split, which is where these two tuples live and no
+        longer the file `add_arm_runner` writes. Appended rather than written
+        over, so a test that stacks a second block onto the same module (a
+        computed-box override beside a literal one) keeps both. Written as real
+        annotated tuple literals for `add_arm_runner`'s reason. `axes`
         overrides the whole block, for the "shape this parse does not
         recognise" case (a computed box).
         """
-        runner = self.root / checker.SWEEP_RUNNER
-        runner.parent.mkdir(parents=True, exist_ok=True)
+        module = self.root / checker.SWEEP_AXES_SOURCE
+        module.parent.mkdir(parents=True, exist_ok=True)
         if axes is None:
             axes = (
                 "SWEEP_L_MULTIPLIERS: tuple[float, ...] = ("
@@ -410,8 +414,8 @@ class FixtureTree:
                 + ", ".join(f"{r:g}" for r in rsubx)
                 + ")\n"
             )
-        existing = runner.read_text() if runner.is_file() else '"""fixture runner."""\n'
-        runner.write_text(existing + "\n" + axes)
+        existing = module.read_text() if module.is_file() else '"""fixture sweep axes."""\n'
+        module.write_text(existing + "\n" + axes)
 
     def add_null_sweep_axis(
         self,
@@ -421,26 +425,26 @@ class FixtureTree:
     ):
         """The runner's own `--null-sweep` ladder constant, for check 34.
 
-        Appended for `add_sweep_axes`' reason -- the real file carries the
-        `ARMS` table, the 2-D box's two tuples AND this one, and a fixture
-        that could only hold one of them would let three source-text parses
-        pass tests they never share a file in. That matters more here than
-        anywhere else in this tree: `SWEEP_RSUBX_OHM` and
-        `NULL_SWEEP_RSUBX_OHM` share a suffix, so only a fixture carrying both
-        can show that neither regex captures the other's tuple. `axis`
-        overrides the block, for the "shape this parse does not recognise"
-        case (a computed ladder).
+        Written at `NULL_SWEEP_AXIS_SOURCE` -- the `--null-sweep` campaign's
+        own module since issue #848's split -- and appended for
+        `add_sweep_axes`' reason. Before that split all three tables shared one
+        file, and `test_the_two_rsubx_constants_do_not_capture_each_other`
+        below was the fixture that showed `SWEEP_RSUBX_OHM` and
+        `NULL_SWEEP_RSUBX_OHM` do not capture each other's tuple; it still
+        runs, now over the two separate modules the two constants actually sit
+        in. `axis` overrides the block, for the "shape this parse does not
+        recognise" case (a computed ladder).
         """
-        runner = self.root / checker.NULL_SWEEP_RUNNER
-        runner.parent.mkdir(parents=True, exist_ok=True)
+        module = self.root / checker.NULL_SWEEP_AXIS_SOURCE
+        module.parent.mkdir(parents=True, exist_ok=True)
         if axis is None:
             axis = (
                 "NULL_SWEEP_RSUBX_OHM: tuple[float, ...] = ("
                 + ", ".join(f"{r:g}" for r in rsubx)
                 + ")\n"
             )
-        existing = runner.read_text() if runner.is_file() else '"""fixture runner."""\n'
-        runner.write_text(existing + "\n" + axis)
+        existing = module.read_text() if module.is_file() else '"""fixture null-sweep axis."""\n'
+        module.write_text(existing + "\n" + axis)
 
     def add_coverage_index(self, *rows: dict):
         """A `sim/spec-coverage.json` in the shape check 11 reads.
@@ -6296,7 +6300,12 @@ class TestNullSweepCensus(unittest.TestCase):
 
         Only a fixture carrying BOTH can show that neither source-text parse
         reads the other's tuple -- and it is the exact confusion that would
-        make checks 32 and 34 silently census one axis twice.
+        make checks 32 and 34 silently census one axis twice. Since issue
+        #848's split the two constants live in different campaign modules,
+        which is a second line of defence rather than a replacement for this
+        one: the two parses still run over a tree holding both, and this test
+        is what would catch a future change that put them back in one file
+        with a regex that reads across them.
         """
         self.tree.add_sweep_axes(l_mults=(0.0, 1.0, 10.0), rsubx=(3.0, 30.0, 300.0))
         self.tree.add_null_sweep_axis(rsubx=(1.0, 3.0, 30.0, 300.0, 3000.0))

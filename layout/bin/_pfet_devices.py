@@ -45,14 +45,13 @@ def mos_array_params(flavor: str, w_um: float, l_um: float) -> dict:
     licon1 landing for the router to reach.
 
     Added as the shared spelling by issue #495 (the half-LSB offset network
-    draws six of these and had no business re-deriving the dict).
-    `layout/sampling-frontend/bin/gen_blocks.py`'s own `pfet_params`/
-    `nfet_params` are the byte-identical copy this was lifted from and are
-    deliberately left in place: their output is the drawn geometry behind
-    that flow's committed record, and `sim/tests/`'s own equivalence test
-    pins the two spellings together rather than a comment asserting it. See
-    `layout/bin/_geometry_common.py`'s header for the same staging applied to
-    `step_down_to_met1()`.
+    draws six of these and had no business re-deriving the dict), lifting it
+    from `layout/sampling-frontend/bin/gen_blocks.py`'s own byte-identical
+    `pfet_params`/`nfet_params`. Those two local copies were staged in place
+    until that flow's next re-run and issue #845 then folded them in, so this
+    is now the single definition every block generates against; what pins it
+    is `sim/tests/test_geometry_common_shared_helpers.py`, which asserts the
+    emitted dict exactly rather than against a second copy of itself.
     """
     if flavor not in ("nfet", "pfet"):
         raise ValueError(f"mos_array_params: unknown flavor {flavor!r}")

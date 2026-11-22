@@ -23,6 +23,12 @@ It sets no backend itself: `klt sim` follows `KLT_SIM_BACKEND` / the request, so
 the dispatch workers the grid goes to the batch fleet. A failed submit raises; it
 never falls back to a local loop. Pass `--backend` to override.
 
+Submission goes through `sim/harness/klt_sim.py` (issue #865), shared with every
+other batch campaign, so each request carries `--wait-for-capacity 600` unless
+`--backend local`: the fleet is vCPU-budgeted, and a `batch_no_capacity` refusal
+on a six-request burst now waits with backoff instead of stopping the campaign.
+`--wait-for-capacity` sets the budget; `--probe` (local) passes none.
+
 Why its own runner and no `testbench/tb.json`: same reason as
 `sim/cdac-array-transfer/README.md` ("Why this experiment does NOT have a
 `testbench/tb.json`") — the node is purely capacitive, so the generic `.op`-only

@@ -13,7 +13,11 @@ see that either, because the LVS reference is generated from the same Verilog,
 so a layout and a reference that both descend from a stale netlist agree
 perfectly. This is the sequencer counterpart of
 `layout/top-glue/bin/check-schematic-parity.py` (issue #387), which closed the
-same gap for the glue bank.
+same gap for the glue bank. Since issue #850 the two gates run ONE shared
+compare core out of `layout/bin/_lvs_reference_common.py` rather than two
+copies of it, so a fix to the comparison cannot land in only one of them;
+what stays here is the `.subckt sar_sequencer` slice, the module-port check,
+and this gate's own FAIL/OK scope suffix.
 
 **What binds the Verilog to the schematic.** Two links, both mechanical:
 
@@ -45,7 +49,6 @@ cache is used as-is, so the gate can run in CI's always-on `checks` job.
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import sys
 from pathlib import Path
@@ -59,17 +62,16 @@ sys.path.insert(0, str(LAYOUT_DIR / "bin"))
 import _lvs_reference_common
 from _lvs_reference_common import (  # noqa: E402
     cdl_text_if_available,
-    parse_verilog_netlist,
+    instance_map_problems,
+    report_instance_parity,
+    spice_instances_from_cards,
+    verilog_instances_with_supply_defaults,
 )
 
 DEFAULT_SPICE = REPO_ROOT / "design" / "sar_adc_top.spice"
 DEFAULT_NETLIST = BLOCK_DIR / "netlist" / "sar_sequencer.v"
 PIN_ORDER_CACHE = BLOCK_DIR / "netlist" / "sky130_fd_sc_hd-pin-order.json"
 SUBCKT = "sar_sequencer"
-
-#: The supply pins the Verilog omits; the LVS-reference generator fills them in
-#: with these nets (same defaults `top-glue`'s check validates).
-SUPPLY_DEFAULTS = {"VGND": "VGND", "VNB": "VGND", "VPB": "VPWR", "VPWR": "VPWR"}
 
 _SUBCKT_RE = re.compile(rf"^\.subckt\s+{SUBCKT}\s+(.*)$", re.M)
 _ENDS_RE = re.compile(r"^\.ends\b", re.M)
@@ -143,27 +145,18 @@ def main() -> int:
         cell_types, cdl_text_if_available(), args.refresh_pin_order_cache
     )
 
-    want: dict[str, tuple[str, dict[str, str]]] = {}
+    # Per-block: the subcircuit body is sliced whole, so a line that is not a
+    # standard-cell instantiation at all is this gate's own error to raise --
+    # top-glue filters its cards down to `sky130_fd_sc_hd__*` instead.
     for line in lines:
         toks = line.split()
-        name, cell, nets = toks[0], toks[-1], toks[1:-1]
-        if cell not in pin_orders:
-            raise SystemExit(f"check-schematic-parity.py: {name}: non-standard-cell line {line!r}")
-        if len(pin_orders[cell]) != len(nets):
+        if toks[-1] not in pin_orders:
             raise SystemExit(
-                f"check-schematic-parity.py: {name}: {cell} has {len(pin_orders[cell])} "
-                f"CDL pins but the instance card names {len(nets)} nets"
+                f"check-schematic-parity.py: {toks[0]}: non-standard-cell line {line!r}"
             )
-        want[name] = (cell, dict(zip(pin_orders[cell], nets)))
 
-    _, instances = parse_verilog_netlist(str(args.netlist), tuple(cell_types))
-    got: dict[str, tuple[str, dict[str, str]]] = {}
-    for name, cell, pin_map in instances:
-        if name in got:
-            raise SystemExit(f"check-schematic-parity.py: duplicate instance name {name}")
-        full = dict(SUPPLY_DEFAULTS)
-        full.update(pin_map)
-        got[name] = (cell, full)
+    want = spice_instances_from_cards(lines, pin_orders)
+    got = verilog_instances_with_supply_defaults(args.netlist, tuple(cell_types))
 
     problems: list[str] = []
     v_ports = verilog_ports(args.netlist)
@@ -172,45 +165,16 @@ def main() -> int:
             f"module ports differ: only in Verilog {sorted(set(v_ports) - set(ports))}, "
             f"only in schematic {sorted(set(ports) - set(v_ports))}"
         )
-    for name in sorted(set(want) - set(got)):
-        problems.append(f"MISSING from Verilog: {name} ({want[name][0]})")
-    for name in sorted(set(got) - set(want)):
-        problems.append(f"EXTRA in Verilog (not in schematic): {name} ({got[name][0]})")
-    for name in sorted(set(want) & set(got)):
-        want_cell, want_pins = want[name]
-        got_cell, got_pins = got[name]
-        if want_cell != got_cell:
-            problems.append(f"{name}: cell type {got_cell!r} != schematic {want_cell!r}")
-            continue
-        for pin in sorted(set(want_pins) | set(got_pins)):
-            if want_pins.get(pin) != got_pins.get(pin):
-                problems.append(
-                    f"{name}.{pin}: Verilog net {got_pins.get(pin)!r} != "
-                    f"schematic net {want_pins.get(pin)!r}"
-                )
+    problems += instance_map_problems(want, got)
 
-    rel_spice = os.path.relpath(args.spice, REPO_ROOT)
-    rel_netlist = os.path.relpath(args.netlist, REPO_ROOT)
-    if problems:
-        print(
-            f"check-schematic-parity.py: FAIL -- {rel_netlist} does not match "
-            f"{rel_spice}'s .subckt {SUBCKT}:",
-            file=sys.stderr,
-        )
-        for problem in problems:
-            print(f"  {problem}", file=sys.stderr)
-        return 1
-
-    census: dict[str, int] = {}
-    for cell, _ in want.values():
-        census[cell] = census.get(cell, 0) + 1
-    print(
-        f"check-schematic-parity.py: OK -- {len(want)} instances, {len(census)} cell "
-        f"types, every pin net-identical to {rel_spice} .subckt {SUBCKT}"
+    return report_instance_parity(
+        want,
+        problems,
+        spice_path=args.spice,
+        netlist_path=args.netlist,
+        fail_scope=f"'s .subckt {SUBCKT}",
+        ok_scope=f" .subckt {SUBCKT}",
     )
-    for cell in sorted(census):
-        print(f"  {cell}: {census[cell]}")
-    return 0
 
 
 if __name__ == "__main__":

@@ -563,5 +563,58 @@ class PrecedenceAndFailureTest(GitTestCase):
         self.assertIn(repr(self.REC), proc.stderr)
 
 
+class MergeGroupEnvContractTest(GitTestCase):
+    """The merge_group CI event resolves to the same env contract as a push.
+
+    Issue #1002 (the merge queue): the workflow exports `$APPEND_ONLY_BASE`
+    from `github.event.merge_group.base_sha` and `$APPEND_ONLY_HEAD` from
+    `head_sha`, and the checker itself knows no event names -- the direct
+    base..head comparison below IS the merge-group shape, as documented on
+    the workflow's "Resolve append-only comparison revisions" step (adapted
+    from sky130-comparator#332). These cases pin that contract end to end:
+    a clean trial-merge range passes, a range that tampers with committed
+    evidence fails, and a base the event failed to supply (set but empty) or
+    that does not resolve in the checkout exits nonzero -- the gate fails
+    closed and never falls back to the checker's local default.
+    """
+
+    REC = "sim/exp-a/records/r1.md"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo.write(self.REC, "r1\n")
+        self.seeded = self.repo.commit("r1")
+
+    def test_clean_range_passes(self) -> None:
+        self.repo.git("update-ref", "refs/remotes/origin/main", self.seeded)
+        env = {checker.ENV_BASE: self.seeded, checker.ENV_HEAD: "HEAD"}
+        rc, out, err = self.run_checker(env=env)
+        self.assertEqual(rc, 0, err)
+        self.assertIn(f"${checker.ENV_BASE}", out)
+
+    def test_modified_record_fails(self) -> None:
+        self.repo.write(self.REC, "edited\n")
+        head = self.repo.commit("tamper")
+        env = {checker.ENV_BASE: self.seeded, checker.ENV_HEAD: head}
+        rc, out, err = self.run_checker(env=env)
+        self.assert_violation(rc, err, self.REC)
+        self.assertIn(f"${checker.ENV_BASE}", out)
+
+    def test_absent_base_env_fails(self) -> None:
+        # An empty github.event.merge_group.base_sha arrives here as a
+        # set-but-empty variable (the workflow's own is_oid check fails
+        # first; this pins the checker's identical fail-closed behavior).
+        env = {checker.ENV_BASE: "", checker.ENV_HEAD: "HEAD"}
+        rc, _, err = self.run_checker(env=env)
+        self.assert_cannot_compare(rc, err, "set but empty")
+
+    def test_unresolvable_base_env_fails(self) -> None:
+        # A base_sha the checkout cannot supply (fetch-depth: 0 is what makes
+        # it available; a shallow clone gets the same diagnostic).
+        env = {checker.ENV_BASE: "f" * 40, checker.ENV_HEAD: "HEAD"}
+        rc, _, err = self.run_checker(env=env)
+        self.assert_cannot_compare(rc, err, "does not resolve")
+
+
 if __name__ == "__main__":
     unittest.main()

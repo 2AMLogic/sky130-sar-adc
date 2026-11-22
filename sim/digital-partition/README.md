@@ -54,7 +54,12 @@ delay and **not** the ADC sample rate. See the record's Assumptions section.
 * `--allow-runner-skew` sets `batch.runner_version_check: "warn"`; it exists
   because the fleet runner image can lag the client `klt`. The record states the
   option when used. Default is `enforce`.
-* `--capacity-wait-s` waits out a fleet capacity refusal (shared fleet).
+* `--capacity-wait-s` sets the request's `batch.capacity_wait_s`, which waits
+  out a fleet capacity refusal (shared fleet). Since issue #865 the submit also
+  carries the shared `--wait-for-capacity 600`, and the campaign's own bounded
+  retry (40 x 120 s, keyed on the fleet's refusal text) sits on top of both:
+  `klt sim` does not wait a refusal out itself in every pairing of client and
+  runner, and a refused probe must wait rather than stop the frequency search.
 * `--workdir` caches completed probe reports so an interrupted campaign resumes
   without re-spending fleet jobs.
 * `--probe CORNER MHZ` runs one debug unit and may use `--backend local`.

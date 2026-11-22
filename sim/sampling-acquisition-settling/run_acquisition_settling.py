@@ -165,7 +165,22 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners as corners_mod, evidence, measure, pdk, testbench, toolchain  # noqa: E402
+from harness import corners as corners_mod  # noqa: E402
+from harness import evidence, measure, pdk, toolchain  # noqa: E402
+from harness.acquisition import (  # noqa: E402
+    BUDGET_PROBE_AT_NS,
+    CONFIRM_AT_NS,
+    SIDES,
+    T_PHASE_SLOW_NS,
+    T_PHASE_WORST_NS,
+    TRAN_STOP_NS,
+    TRIG_AT_NS,
+    V_FINAL_N,
+    V_FINAL_P,
+    V_INITIAL_N,
+    V_INITIAL_P,
+    acquisition_sources,
+)
 
 # Same regenerated DUT fragment sim/sampling-frontend/run_transient.py and
 # sim/sampling-frontend/run_hold_kick.py already use (design/
@@ -231,43 +246,6 @@ CORNERS_SUPERSEDES_DEFAULT = (
     "`design/sampling_frontend.sch`"
 )
 
-EDGE_TR_NS = 0.2  # rise/fall time for every edge below -- same convention
-# sim/cdac-bit-trial-settling/'s own EDGE_TR_NS.
-
-# Two-pulse SAMPLE stimulus timing (ns) -- see module docstring "STIMULUS
-# SHAPE" for the full rationale of each interval.
-T_PRECHARGE_NS = 10.0  # SAMPLE stays low until here (bootstrap network
-# precharges: BOOST->VDD, BSBOT->0, G->0 -- same precharge interval
-# sim/sampling-frontend/run_transient.py's own 10ns-before-first-edge
-# convention already uses).
-T_SAMPLE1_RISE_NS = T_PRECHARGE_NS
-T_SAMPLE1_WIDTH_NS = 100.0  # generous -- TOP_P/TOP_N fully settle to the
-# OLD value well inside this (run_transient.py already shows sub-mV
-# settling inside 400ns; 100ns is still >>10x any settling time this
-# script's own measurements below turn out to find).
-T_SAMPLE1_FALL_NS = T_SAMPLE1_RISE_NS + T_SAMPLE1_WIDTH_NS  # 110.0
-
-T_INPUT_TOGGLE_NS = T_SAMPLE1_FALL_NS + 20.0  # 130.0 -- input steps to the
-# opposite rail-adjacent extreme 20ns into the hold phase, while Msw is off
-T_SAMPLE2_RISE_NS = T_INPUT_TOGGLE_NS + 30.0  # 160.0 -- SAMPLE re-asserts
-# 30ns after the input step completes (well clear of the step's own 0.2ns
-# edge)
-# DR-006-derived per-phase clock budget (1 CLK period per bit-trial phase,
-# uniform allocation, which per DR-006 Sec. "Phase count..." applies
-# equally to the SAMPLE phase) -- same reference points
-# sim/cdac-bit-trial-settling/ and sim/sequencer-logic-delay/ already
-# quote, for comparison only, not a pass/fail gate against a ratified row.
-T_PHASE_WORST_NS = 1.0e3 / 12.0  # 83.333... ns @ f_clk_max = 12 MHz
-T_PHASE_SLOW_NS = 1.0e3 / 1.2  # 833.33... ns @ f_clk_min = 1.2 MHz
-
-T_SAMPLE2_WIDTH_NS = 150.0  # comfortably longer than T_PHASE_WORST_NS
-# (83.333ns) plus a confirmatory read further out, both well clear of the
-# pulse's own eventual fall (see "WHY A FIXED-TIME BUDGET PROBE" above for
-# why that margin matters -- SAMPLE's own turn-off transient must not
-# overlap either probe point).
-T_SAMPLE2_FALL_NS = T_SAMPLE2_RISE_NS + T_SAMPLE2_WIDTH_NS  # 310.0
-
-TRAN_STOP_NS = T_SAMPLE2_FALL_NS + 20.0  # 330.0
 TRAN_STEP_NS = 0.02  # 20ps -- fine enough to resolve a sub-ns settling
 # transient (this design's Csamp is deliberately sized, per DR-004, to
 # mimic the real CDAC array's ~4.43pF/side total load, so a settling time
@@ -275,38 +253,12 @@ TRAN_STEP_NS = 0.02  # 20ps -- fine enough to resolve a sub-ns settling
 # figures is expected, not a picosecond-scale one -- but this script
 # measures rather than assumes that).
 
-TRIG_AT_NS = T_SAMPLE2_RISE_NS + EDGE_TR_NS / 2.0  # 160.1 -- 50% crossing
-# of the SAMPLE pulse #2 rising edge: the instant Msw reconnects TOP_P/
-# TOP_N to the NEW input value. Every settling measurement below is
-# relative to this point.
-BUDGET_PROBE_AT_NS = TRIG_AT_NS + T_PHASE_WORST_NS  # 243.433... -- a fixed
-# read, exactly one DR-006 worst-case (12 MHz) phase period after the
-# trigger point: "how far from the ideal target value is this node when
-# a real SAMPLE phase, run at the fastest DR-006-derived rate, would end".
-CONFIRM_AT_NS = T_SAMPLE2_FALL_NS - 5.0  # 305.0 -- long-time (well inside
-# SAMPLE pulse #2, clear of its own fall) confirmatory read, showing
-# whether/how far the node eventually gets given much more time than the
-# phase budget allows.
-
-# Worst-case rail-adjacent differential swing (same magnitude
-# sim/sampling-frontend/run_transient.py's own "worst_case_pp"/
-# "worst_case_np" test points use): P goes low->high, N goes high->low,
-# simultaneously -- the maximum simultaneous full-scale differential step
-# this design's own input range (0-VDD single-ended per side) can present.
-V_INITIAL_P, V_FINAL_P = 0.2, 1.6
-V_INITIAL_N, V_FINAL_N = 1.6, 0.2
-
 # Only the fast, unambiguous early fractions use a TRIG/TARG crossing
 # search (both land well under 1ns after TRIG_AT_NS, nowhere near SAMPLE
 # pulse #2's own fall -- see "WHY A FIXED-TIME BUDGET PROBE, NOT A 99%
 # CROSSING" above for why a tighter fraction was dropped in favor of
 # BUDGET_PROBE_AT_NS/CONFIRM_AT_NS's fixed-time reads instead).
 FRACTIONS = [0.5, 0.9]
-
-SIDES = {
-    "p": ("TOP_P", V_INITIAL_P, V_FINAL_P),
-    "n": ("TOP_N", V_INITIAL_N, V_FINAL_N),
-}
 
 TRIG_TARG_NAMES = [f"t_settle_{side}_{int(f * 100)}" for side in SIDES for f in FRACTIONS]
 MEASURE_NAMES = [f"{stat}_{side}" for side in SIDES for stat in ("budget", "confirm")]
@@ -316,31 +268,6 @@ def build_transient(corner: str = CORNER, temp_c: float = TEMP_C, vdd: float = V
     frag = DUT_FRAGMENT.read_text()
     info = pdk.resolve()
 
-    sample_points = [
-        (0.0, 0.0),
-        (T_SAMPLE1_RISE_NS, 0.0),
-        (T_SAMPLE1_RISE_NS + EDGE_TR_NS, vdd),
-        (T_SAMPLE1_FALL_NS, vdd),
-        (T_SAMPLE1_FALL_NS + EDGE_TR_NS, 0.0),
-        (T_SAMPLE2_RISE_NS, 0.0),
-        (T_SAMPLE2_RISE_NS + EDGE_TR_NS, vdd),
-        (T_SAMPLE2_FALL_NS, vdd),
-        (T_SAMPLE2_FALL_NS + EDGE_TR_NS, 0.0),
-        (TRAN_STOP_NS, 0.0),
-    ]
-    vinp_points = [
-        (0.0, V_INITIAL_P),
-        (T_INPUT_TOGGLE_NS, V_INITIAL_P),
-        (T_INPUT_TOGGLE_NS + EDGE_TR_NS, V_FINAL_P),
-        (TRAN_STOP_NS, V_FINAL_P),
-    ]
-    vinn_points = [
-        (0.0, V_INITIAL_N),
-        (T_INPUT_TOGGLE_NS, V_INITIAL_N),
-        (T_INPUT_TOGGLE_NS + EDGE_TR_NS, V_FINAL_N),
-        (TRAN_STOP_NS, V_FINAL_N),
-    ]
-
     lines = [
         f"* sampling-frontend acquisition-window settling (issue #121) -- "
         f"corner={corner} temp={temp_c}C",
@@ -349,9 +276,7 @@ def build_transient(corner: str = CORNER, temp_c: float = TEMP_C, vdd: float = V
         "",
         f"Vdd VDD 0 dc {vdd}",
         f"Vvcm VCM 0 dc {VCM}",
-        f"Vinp VINP 0 {testbench.pwl(vinp_points)}",
-        f"Vinn VINN 0 {testbench.pwl(vinn_points)}",
-        f"Vsample SAMPLE 0 {testbench.pwl(sample_points)}",
+        *acquisition_sources(vdd),
         "",
         frag,
         "",
@@ -987,15 +912,9 @@ def main() -> int:
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
-    check = toolchain.check_env()
-    if check.status == 3:
-        print("SKIP: ngspice/PDK not available (" + "; ".join(check.messages) + ")")
-        return 0
-    if check.status == 1:
-        print("FAIL: toolchain drift -- " + "; ".join(check.messages))
-        return 1
-    for w in check.warnings:
-        print(f"WARNING: {w}")
+    gate = toolchain.preflight()
+    if gate is not None:
+        return gate
 
     with tempfile.TemporaryDirectory(prefix="sampling-acquisition-settling-") as tmp:
         scratch = Path(tmp)

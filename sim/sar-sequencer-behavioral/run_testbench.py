@@ -140,19 +140,9 @@ def assemble_deck(
 
 
 def run(record: bool, supersedes: str = "") -> int:
-    check = toolchain.check_env()
-    if check.status == 3:
-        print("SKIP: ngspice or the pinned PDK is not installed on this machine.")
-        for m in check.messages:
-            print(f"  {m}")
-        return 0
-    if check.status == 1:
-        print("FAIL: toolchain drifted from sim/toolchain.json pin.")
-        for m in check.messages:
-            print(f"  {m}")
-        return 1
-    for w in check.warnings:
-        print(f"WARNING: {w}")
+    gate = toolchain.preflight()
+    if gate is not None:
+        return gate
 
     pdk_info = pdk.resolve()
 
@@ -262,19 +252,9 @@ def run_corner_campaign(
     provisional claim alone. The DUT is netlisted with xschem ONCE (a
     property of the schematic, not of any PVT point) and re-simulated once
     per corner point."""
-    check = toolchain.check_env()
-    if check.status == 3:
-        print("SKIP: ngspice or the pinned PDK is not installed on this machine.")
-        for m in check.messages:
-            print(f"  {m}")
-        return 0
-    if check.status == 1:
-        print("FAIL: toolchain drifted from sim/toolchain.json pin.")
-        for m in check.messages:
-            print(f"  {m}")
-        return 1
-    for w in check.warnings:
-        print(f"WARNING: {w}")
+    gate = toolchain.preflight()
+    if gate is not None:
+        return gate
 
     pdk_info = pdk.resolve()
 

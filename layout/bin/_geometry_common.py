@@ -31,6 +31,25 @@ still owns its own `tap_shapes()` *wrapper*: `comparator`'s returns a `Pin`,
 the other two return `(shapes, cx, cy)` -- see `tap_shapes()`'s own
 docstring below for why the shared core stays shape-only.
 
+Since issue #909 it also houses the Row-1 PFET n-well island floorplan,
+`floorplan_pfet_well_islands()` -- "walk the device table in domain order,
+place each domain's blocks on a fixed pitch, and size one n-well rectangle
+plus one tap strip per domain" -- which `sampling-frontend-wells` (issue
+#122's own recipe) and `sampling-frontend` Row 1 held byte-identical copies
+of, differing only in the function name, the docstring, and whether the
+shared `_pfet_devices` table was spelled `PFET_DEVICES` or aliased to
+`DEVICES`. The nine constants that plan was the only reader of in each
+consumer (`WELL_MARGIN_UM`, `WELL_TAP_MARGIN_UM`, `WELL_BELOW_UM`,
+`WELL_ABOVE_UM`, the four `TAP_{X,Y}{0,1}_UM` and `BLOCK_PITCH_UM`) moved
+here with it; `WELL_GAP_UM` deliberately did NOT, and is a parameter
+instead, because each consumer has three readers of its own copy -- the same
+`WIRE_UM`-style retention this header records above. Each flow keeps its own
+public wrapper name (`floorplan()` / `floorplan_row1()`) so nothing else in
+either module moved. `layout/halflsb-offset/bin/build_layout.py` carries
+seven of those constants at the same values but plans a different,
+group-based floorplan with no per-domain tap net, and has other local
+readers of them, so it is deliberately not a consumer of this function.
+
 Since issue #495 it also houses the metal-stack layer table and
 `step_down_to_met1()` -- the "walk any generator port down to met1 before
 routing it" via-stack emitter `layout/sampling-frontend/bin/build_layout.py`
@@ -38,17 +57,19 @@ worked out empirically (three layer cases, each with a DRC finding behind
 it) and `layout/halflsb-offset/bin/build_layout.py` needs verbatim, because
 both compose `klt gen cap_array` MiM units (met3 bottom-plate / met4
 top-plate ports) alongside `klt gen mos_array` devices (li1 S/G/D ports).
-The two copies are deliberately NOT yet folded into one: that function's
-output is the *drawn geometry* behind `layout/sampling-frontend/`'s
-committed DRC-clean / LVS-match record, and this repo's records are
-append-only, so re-pointing that flow at this copy is work that belongs with
-that flow's next re-run rather than with a sibling block's first one (the
-same staging `_pfet_devices.py`'s own header documents for issues
-#245--#248). What keeps the duplication honest meanwhile is mechanical, not
-a comment: `sim/tests/test_geometry_common_shared_helpers.py` drives both
-copies over every layer case and asserts the emitted shape lists are
-identical, so a divergence is a test failure and the eventual fold-in is a
-provable no-op.
+
+`layout/sampling-frontend/bin/build_layout.py` kept its own byte-identical
+`_step_down_to_met1` for a while after that extraction, because that
+function's output is the *drawn geometry* behind that flow's committed
+DRC-clean / LVS-match record and this repo's records are append-only, so
+re-pointing it belonged with that flow's next re-run rather than with a
+sibling block's first one. Issue #845 did the fold-in once that flow had
+re-run: this is now the only copy, and both consumers call it. The
+equivalence test that held the two copies honest meanwhile
+(`sim/tests/test_geometry_common_shared_helpers.py`) had already proved the
+fold-in a no-op for drawn geometry; what remains there pins THIS emitter's
+own output, layer case by layer case, rather than two copies against each
+other.
 """
 from __future__ import annotations
 
@@ -106,10 +127,12 @@ LICON_PITCH_UM = 0.60
 
 # --- metal stack: layers + cut/pad sizing, for `step_down_to_met1()` ---------
 # sky130A GDS numbers, as klt's own curated deck names them. Each consumer that
-# also uses these layers for its OWN wiring keeps its own module-level copy of
-# the names it needs (`layout/sampling-frontend/bin/build_layout.py` does),
-# byte-identical to these, exactly the way `WIRE_UM` above is already carried
-# twice -- this copy only fixes what the shared step-down emitter draws.
+# also uses one of these layers for its OWN wiring keeps its own module-level
+# copy of just that name, byte-identical to this one, exactly the way `WIRE_UM`
+# above is already carried twice -- `layout/sampling-frontend/bin/build_layout.py`
+# keeps L_MCON/L_MET1/L_VIA1/L_MET2 for its own columns, tracks and taps. The
+# met3/met4 stack layers below are drawn only by `step_down_to_met1`, so this is
+# their only definition.
 L_MCON = (67, 44)
 L_MET1 = (68, 20)
 L_VIA1 = (68, 44)
@@ -132,9 +155,16 @@ STACK_PAD_UM = 0.42  # landing pad for a stacked via cut (the same pad size
 # `klt gen`'s own gate_contact uses), so a 0.20um via2/via3 lands with
 # >= 0.11um enclosure on every side.
 MET3_ISLAND_PAD_UM = 0.50  # a met3 pad that is the ONLY met3 shape at its own
-# (x, y) has to satisfy sky130A's met3 MINIMUM-AREA rule (`m3.6`, 0.240um^2)
-# on its own; a STACK_PAD_UM square is 0.1764um^2, below it and invisible to
-# `klt drc`'s curated deck (issue #326). 0.50^2 = 0.25um^2 clears it.
+# (x, y) has to satisfy sky130A's met3 MINIMUM-AREA rule (`m3.6`, 0.240um^2,
+# from the pinned PDK's own libs.tech/klayout/drc/sky130A_mr.drc) on its own;
+# a STACK_PAD_UM square is 0.1764um^2, below it and invisible to `klt drc`,
+# whose curated sky130 deck carries no `area`-kind rule (issue #326; fixed
+# upstream by klayout-tools#1989, not yet released). 0.50^2 = 0.25um^2 clears
+# it. Verified by `docs/chipalooza/measure_metal_min_area.py`, which `klt drc`
+# cannot replace. Each consumer's own met4 escape margin must still clear
+# met3.space (0.30um) from the bottom plate's top edge to this wider pad's
+# near edge -- `layout/sampling-frontend/`'s CAP_MET4_ESCAPE_MARGIN_UM (0.80)
+# leaves 0.80 - 0.25 = 0.55um, comfortably over it.
 MET3_VIA_INSET_UM = 0.20  # a `cap_array` *_BOT port's reported x sits right AT
 # the bottom plate's own edge, so landing a via2 there pokes past met3's
 # boundary and fails met3.enclosing.via2. Step the landing this far INTO the
@@ -210,9 +240,10 @@ def step_down_to_met1(
 
     Extracted verbatim (issue #495) from
     `layout/sampling-frontend/bin/build_layout.py`'s own
-    `_step_down_to_met1`, which is still the live copy that flow's committed
-    record was drawn with -- see this module's header for why both exist and
-    for the test that holds them identical.
+    `_step_down_to_met1`, whose geometry that flow's committed record was
+    drawn with; issue #845 folded that copy in, so this is the one emitter
+    both consumers now call -- see this module's header for that staging and
+    for what pins this function's output today.
     """
     if layer == L_LI1:
         shapes.append((L_MCON, Rect.centred(x, y, MCON_UM, MCON_UM)))
@@ -273,6 +304,119 @@ def step_down_to_met1(
         shapes.append((L_VIA1, Rect.centred(x, y, VIA1_UM, VIA1_UM)))
         return x, y
     raise BuildError(f"no met1 step-down rule for layer {layer!r}")
+
+
+# --- Row-1 PFET n-well island floorplan: its constants, then the plan -------
+# Every constant below has exactly ONE reader -- `floorplan_pfet_well_islands`
+# -- in each consumer, which is why they moved here with it (issue #909).
+#: n-well margin around a domain's device blocks and its tap.
+WELL_MARGIN_UM = 0.30
+#: Left margin of each domain's n-well, reserved for the tap column.
+WELL_TAP_MARGIN_UM = 2.00
+#: n-well extent below / above the device row.
+WELL_BELOW_UM = 2.40
+WELL_ABOVE_UM = 0.40
+
+#: Tap strip geometry, in each domain's left margin (x relative to the
+#: domain's n-well x0), below the device row.
+TAP_X0_UM = 0.40
+TAP_X1_UM = 1.00
+TAP_Y0_UM = -1.80
+TAP_Y1_UM = -0.60
+
+#: Device block pitch along the row.
+BLOCK_PITCH_UM = 3.20
+
+
+def floorplan_pfet_well_islands(
+    blocks: dict[str, dict],
+    devices: list[tuple],
+    domain_tap_net: dict[str, str],
+    well_gap_um: float,
+) -> tuple[dict, list[dict]]:
+    """Place every device block and size the three n-well islands.
+
+    Returns ``(origins, domains)`` where ``origins`` maps block id ->
+    ``{"x": .., "y": ..}`` (the `klt gen-compose` placement) and ``domains``
+    is one entry per n-well island, in left-to-right order -- the shape
+    :func:`_assert_well_isolation` below checks, and the shape each consumer
+    draws its island/tap rectangles and tap routing from.
+
+    ``devices`` is `_pfet_devices.PFET_DEVICES` and ``domain_tap_net`` its
+    domain -> tap-net map, both passed in rather than imported here because
+    each flow's own `gen_blocks.py` is the re-export point its siblings read
+    that table from (see that module's note on its deliberate
+    ``DOMAIN_TAP_NET`` re-export, issues #251/#383/#394). A domain is a
+    *contiguous x range* in ``devices`` order, which is what lets one drawn
+    rectangle per domain merge exactly that domain's device wells.
+
+    ``well_gap_um`` is a parameter rather than a constant here for the same
+    reason ``WIRE_UM`` above is carried twice: each consumer has three
+    readers of its own ``WELL_GAP_UM`` -- this plan's cursor advance, its
+    :func:`_assert_well_isolation` call, and the drawn separation it reports
+    in its own summary document -- so that one stays local to each flow,
+    while the nine single-reader constants above moved here with this
+    function.
+
+    Extracted (issue #909) from `layout/sampling-frontend-wells/bin/
+    build_layout.py`'s own ``floorplan()`` -- the copy that already carried
+    this docstring -- of which `layout/sampling-frontend/bin/build_layout.py`
+    held a byte-identical second copy as ``floorplan_row1()``, under a
+    section comment that said so ("Row 1: PFETs, unchanged from
+    layout/sampling-frontend-wells/"). The two differed only in the function
+    name, that docstring, and whether the shared device table was spelled
+    ``PFET_DEVICES`` or ``DEVICES`` -- the latter being
+    `_pfet_devices.PFET_DEVICES` under an ``as`` alias, so the same object.
+    Both flows re-emitted their committed ``draw.request.json`` /
+    ``compose.request.json`` / summary documents byte-identically across the
+    fold-in, so no drawn geometry moved and neither flow's append-only record
+    needed re-minting; what pins this emitter from here on is
+    `sim/tests/test_geometry_common_shared_helpers.py`, asserting THIS
+    function's own origins/island/tap output rather than two copies against
+    each other -- the discipline that file records for
+    :func:`step_down_to_met1`.
+    """
+    origins: dict[str, dict[str, float]] = {}
+    domains: list[dict] = []
+
+    cursor = 0.0
+    ordered_domains: list[str] = []
+    for _bid, _name, domain, *_rest in devices:
+        if domain not in ordered_domains:
+            ordered_domains.append(domain)
+
+    for domain in ordered_domains:
+        members = [row[0] for row in devices if row[2] == domain]
+        well_x0 = cursor
+        x = well_x0 + WELL_TAP_MARGIN_UM
+        for block_id in members:
+            origins[block_id] = {"x": x, "y": 0.0}
+            x += BLOCK_PITCH_UM
+        last = members[-1]
+        well_x1 = origins[last]["x"] + blocks[last]["bbox"]["x1"] + WELL_MARGIN_UM
+        top = max(blocks[b]["bbox"]["y1"] for b in members)
+        domains.append(
+            {
+                "id": domain,
+                "net": domain_tap_net[domain],
+                "members": members,
+                "well": {
+                    "x0": well_x0,
+                    "y0": -WELL_BELOW_UM,
+                    "x1": well_x1,
+                    "y1": top + WELL_ABOVE_UM,
+                },
+                "tap": {
+                    "x0": well_x0 + TAP_X0_UM,
+                    "x1": well_x0 + TAP_X1_UM,
+                    "y0": TAP_Y0_UM,
+                    "y1": TAP_Y1_UM,
+                },
+            }
+        )
+        cursor = well_x1 + well_gap_um
+
+    return origins, domains
 
 
 def _assert_well_isolation(domains: list[dict], well_gap_um: float) -> None:

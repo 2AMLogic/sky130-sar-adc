@@ -39,18 +39,21 @@ this array-only experiment does not exercise (same scope limitation #53's
 own record already states: "informs, but does not substantiate" the
 DNL/INL row). DNL/INL below are computed in units of the ratified ADC LSB
 (matching spec/target-spec.md's own "<=1 LSB" row), NOT this array's own
-7.03 mV code step -- see `dnl_lsb()`/`inl_lsb()`.
+7.03 mV code step -- see `_parse_draw()`.
 """
 
 from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import statistics
+import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
@@ -133,8 +136,6 @@ def measure_names() -> list[str]:
 class Draw:
     seed: int
     vdiff: dict[int, float]  # code -> measured differential output (V)
-    dnl_lsb: dict[tuple[int, int], float]  # (c1,c2) -> DNL at that transition, in ratified LSB
-    inl_lsb: dict[int, float]  # code -> INL vs endpoint line, in ratified LSB
     dnl_max_lsb: float
     inl_max_lsb: float
     log_text: str
@@ -175,7 +176,7 @@ def _parse_draw(seed: int | None, log_text: str) -> Draw:
     dnl_max = max((abs(v) for v in dnl_lsb.values()), default=float("nan"))
     inl_max = max((abs(v) for v in inl_lsb.values()), default=float("nan"))
     return Draw(
-        seed=seed if seed is not None else -1, vdiff=vdiff, dnl_lsb=dnl_lsb, inl_lsb=inl_lsb,
+        seed=seed if seed is not None else -1, vdiff=vdiff,
         dnl_max_lsb=dnl_max, inl_max_lsb=inl_max, log_text=log_text,
     )
 
@@ -306,6 +307,154 @@ def reanalyze_from_logs(source_record_id: str, corner: str = BASE_CORNER) -> McR
     )
 
 
+def klt_env_prose() -> str:
+    """Environment-block line identifying the `klt` that minted a `klt
+    yield` envelope (issue #912's AC: the record must record the actual
+    `klayout-tools` / `klt-yield-native` versions used). `run_klt_yield()`
+    shells out to a bare `klt` from PATH, so the version facts are read from
+    THAT resolution -- the console script's own shebang names the interpreter
+    whose site-packages hold the klayout-tools pair (the python running this
+    script need not be the one the envelope was minted by). Every failure --
+    including a truncated/empty console script -- degrades to a less specific
+    but still honest string; nothing here raises."""
+    which = shutil.which("klt")
+    if not which:
+        return "klt: not on PATH (no envelope could be minted)"
+    try:
+        proc = subprocess.run(
+            ["klt", "--version"], capture_output=True, text=True, timeout=10
+        )
+        klt_ver = proc.stdout.strip() or "unknown"
+    except (OSError, subprocess.TimeoutExpired):
+        klt_ver = "unknown"
+    suffix = " (klt yield envelope)"
+    try:
+        shebang = Path(which).read_text(errors="replace").splitlines()[0]
+        if shebang.startswith("#!"):
+            py = shebang[2:].strip()
+            if py and Path(py).exists():
+                query = (
+                    "import importlib.metadata as m; "
+                    "print(m.version('klayout-tools'), m.version('klt-yield-native'))"
+                )
+                proc = subprocess.run(
+                    [py, "-c", query], capture_output=True, text=True, timeout=10
+                )
+                if proc.returncode == 0:
+                    parts = proc.stdout.split()
+                    if len(parts) == 2:
+                        suffix = (
+                            f" (klayout-tools {parts[0]}, klt-yield-native {parts[1]}; "
+                            "klt yield envelope; pin sim/yield-requirements.txt)"
+                        )
+    except (OSError, subprocess.TimeoutExpired, IndexError):
+        pass
+    return f"{klt_ver}{suffix}"
+
+
+class TargetProvenance(NamedTuple):
+    """Limit-keyed target-provenance prose fields returned by
+    target_provenance_prose(): `claim_body` follows the "- **Claim**: "
+    prefix on the reanalysis branch of write_evidence(); `target_desc` is
+    embedded in the "Against {target_desc}, ..." sentence of the record's
+    yield-evidence section; `fresh_claim_body` follows the same prefix on
+    the fresh (non-reanalysis) branch (issue #948)."""
+
+    claim_body: str
+    target_desc: str
+    fresh_claim_body: str
+
+
+def target_provenance_prose(
+    target_limit_lsb: float, target_yield: float
+) -> TargetProvenance:
+    """Target-provenance prose for a record's **Claim** line and its `klt
+    yield` target description, keyed on the LIMIT actually used -- not on
+    whether the run is a reanalysis (issue #912). At
+    `DRAFT_INL_DNL_TARGET_LSB` the target is `spec/target-spec.md`'s DRAFT
+    INL/DNL row; at any other limit it is DR-007's CANDIDATE REVISED
+    proposal. DR-007 proposes 2.0 LSB, so describing a 1.0 LSB evaluation
+    as "DR-007's proposal" would write a false provenance claim about a
+    spec target into an append-only record. Returns a `TargetProvenance`
+    (see its docstring for the three fields). Both branches' Claim bodies
+    share the single DRAFT-vs-DR-007 predicate below, so the fresh branch
+    cannot drift from the reanalysis branch's attribution (issue #948:
+    the fresh branch's claim previously hardcoded the DRAFT row's limit)."""
+    limit = f"{target_limit_lsb:g} LSB"
+    if target_limit_lsb == DRAFT_INL_DNL_TARGET_LSB:
+        claim_body = (
+            "`spec/target-spec.md#target-table` -- INL/DNL row, re-scored "
+            f"against the DRAFT target ({limit}, target_yield="
+            f"{target_yield:g}) from `spec/target-spec.md`'s own INL/DNL row "
+            "(target value, NOT ratified: target-spec.md's own \"Not ratified "
+            "by this record\" list names ENOB/INL-DNL target values as still "
+            "open pending this Monte-Carlo campaign, issue #29). This record "
+            "supplies that re-scoring: the SAME underlying DNL/INL draws, "
+            "re-evaluated against that DRAFT row's own limit, inform (do not "
+            "by themselves ratify) the row's target value."
+        )
+        target_desc = (
+            f"spec/target-spec.md's DRAFT (not ratified) INL/DNL target row (`<= +-{limit}`)"
+        )
+        fresh_claim_body = (
+            f"`spec/target-spec.md#target-table` -- DNL/INL DRAFT target row "
+            f"(`<= +-{limit}`, target value, NOT ratified: target-spec.md's own \"Not "
+            "ratified by this record\" list names ENOB/INL-DNL target values as still "
+            "open pending this Monte-Carlo campaign, issue #29). This record supplies "
+            "that campaign's DNL/INL evidence: mismatch-driven Monte Carlo statistics "
+            "of design/cdac/cdac_array.sch's own DAC transfer characteristic, in "
+            "isolation from the sampling front end, comparator, and SAR logic -- "
+            "informs, but (per #53's own precedent) does not by itself substantiate a "
+            "full end-to-end ADC DNL/INL claim (see the UNITS/scope note below)."
+        )
+    else:
+        claim_body = (
+            "`spec/target-spec.md#target-table` -- INL/DNL row, re-scored "
+            f"against a CANDIDATE REVISED target ({limit}, target_yield="
+            f"{target_yield:g}) that issue #129's `spec/decision-records/DR-007-*.md` "
+            "proposes (evidence-derived, per #29's shortfall against the original DRAFT "
+            "`<= +-1 LSB` row -- see that record). This record supplies that re-scoring: "
+            "the SAME underlying DNL/INL draws, re-evaluated against the candidate revised "
+            "bound, informs (does not by itself ratify) DR-007's proposal."
+        )
+        target_desc = (
+            f"DR-007's CANDIDATE REVISED (proposed, not ratified) INL/DNL target "
+            f"(`<= +-{limit}`)"
+        )
+        fresh_claim_body = (
+            f"issue #129's `spec/decision-records/DR-007-*.md` CANDIDATE REVISED "
+            f"(proposed, not ratified) INL/DNL target (`<= +-{limit}`, "
+            "evidence-derived per issue #29's shortfall -- see that record). This "
+            "record supplies that campaign's DNL/INL evidence: mismatch-driven Monte "
+            "Carlo statistics of design/cdac/cdac_array.sch's own DAC transfer "
+            "characteristic, in isolation from the sampling front end, comparator, "
+            "and SAR logic -- informs, but (per #53's own precedent) does not by "
+            "itself substantiate a full end-to-end ADC DNL/INL claim (see the "
+            "UNITS/scope note below)."
+        )
+    return TargetProvenance(claim_body, target_desc, fresh_claim_body)
+
+
+def reanalysis_prose_line(source_record_id: str) -> str:
+    """Body of a record's "- **Reanalysis, not a new simulation**:" bullet --
+    the mechanism description only (what was re-parsed from where, and that
+    `klt yield` re-scores it). Deliberately limit-NEUTRAL ("the target limit
+    named above"): the **Claim** bullet directly above carries the
+    limit-keyed provenance via target_provenance_prose(), and this bullet is
+    shared by every reanalysis mint -- hardcoding either target's name here
+    (issue #912 review: "the candidate revised limit") would contradict the
+    Claim at any other limit, putting a false provenance claim about a spec
+    target into an append-only record."""
+    return (
+        "derived/composite -- NO new ngspice invocation. Re-parses the already-committed "
+        f"`mc-draws/{source_record_id}/`"
+        f" logs from source record `sim/cdac-array-transfer/records/{source_record_id}.md` "
+        "(issue #29) with the SAME DNL/INL computation `_parse_draw()` uses, then re-runs "
+        "`klt yield` against the target limit named above -- mirrors "
+        "`sim/enob-estimate/run_enob.py`'s own 'derived/composite' provenance convention."
+    )
+
+
 def write_evidence(
     result: McResult,
     note: str = "",
@@ -375,34 +524,13 @@ def write_evidence(
     a("")
     a(f"- **Record ID**: {record_id}")
     if result.source_record_id:
-        a(
-            "- **Claim**: `spec/target-spec.md#target-table` -- INL/DNL row, re-scored "
-            f"against a CANDIDATE REVISED target ({target_limit_lsb:g} LSB, target_yield="
-            f"{target_yield:g}) that issue #129's `spec/decision-records/DR-007-*.md` "
-            "proposes (evidence-derived, per #29's shortfall against the original DRAFT "
-            "`<= +-1 LSB` row -- see that record). This record supplies that re-scoring: "
-            "the SAME underlying DNL/INL draws, re-evaluated against the candidate revised "
-            "bound, informs (does not by itself ratify) DR-007's proposal."
-        )
-        a(
-            f"- **Reanalysis, not a new simulation**: derived/composite -- NO new ngspice "
-            f"invocation. Re-parses the already-committed `mc-draws/{result.source_record_id}/`"
-            f" logs from source record `sim/cdac-array-transfer/records/{result.source_record_id}.md` "
-            "(issue #29) with the SAME DNL/INL computation `_parse_draw()` uses, then re-runs "
-            "`klt yield` against the candidate revised limit above -- mirrors "
-            "`sim/enob-estimate/run_enob.py`'s own 'derived/composite' provenance convention."
-        )
+        provenance = target_provenance_prose(target_limit_lsb, target_yield)
+        a(f"- **Claim**: {provenance.claim_body}")
+        a(f"- **Reanalysis, not a new simulation**: {reanalysis_prose_line(result.source_record_id)}")
     else:
         a(
-            "- **Claim**: `spec/target-spec.md#target-table` -- DNL/INL DRAFT target row "
-            "(`<= +-1 LSB`, target value, NOT ratified: target-spec.md's own \"Not "
-            "ratified by this record\" list names ENOB/INL-DNL target values as still "
-            "open pending this Monte-Carlo campaign, issue #29). This record supplies "
-            "that campaign's DNL/INL evidence: mismatch-driven Monte Carlo statistics "
-            "of design/cdac/cdac_array.sch's own DAC transfer characteristic, in "
-            "isolation from the sampling front end, comparator, and SAR logic -- "
-            "informs, but (per #53's own precedent) does not by itself substantiate a "
-            "full end-to-end ADC DNL/INL claim (see the UNITS/scope note below)."
+            "- **Claim**: "
+            f"{target_provenance_prose(target_limit_lsb, target_yield).fresh_claim_body}"
         )
         a(
             "- **Netlist provenance**: schematic, generated (`sim/cdac-array-transfer/gen_fragment.py`, "
@@ -484,12 +612,7 @@ def write_evidence(
     a("## Machine-checkable yield evidence (`klt yield`)")
     a("")
     if yield_report is not None:
-        target_desc = (
-            f"DR-007's CANDIDATE REVISED (proposed, not ratified) INL/DNL target "
-            f"(`<= +-{target_limit_lsb:g} LSB`)"
-            if result.source_record_id else
-            f"spec/target-spec.md's DRAFT (not ratified) INL/DNL target row (`<= +-{target_limit_lsb:g} LSB`)"
-        )
+        target_desc = target_provenance_prose(target_limit_lsb, target_yield).target_desc
         a(
             f"Against {target_desc}, target_yield={target_yield:g}, 95% confidence -- "
             "reported here as INFORMATIONAL evidence toward a future ratification decision "
@@ -540,6 +663,8 @@ def write_evidence(
     extra_env = {"MC seed": str(result.seed), "MC N": str(n)}
     if result.source_record_id:
         extra_env["Reanalysis of"] = f"`sim/cdac-array-transfer/records/{result.source_record_id}.md` (no new ngspice run)"
+    if yield_report is not None:
+        extra_env["klt"] = klt_env_prose()
     lines.extend(evidence.environment_block(
         pdk_line=prov.pdk_line,
         ngspice_line=prov.ng_version,
@@ -554,7 +679,6 @@ def write_evidence(
 
 
 ANALYTIC_GAIN_3SIGMA_LSB = 1.4191  # DR-003 Item 3 as updated by DR-019: 3*32*sigma_u
-ANALYTIC_GAIN_SIGMA_UNIT_PCT = 1.4737  # DR-019 sigma_u (percent)
 
 
 def write_gain_error_evidence(result: McResult, supersedes: str = "", note: str = "") -> tuple[Path, bool]:

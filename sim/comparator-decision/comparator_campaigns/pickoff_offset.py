@@ -100,9 +100,7 @@ def _pickoff_value(csv_path: Path) -> float:
 class OffsetResult:
     gain_v_per_v: float
     gain_cal_points: list[tuple[float, float]]  # (vindiff_v, pickoff_diff)
-    draws_pickoff: list[float]
     draws_offset_v: list[float]
-    negctrl_pickoff: list[float]
     negctrl_offset_v: list[float]
     seed: int
     n: int
@@ -170,8 +168,8 @@ def run_offset_mc(
 
     result = OffsetResult(
         gain_v_per_v=gain, gain_cal_points=cal_points,
-        draws_pickoff=draws_pickoff, draws_offset_v=draws_offset_v,
-        negctrl_pickoff=negctrl_pickoff, negctrl_offset_v=negctrl_offset_v,
+        draws_offset_v=draws_offset_v,
+        negctrl_offset_v=negctrl_offset_v,
         seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner, logs=logs,
     )
     return result

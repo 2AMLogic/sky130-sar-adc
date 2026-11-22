@@ -115,9 +115,9 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20261001-124049-5207381.md` (Record ID `20261001-124049-5207381`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261115-014818-7adcfe77.md` (Record ID `20261115-014818-7adcfe77`, Supersedes: 20261001-124049-5207381)
   - Overall: PASS (harness/negative-control validity; DNL/INL magnitude itself is reported informationally below against the DRAFT target, not gated as pass/fail -- the target row is not yet ratified)
-  - Claim: `spec/target-spec.md#target-table` -- DNL/INL DRAFT target row (`<= +-1 LSB`, target value, NOT ratified: target-spec.md's own "Not ratified by this record" list names ENOB/INL-DNL target values as still open pending th…
+  - Claim: `spec/target-spec.md#target-table` -- INL/DNL row, re-scored against the DRAFT target (1 LSB, target_yield=0.99) from `spec/target-spec.md`'s own INL/DNL row (target value, NOT ratified: target-spec.md's own "Not ratifi…
 - `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)

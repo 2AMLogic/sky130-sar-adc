@@ -85,9 +85,15 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_BIN_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(_BIN_DIR))
+# The repo's one PDK resolver (issue #859). Appended AFTER this flow's own
+# `bin/` so nothing under `sim/` can shadow `build_layout`; the import itself
+# is the same one layout/comparator/pex/run_pex.py already uses.
+sys.path.append(str(_BIN_DIR.parents[2] / "sim"))
 
 import build_layout as bl  # noqa: E402
+from harness import pdk  # noqa: E402
 
 try:
     import klayout.db as db
@@ -109,9 +115,9 @@ BACK_END_LAYERS = {
 }
 
 #: The PDK parameter file every sheet/via resistance below is read out of, so
-#: no resistivity in this script is a typed-in constant. Relative to the PDK
-#: root `klt` itself resolves (`$PDK_ROOT/sky130A`, or the `~/.ciel` /
-#: `~/.volare` search root the flow's own provenance records).
+#: no resistivity in this script is a typed-in constant. Relative to the
+#: sky130A variant directory `sim/harness/pdk.py` resolves -- the search roots
+#: themselves live in `sim/pdk.json`, never in this file.
 PDK_RES_FILE = "libs.tech/ngspice/r+c/res_typical__cap_typical.spice"
 
 #: `.param` name in that file for each layer's sheet resistance (ohm/square)
@@ -124,19 +130,28 @@ RVIA_PARAM = {
 }
 
 
-def find_pdk_root() -> Path | None:
-    """The same search roots this flow's own records name for sky130A."""
-    import os
+def find_pdk_root() -> Path:
+    """The sky130A variant directory this repo's one resolver picks --
+    `sim/harness/pdk.py`, reading `sim/pdk.json`'s `$PDK_ROOT`/`$PDK`-then-
+    `default_pdk_root`-then-`fallback_pdk_roots` order -- asserted to carry the
+    R+C parameter file this script reads its resistances out of.
 
-    candidates = []
-    if os.environ.get("PDK_ROOT"):
-        candidates.append(Path(os.environ["PDK_ROOT"]) / "sky130A")
-    home = Path.home()
-    candidates += [home / ".ciel" / "sky130A", home / ".volare" / "sky130A"]
-    for root in candidates:
-        if (root / PDK_RES_FILE).is_file():
-            return root
-    return None
+    Raises rather than returning None, and never falls through to a *different*
+    install when the resolved one is missing that file (issue #859): a
+    `$PDK_ROOT` that is set but wrong is a wrong environment to report, not a
+    cue to read some other tree. The resolved tree is also the one
+    `toolchain.check_env()`'s pin-drift gate inspects, which the old
+    hand-rolled search could silently diverge from.
+    """
+    info = pdk.resolve()
+    if not info.found:
+        raise SystemExit(f"probe-decap-sites.py: {info.error} (set PDK_ROOT)")
+    if not (info.variant_dir / PDK_RES_FILE).is_file():
+        raise SystemExit(
+            f"probe-decap-sites.py: no {PDK_RES_FILE} under {info.variant_dir} "
+            "(set PDK_ROOT)"
+        )
+    return info.variant_dir
 
 
 def read_pdk_resistances(pdk_root: Path) -> dict[str, float]:
@@ -668,11 +683,6 @@ def main() -> int:
     args = parser.parse_args()
 
     pdk_root = find_pdk_root()
-    if pdk_root is None:
-        raise SystemExit(
-            "probe-decap-sites.py: no sky130A PDK with "
-            f"{PDK_RES_FILE} found (set PDK_ROOT)"
-        )
     res = read_pdk_resistances(pdk_root)
 
     record_gds = args.record / "sar_adc_top.gds"

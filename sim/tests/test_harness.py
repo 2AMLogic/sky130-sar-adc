@@ -5,6 +5,9 @@ sim/selftest.sh stage 1/4)."""
 
 from __future__ import annotations
 
+import ast
+import contextlib
+import io
 import json
 import os
 import subprocess
@@ -17,6 +20,7 @@ from unittest import mock
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 
+import provenance_fixture  # noqa: E402
 from harness import corners, evidence, measure, runner  # noqa: E402
 from harness import mc_runner, pdk, testbench, toolchain  # noqa: E402
 
@@ -423,21 +427,6 @@ class TestResolveCornersProvenance(unittest.TestCase):
             "complete": complete,
         }
 
-    def _fake_resolve(self, seen: list):
-        def fake(experiment_dir: Path, netlist_text: str):
-            seen.append(netlist_text)
-            (experiment_dir / "netlist-snapshots").mkdir(parents=True, exist_ok=True)
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC",
-                record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64,
-                pdk_line="sky130A @ testing",
-                ng_version="ngspice-46",
-            )
-
-        return fake
-
     def test_baseline_snapshot_decks_and_run_summary(self):
         points = [
             self._point("ss", 27.0, 1.8),
@@ -447,7 +436,8 @@ class TestResolveCornersProvenance(unittest.TestCase):
         seen: list = []
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
-            with mock.patch.object(evidence, "resolve_provenance", self._fake_resolve(seen)):
+            fake = provenance_fixture.make_fake_resolve(seen=seen)
+            with mock.patch.object(evidence, "resolve_provenance", fake):
                 info = evidence.resolve_corners_provenance(tmp_dir, points, 1.8)
 
             # the tt/27C/nominal point is the one snapshotted, not points[0]
@@ -479,7 +469,8 @@ class TestResolveCornersProvenance(unittest.TestCase):
         points = [self._point("ss", -40.0, 1.62), self._point("ff", 125.0, 1.98)]
         seen: list = []
         with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.object(evidence, "resolve_provenance", self._fake_resolve(seen)):
+            fake = provenance_fixture.make_fake_resolve(seen=seen)
+            with mock.patch.object(evidence, "resolve_provenance", fake):
                 evidence.resolve_corners_provenance(Path(tmp), points, 1.8)
         self.assertEqual(seen, [points[0]["netlist"]])
 
@@ -768,6 +759,265 @@ class TestTestbenchManifest(unittest.TestCase):
             )
             self.assertIn(".lib /fake/sky130.lib.spice tt", netlist)
             self.assertIn(".temp 125", netlist)
+
+
+def _write_tb_manifest(tb_dir: Path, checks: dict) -> Path:
+    """A minimal load()-able manifest fixture with the given checks dict."""
+    tb_dir.mkdir(parents=True, exist_ok=True)
+    (tb_dir / "fake.spice").write_text("R1 vdd 0 1k\n")
+    manifest_json = tb_dir / "tb.json"
+    manifest_json.write_text(
+        json.dumps(
+            {
+                "name": "fake",
+                "netlist_fragment": "fake.spice",
+                "nominal_supply_v": 1.8,
+                "measure": {"v": "v(vdd)"},
+                "checks": checks,
+            }
+        )
+    )
+    return manifest_json
+
+
+def _checks_key_literals(module_path: Path) -> set[str]:
+    """The string keys read out of a `checks` mapping anywhere in a harness
+    module's source: subscripts (checks["min"]), membership tests
+    ("min" in checks), and .get() chains rooted at the name checks
+    (mc_runner's checks.get(name, {}).get("min_stdev", ...)). Used to pin
+    RECOGNIZED_CHECK_KEYS to the readers (issue #997)."""
+    tree = ast.parse(module_path.read_text())
+
+    def is_checks_expr(node: ast.expr) -> bool:
+        if isinstance(node, ast.Name) and node.id == "checks":
+            return True
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and is_checks_expr(node.func.value)
+        )
+
+    keys: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript) and is_checks_expr(node.value):
+            sl = node.slice
+            if isinstance(sl, ast.Constant) and isinstance(sl.value, str):
+                keys.add(sl.value)
+        elif (
+            isinstance(node, ast.Compare)
+            and isinstance(node.ops[0], ast.In)
+            and is_checks_expr(node.comparators[0])
+            and isinstance(node.left, ast.Constant)
+            and isinstance(node.left.value, str)
+        ):
+            keys.add(node.left.value)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and is_checks_expr(node.func.value)
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            keys.add(node.args[0].value)
+    return keys
+
+
+class TestSpreadAxisValidation(unittest.TestCase):
+    """A typo'd spread axis key is silently ungraded at runtime
+    (`_evaluate_checks` skips an axis it has no spread for), so it must be
+    rejected at manifest load instead (issue #984)."""
+
+    def _load_with_checks(self, checks: dict) -> testbench.Manifest:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(Path(tmp) / "fake" / "testbench", checks)
+            return testbench.load(manifest_json)
+
+    def test_unknown_min_spread_axis_raises_with_manifest_check_and_valid_set(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(
+                Path(tmp) / "fake" / "testbench",
+                {"vgs_nfet": {"min_spread_pct_by_axis": {"proces": 1.0}}},
+            )
+            with self.assertRaises(ValueError) as ctx:
+                testbench.load(manifest_json)
+        message = str(ctx.exception)
+        self.assertIn(str(manifest_json), message)
+        self.assertIn("checks.vgs_nfet.min_spread_pct_by_axis", message)
+        self.assertIn("'proces'", message)
+        self.assertIn("process, temperature, supply", message)
+
+    def test_unknown_max_spread_axis_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self._load_with_checks(
+                {"x": {"max_spread_pct_by_axis": {"temp": 0.001}}}
+            )
+        self.assertIn("checks.x.max_spread_pct_by_axis", str(ctx.exception))
+        self.assertIn("'temp'", str(ctx.exception))
+
+    def test_valid_spread_axes_load(self):
+        manifest = self._load_with_checks(
+            {
+                "x": {
+                    "min": 0.3,
+                    "max": 1.2,
+                    "min_spread_pct_by_axis": {"process": 1.0, "temperature": 3.0},
+                    "max_spread_pct_by_axis": {"supply": 0.001},
+                }
+            }
+        )
+        self.assertEqual(manifest.name, "fake")
+
+    def test_checks_without_spread_keys_and_empty_spread_dicts_load(self):
+        manifest = self._load_with_checks(
+            {
+                "x": {"min": 0.3, "max": 1.2},
+                "y": {"min_spread_pct_by_axis": {}, "max_spread_pct_by_axis": {}},
+            }
+        )
+        self.assertEqual(set(manifest.checks), {"x", "y"})
+
+    def test_committed_tb_json_manifests_still_load(self):
+        # The two committed manifests are the load path's live fixtures;
+        # all their spread keys spelled valid axes before validation landed
+        # and must keep loading unchanged.
+        for experiment in ("harness-corner-smoke", "mc-smoke"):
+            manifest = testbench.load(SIM_DIR / experiment / "testbench" / "tb.json")
+            self.assertEqual(manifest.experiment_dir.name, experiment)
+
+    def test_spread_axes_constant_matches_runner_emission(self):
+        # Drift pin: the axes runner.run actually emits a spread for must be
+        # exactly SPREAD_AXES -- the validator rejects anything outside the
+        # constant, so a runner that stopped emitting one of them would
+        # strand a legal manifest with a floor that never grades (and a new
+        # runner-only axis would be rejected at load forever).
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(
+                Path(tmp) / "fake" / "testbench",
+                {"v": {"min_spread_pct_by_axis": {"temperature": 1.0}}},
+            )
+            manifest = testbench.load(manifest_json)
+
+            class FakePdkInfo:
+                found = True
+                error = None
+                ngspice_lib = "/fake/sky130.lib.spice"
+
+            def fake_ngspice(netlist, scratch_dir, cid, **kwargs):
+                temp = float(netlist.split(".temp ")[1].split()[0])
+                return f"v = {0.5 + temp / 1000:.6f}\n"
+
+            with mock.patch.object(runner.pdk, "resolve", return_value=FakePdkInfo()):
+                with mock.patch.object(runner.toolchain, "run_ngspice", fake_ngspice):
+                    result, axis_spreads = runner.run(
+                        manifest, process_corners=["tt"], temperatures_c=[27, 47],
+                        quiet=True,
+                    )
+        self.assertTrue(result.overall_ok)
+        self.assertEqual(set(axis_spreads["v"]), set(testbench.SPREAD_AXES))
+        for name in manifest.measure:
+            self.assertEqual(set(axis_spreads[name]), set(testbench.SPREAD_AXES))
+
+
+class TestCheckKeyValidation(unittest.TestCase):
+    """A typo'd *block key* in a checks entry (e.g. min_spread_pct_by_axi)
+    is silently ungraded -- every reader looks the keys up by exact name, so
+    a typo'd key loads fine and its floor never grades, indistinguishable
+    from a passing run. It must be rejected at manifest load instead
+    (issue #997; the block level of #984's axis-name fix)."""
+
+    def _load_with_checks(self, checks: dict) -> testbench.Manifest:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(Path(tmp) / "fake" / "testbench", checks)
+            return testbench.load(manifest_json)
+
+    def test_typoed_spread_block_key_raises_with_check_and_valid_set(self):
+        # The issue's measured repro: ...by_axi loaded with no error before
+        # this validation and the floor survived into the manifest unread.
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(
+                Path(tmp) / "fake" / "testbench",
+                {"vgs": {"min_spread_pct_by_axi": {"process": 1.0}}},
+            )
+            with self.assertRaises(ValueError) as ctx:
+                testbench.load(manifest_json)
+        message = str(ctx.exception)
+        self.assertIn(str(manifest_json), message)
+        self.assertIn("checks.vgs.min_spread_pct_by_axi", message)
+        self.assertIn("'min_spread_pct_by_axi'", message)
+        self.assertIn(
+            "min, max, min_spread_pct_by_axis, max_spread_pct_by_axis, "
+            "min_stdev, description",
+            message,
+        )
+
+    def test_typoed_scalar_keys_raise(self):
+        for typo in ("minn", "min_stdevv"):
+            with self.assertRaises(ValueError) as ctx:
+                self._load_with_checks({"x": {typo: 0.5}})
+            self.assertIn(f"'{typo}'", str(ctx.exception))
+            self.assertIn("checks.x", str(ctx.exception))
+
+    def test_description_annotation_key_loads_and_typo_raises(self):
+        # The one blessed non-reader key: sim/README.md documents
+        # "description" as "why this check exists" and the committed
+        # harness-corner-smoke manifest carries it on every check. A typo'd
+        # annotation is rejected like any other unknown key.
+        manifest = self._load_with_checks(
+            {"x": {"min": 0.5, "description": "why this check exists"}}
+        )
+        self.assertEqual(manifest.checks["x"]["description"], "why this check exists")
+        with self.assertRaises(ValueError) as ctx:
+            self._load_with_checks({"x": {"descritpion": "typo"}})
+        self.assertIn("'descritpion'", str(ctx.exception))
+
+    def test_all_recognized_keys_load(self):
+        # Edge: every recognized key -- including the MC-only min_stdev and
+        # the description annotation -- is accepted together on one entry.
+        manifest = self._load_with_checks(
+            {
+                "x": {
+                    "min": 0.3,
+                    "max": 1.2,
+                    "min_spread_pct_by_axis": {"process": 1.0},
+                    "max_spread_pct_by_axis": {"supply": 0.001},
+                    "min_stdev": 1e-6,
+                    "description": "all of them at once",
+                }
+            }
+        )
+        self.assertEqual(
+            set(manifest.checks["x"]), set(testbench.RECOGNIZED_CHECK_KEYS)
+        )
+
+    def test_empty_checks_entry_loads(self):
+        manifest = self._load_with_checks({"x": {}})
+        self.assertEqual(manifest.checks, {"x": {}})
+
+    def test_recognized_check_keys_matches_reader_sources(self):
+        # Drift pin (issue #997): every key the harness reads out of checks
+        # entries -- _evaluate_checks (runner.py) and positive_control_ok
+        # (mc_runner.py) -- must be in RECOGNIZED_CHECK_KEYS, so a new
+        # reader key added without extending the constant fails here; and
+        # every non-reader key in the constant must be the blessed
+        # "description" annotation, so a reader that disappears leaves no
+        # stale entry behind.
+        harness_dir = Path(testbench.__file__).resolve().parent
+        read_keys: set[str] = set()
+        for module in ("runner.py", "mc_runner.py"):
+            read_keys |= _checks_key_literals(harness_dir / module)
+        recognized = set(testbench.RECOGNIZED_CHECK_KEYS)
+        self.assertTrue(
+            read_keys <= recognized,
+            f"reader keys not recognized: {sorted(read_keys - recognized)}",
+        )
+        self.assertEqual(
+            recognized - read_keys,
+            {"description"},
+            "non-reader keys in RECOGNIZED_CHECK_KEYS beyond 'description'",
+        )
 
 
 class TestMcRunner(unittest.TestCase):
@@ -1206,6 +1456,242 @@ class TestPdkResolvedCommit(unittest.TestCase):
 
         self.assertIsNone(pdk.resolved_commit_verified(FakeInfo()))
         self.assertTrue(pdk.resolved_commit(FakeInfo()).startswith("c" * 40))
+
+
+class TestToolchainPreflightGate(unittest.TestCase):
+    """The one driver-side gate helper that replaced ten inline copies
+    (issue #854).
+
+    Every `sim/` driver entry point used to re-implement this module's
+    exit-code convention inline after calling check_env(), in three
+    spellings -- and two of those copies silently dropped check.warnings,
+    so an xschem drift or an unverifiable-PDK-provenance install never
+    reached the operator. These tests pin the single surviving behaviour:
+    status 3 -> SKIP/0, status 1 -> FAIL/1, otherwise every warning is
+    printed and the caller proceeds.
+    """
+
+    def _run(self, *args, **kwargs):
+        """Call preflight(), returning (return value, captured stdout)."""
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = toolchain.preflight(*args, **kwargs)
+        return rc, buf.getvalue()
+
+    def test_missing_toolchain_skips_with_exit_zero_and_every_message(self):
+        result = toolchain.CheckResult(
+            status=3, messages=["ngspice not found on PATH", "no PDK variant directory"]
+        )
+        with mock.patch.object(toolchain, "check_env", return_value=result):
+            rc, out = self._run()
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            out,
+            "SKIP: ngspice or the pinned PDK is not installed on this machine.\n"
+            "  ngspice not found on PATH\n"
+            "  no PDK variant directory\n",
+        )
+
+    def test_drift_fails_with_exit_one_and_every_message(self):
+        result = toolchain.CheckResult(
+            status=1, messages=["ngspice version 'ngspice-40' below floor", "installed PDK commit"]
+        )
+        with mock.patch.object(toolchain, "check_env", return_value=result):
+            rc, out = self._run()
+        self.assertEqual(rc, 1)
+        self.assertEqual(
+            out,
+            "FAIL: toolchain drifted from sim/toolchain.json pin.\n"
+            "  ngspice version 'ngspice-40' below floor\n"
+            "  installed PDK commit\n",
+        )
+
+    def test_ok_prints_every_warning_and_returns_none_so_the_caller_proceeds(self):
+        result = toolchain.CheckResult(status=0, warnings=["xschem drift", "PDK provenance unverifiable"])
+        with mock.patch.object(toolchain, "check_env", return_value=result):
+            rc, out = self._run()
+        self.assertIsNone(rc)
+        self.assertEqual(out, "WARNING: xschem drift\nWARNING: PDK provenance unverifiable\n")
+
+    def test_ok_without_warnings_is_silent(self):
+        with mock.patch.object(toolchain, "check_env", return_value=toolchain.CheckResult(status=0)):
+            rc, out = self._run()
+        self.assertIsNone(rc)
+        self.assertEqual(out, "")
+
+    def test_warnings_are_printed_on_every_status_path_the_caller_survives(self):
+        """A status-3 SKIP and a status-1 FAIL end the run, so they report
+        `messages` (the reason) rather than `warnings`; only the proceed
+        path reports warnings. Pinned so a later edit cannot quietly swap
+        which list each branch prints."""
+        for status, expected_rc in ((3, 0), (1, 1)):
+            with self.subTest(status=status):
+                result = toolchain.CheckResult(
+                    status=status, messages=["m"], warnings=["w-must-not-be-swallowed-into-messages"]
+                )
+                with mock.patch.object(toolchain, "check_env", return_value=result):
+                    rc, out = self._run()
+                self.assertEqual(rc, expected_rc)
+                self.assertIn("  m", out)
+                self.assertNotIn("WARNING:", out)
+
+    def test_a_passed_in_result_is_used_without_calling_check_env_again(self):
+        """run_conversion.py and run_supply_impedance.py call check_env()
+        once above their --check-env report branch and share that result.
+        sim/tests/test_solver_policy.py asserts check_env is called exactly
+        once in run_conversion.main(), so the helper must NOT probe again."""
+        result = toolchain.CheckResult(status=3, messages=["ngspice not found on PATH"])
+        with mock.patch.object(toolchain, "check_env") as probe:
+            rc, out = self._run(result)
+        probe.assert_not_called()
+        self.assertEqual(rc, 0)
+        self.assertIn("ngspice not found on PATH", out)
+
+    def test_bare_call_probes_the_environment_through_the_module_attribute(self):
+        """Drivers do `from harness import toolchain` and the existing
+        driver tests patch `<driver>.toolchain.check_env`, i.e. the
+        attribute on this module object. The helper must look check_env up
+        at call time for those patches to keep taking effect."""
+        with mock.patch.object(
+            toolchain, "check_env", return_value=toolchain.CheckResult(status=0)
+        ) as probe:
+            rc, _ = self._run()
+        probe.assert_called_once_with()
+        self.assertIsNone(rc)
+
+
+class TestNetlistWithXschemExitPolicy(unittest.TestCase):
+    """toolchain.netlist_with_xschem()'s one exit-code policy (issue #860).
+
+    The three private re-implementations this consolidated each answered
+    "xschem exited nonzero; was the netlist good?" differently. These tests
+    pin the three answers the single helper now gives: strict by default,
+    tolerant of a nonzero exit ONLY with `accept_complete_on_nonzero=True`
+    AND a structurally complete output file.
+
+    xschem itself is never invoked -- subprocess.run is patched -- so this
+    stays in the PDK-free headless tier with the rest of this module.
+    """
+
+    #: A minimal stand-in for what xschem emits: the commented subckt header
+    #: line the completeness test looks for, a device card, and the
+    #: `**.ends` / `.end` pair xschem writes last.
+    COMPLETE = "**.subckt cdac_array VDD VSS\nC1 top bot 1f\n**.ends\n.end\n"
+    #: The same netlist cut off mid-write: header present, no `.end`.
+    TRUNCATED = "**.subckt cdac_array VDD VSS\nC1 top bot 1f\n"
+
+    def _run(self, *, returncode, written, **kwargs):
+        """Call netlist_with_xschem() with subprocess.run patched to return
+        `returncode` after `written` (or nothing, if None) has been placed at
+        the expected output path.
+
+        Returns `(returned_path, returned_text)` -- the text is read before the
+        scratch TemporaryDirectory is torn down, since the path the helper
+        returns does not outlive it.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp) / "netlist"
+            out_name = "cdac_array.spice"
+
+            def fake_run(cmd, **_kw):
+                if written is not None:
+                    (scratch / out_name).write_text(written)
+                return subprocess.CompletedProcess(cmd, returncode, "", "")
+
+            with mock.patch.object(toolchain.subprocess, "run", fake_run):
+                out = toolchain.netlist_with_xschem(
+                    Path("design/cdac/cdac_array.sch"),
+                    scratch,
+                    Path("sim/xschemrc"),
+                    out_name,
+                    **kwargs,
+                )
+            return out, out.read_text()
+
+    def test_exit_zero_returns_the_output_path(self):
+        out, _ = self._run(returncode=0, written=self.COMPLETE)
+        self.assertEqual(out.name, "cdac_array.spice")
+
+    def test_nonzero_exit_raises_by_default_even_when_complete(self):
+        # The default is what sim/sar-sequencer-behavioral/run_testbench.py's
+        # and sim/sequencer-logic-delay/run_sequencer_logic_delay.py's
+        # netlist_dut() get: issue #860 must not weaken it.
+        with self.assertRaises(RuntimeError) as ctx:
+            self._run(returncode=10, written=self.COMPLETE)
+        self.assertIn("exit 10", str(ctx.exception))
+
+    def test_nonzero_exit_with_complete_netlist_is_accepted_when_opted_in(self):
+        out, written = self._run(
+            returncode=10, written=self.COMPLETE, accept_complete_on_nonzero=True
+        )
+        self.assertEqual(out.name, "cdac_array.spice")
+        self.assertEqual(written, self.COMPLETE)
+
+    def test_nonzero_exit_with_truncated_netlist_still_raises_when_opted_in(self):
+        with self.assertRaises(RuntimeError):
+            self._run(
+                returncode=10, written=self.TRUNCATED, accept_complete_on_nonzero=True
+            )
+
+    def test_nonzero_exit_with_no_output_file_still_raises_when_opted_in(self):
+        with self.assertRaises(RuntimeError):
+            self._run(
+                returncode=10, written=None, accept_complete_on_nonzero=True
+            )
+
+    def test_exit_zero_with_no_output_file_raises(self):
+        with self.assertRaises(RuntimeError):
+            self._run(returncode=0, written=None)
+
+    def test_timeout_raises_and_names_the_override_env_var(self):
+        def fake_run(cmd, **kw):
+            raise subprocess.TimeoutExpired(cmd, kw.get("timeout", 0))
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(toolchain.subprocess, "run", fake_run):
+            with self.assertRaises(RuntimeError) as ctx:
+                toolchain.netlist_with_xschem(
+                    Path("design/cdac/cdac_array.sch"),
+                    Path(tmp) / "netlist",
+                    Path("sim/xschemrc"),
+                    "cdac_array.spice",
+                    accept_complete_on_nonzero=True,
+                )
+        # The opt-in must not swallow a hung xschem -- that is the bug it is
+        # replacing in layout/cdac-array/bin/generate-lvs-reference.py, which
+        # had no timeout at all.
+        self.assertIn("timed out", str(ctx.exception))
+        self.assertIn(toolchain.TIMEOUT_ENV_VAR, str(ctx.exception))
+
+
+class TestNetlistIsComplete(unittest.TestCase):
+    def _complete(self, text):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "n.spice"
+            path.write_text(text)
+            return toolchain.netlist_is_complete(path)
+
+    def test_header_and_trailing_end_is_complete(self):
+        self.assertTrue(
+            self._complete("**.subckt x a b\nC1 a b 1f\n**.ends\n.end\n")
+        )
+
+    def test_blank_lines_after_end_are_ignored(self):
+        self.assertTrue(self._complete("**.subckt x a b\n.end\n\n  \n"))
+
+    def test_missing_trailing_end_is_incomplete(self):
+        self.assertFalse(self._complete("**.subckt x a b\nC1 a b 1f\n"))
+
+    def test_missing_header_is_incomplete(self):
+        self.assertFalse(self._complete("C1 a b 1f\n.end\n"))
+
+    def test_empty_file_is_incomplete(self):
+        self.assertFalse(self._complete(""))
+
+    def test_missing_file_is_incomplete_not_an_error(self):
+        self.assertFalse(
+            toolchain.netlist_is_complete(Path("/definitely/does/not/exist.spice"))
+        )
 
 
 if __name__ == "__main__":

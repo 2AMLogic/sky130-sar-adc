@@ -11,7 +11,9 @@ place to discover it:
    reference evidence is refused BEFORE the toolchain is checked or anything
    is simulated -- while `ngspice-default` (the pre-DR-023 settings) may still
    re-run --corners and every diagnostic mode, as a labelled control, so the
-   records minted before DR-023 stay reproducible.
+   records minted before DR-023 stay reproducible. The retired
+   `--mechanism-probe` (issue #873) is not one of those modes: the parser
+   rejects the flag outright, which is pinned here too.
 3. A control record never moves `records/LATEST` and can never carry a
    **Supersedes** pointer -- refused in the writer itself, not only at the CLI.
 4. The audit compares like with like (same instrumentation under every
@@ -21,6 +23,8 @@ place to discover it:
 
 from __future__ import annotations
 
+import contextlib
+import inspect
 import sys
 import tempfile
 import unittest
@@ -35,8 +39,13 @@ sys.path.insert(0, str(EXPERIMENT_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import gen_full_conversion_tb as tb  # noqa: E402
+import provenance_fixture  # noqa: E402
 import run_conversion as rc  # noqa: E402
-from harness import evidence  # noqa: E402
+from full_conversion_campaigns import common as fc_common  # noqa: E402
+from full_conversion_campaigns import dc_codes as fc_dc  # noqa: E402
+from full_conversion_campaigns import decision_margin as fc_dm  # noqa: E402
+from full_conversion_campaigns import node_trace as fc_node  # noqa: E402
+from full_conversion_campaigns import solver_audit as fc_audit  # noqa: E402
 from report import generate as report_generate  # noqa: E402
 from test_full_conversion import (  # noqa: E402
     _as_log, _ideal_codes, _synthetic_node_trace, _synthetic_parsed,
@@ -56,16 +65,16 @@ def _options_lines(deck: str) -> list[str]:
 
 class TestSolverProfiles(unittest.TestCase):
     def test_profile_table_and_dr023_reference(self):
-        self.assertEqual(rc.REFERENCE_SOLVER_PROFILE, "reltol-gear")  # DR-023
-        self.assertEqual(rc.SOLVER_PROFILES, {
+        self.assertEqual(fc_common.REFERENCE_SOLVER_PROFILE, "reltol-gear")  # DR-023
+        self.assertEqual(fc_common.SOLVER_PROFILES, {
             "ngspice-default": (),
             "reltol-gear": ("reltol=1e-4", "method=gear"),
             "reltol-only": ("reltol=1e-4",),
             "gear-only": ("method=gear",),
         })
-        self.assertFalse(rc.is_solver_control("reltol-gear"))
+        self.assertFalse(fc_common.is_solver_control("reltol-gear"))
         for p in ("ngspice-default", "reltol-only", "gear-only"):
-            self.assertTrue(rc.is_solver_control(p))
+            self.assertTrue(fc_common.is_solver_control(p))
 
     def test_each_profile_adds_exactly_its_intended_options(self):
         expected = {
@@ -78,13 +87,13 @@ class TestSolverProfiles(unittest.TestCase):
             pdk_info = _fake_pdk(Path(tmp))
             # the no-card profile is the pre-#637 deck; every other profile
             # differs from it by its own labelled card and nothing else
-            base = rc.assemble_deck("* dut\nR1 a b 1\n", pdk_info, solver_profile="ngspice-default")
+            base = fc_common.assemble_deck("* dut\nR1 a b 1\n", pdk_info, solver_profile="ngspice-default")
             for profile, cards in expected.items():
                 with self.subTest(profile=profile):
-                    deck = rc.assemble_deck("* dut\nR1 a b 1\n", pdk_info, solver_profile=profile)
+                    deck = fc_common.assemble_deck("* dut\nR1 a b 1\n", pdk_info, solver_profile=profile)
                     self.assertEqual(_options_lines(deck), cards)
                     extra = [ln for ln in deck.splitlines() if ln not in base.splitlines()]
-                    self.assertEqual(extra, rc.solver_profile_deck_lines(profile))
+                    self.assertEqual(extra, fc_common.solver_profile_deck_lines(profile))
                     self.assertEqual(len(deck.splitlines()) - len(base.splitlines()), len(extra))
 
     def test_default_deck_is_the_reference_policy_for_the_dc_and_sine_fragment(self):
@@ -92,24 +101,24 @@ class TestSolverProfiles(unittest.TestCase):
             pdk_info = _fake_pdk(Path(tmp))
             for fragment in (None, tb.sine_fragment_text(
                     tb.SINE_RECORD_N, tb.SINE_TONE_BIN, tb.SINE_AMPLITUDE_FRACTION)):
-                deck = rc.assemble_deck("* dut\n", pdk_info, fragment=fragment)
+                deck = fc_common.assemble_deck("* dut\n", pdk_info, fragment=fragment)
                 self.assertEqual(_options_lines(deck), [".options reltol=1e-4 method=gear"])
                 self.assertIn("reference policy, DR-023", deck)
-                legacy = rc.assemble_deck("* dut\n", pdk_info, fragment=fragment,
+                legacy = fc_common.assemble_deck("* dut\n", pdk_info, fragment=fragment,
                                           solver_profile="ngspice-default")
                 self.assertEqual(_options_lines(legacy), [])
 
     def test_diagnostic_modes_inherit_the_reference_policy(self):
-        # node/cm/decision-margin traces and the mechanism probe call
-        # assemble_deck without a solver_profile: they run the reference policy
+        # the node/cm/decision-margin traces call assemble_deck without a
+        # solver_profile: they run the reference policy
         with tempfile.TemporaryDirectory() as tmp:
-            deck = rc.assemble_deck("xcmp VDD CLK a b c\n", _fake_pdk(Path(tmp)),
-                                    delayed_comparator_strobe=True)
+            deck = fc_common.assemble_deck("xcmp VDD CLKN a b c\n", _fake_pdk(Path(tmp)),
+                                    extra_meas=[".meas tran probe find v(x) at=1n"])
         self.assertEqual(_options_lines(deck), [".options reltol=1e-4 method=gear"])
 
     def test_card_sits_after_the_fragment_and_before_extra_probes(self):
         with tempfile.TemporaryDirectory() as tmp:
-            deck = rc.assemble_deck("* dut\n", _fake_pdk(Path(tmp)),
+            deck = fc_common.assemble_deck("* dut\n", _fake_pdk(Path(tmp)),
                                     extra_meas=[".meas tran probe find v(x) at=1n"],
                                     solver_profile="gear-only")
         lines = deck.splitlines()
@@ -119,18 +128,18 @@ class TestSolverProfiles(unittest.TestCase):
 
     def test_unknown_profile_fails_before_any_file_is_read(self):
         with self.assertRaises(ValueError):
-            rc.assemble_deck("* dut\n", SimpleNamespace(variant_dir=Path("/nonexistent")),
+            fc_common.assemble_deck("* dut\n", SimpleNamespace(variant_dir=Path("/nonexistent")),
                              solver_profile="reltol-1e-5")
 
     def test_settings_text_names_the_resolved_options_and_role(self):
         self.assertEqual(
-            rc.solver_settings_text("reltol-gear"),
+            fc_common.solver_settings_text("reltol-gear"),
             "profile `reltol-gear` (reference policy, DR-023): `.options reltol=1e-4 "
             "method=gear`; all other settings ngspice defaults")
         self.assertIn("(SOLVER CONTROL): no `.options` card -- reltol=1e-3, method=trapezoidal",
-                      rc.solver_settings_text("ngspice-default"))
-        self.assertIn("`.options reltol=1e-4`", rc.solver_settings_text("reltol-only"))
-        self.assertIn("SOLVER CONTROL", rc.solver_settings_text("gear-only"))
+                      fc_common.solver_settings_text("ngspice-default"))
+        self.assertIn("`.options reltol=1e-4`", fc_common.solver_settings_text("reltol-only"))
+        self.assertIn("SOLVER CONTROL", fc_common.solver_settings_text("gear-only"))
 
 
 # A check_env stand-in reporting "toolchain not installed" (status 3): a
@@ -149,7 +158,6 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
         ["--solver-profile", "gear-only", "--corners", "--record"],
         ["--solver-profile", "ngspice-default", "--corners",
          "--supersedes", "20261001-105439-c324f80"],
-        ["--solver-profile", "gear-only", "--mechanism-probe"],
         ["--solver-profile", "gear-only", "--node-trace"],
         ["--solver-profile", "reltol-only", "--cm-trace"],
         ["--solver-profile", "reltol-only", "--decision-margin-trace"],
@@ -160,7 +168,6 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
         ["--solver-audit", "--solver-profile", "reltol-gear"],
         ["--solver-audit", "--supersedes", "20261001-105439-c324f80"],
         ["--solver-audit", "--jobs", "2"],
-        ["--solver-audit", "--mechanism-probe"],
         ["--audit-profile", "gear-only"],
     )
 
@@ -186,8 +193,9 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
     def test_reference_profile_may_still_supersede_and_run_the_grid(self):
         args = SimpleNamespace(
             solver_profile=None, sine_solver_control=False, corners=True,
-            mechanism_probe=False, node_trace=False, cm_trace=False,
-            decision_margin_trace=False, solver_audit=False, coherent_sine=False,
+            node_trace=False, cm_trace=False, decision_margin_trace=False,
+            input_sweep=False,
+            solver_audit=False, coherent_sine=False,
             supersedes="20261001-105439-c324f80", jobs=3, audit_profile=[],
         )
         self.assertEqual(rc.resolve_solver_cli(args), ("reltol-gear", ""))
@@ -195,22 +203,39 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
         self.assertEqual(rc.resolve_solver_cli(args), ("reltol-gear", ""))
 
     def test_ngspice_default_may_reproduce_the_grid_and_every_diagnostic(self):
-        # issue #637 review: every pre-DR-023 record (records/LATEST's 9-corner
-        # campaign, the mechanism probe and the three traces) must stay
-        # reproducible -- as a labelled control, never as reference evidence.
-        for mode in ("corners", "mechanism_probe", "node_trace", "cm_trace",
-                     "decision_margin_trace"):
+        # issue #637 review: every pre-DR-023 record this runner can still
+        # mint (records/LATEST's 9-corner campaign and the three traces) must
+        # stay reproducible -- as a labelled control, never as reference
+        # evidence. `mechanism_probe` is deliberately absent: issue #873
+        # retired that mode, and its two records are reproduced from their own
+        # commit instead (see the experiment README).
+        for mode in ("corners", "node_trace", "cm_trace", "decision_margin_trace"):
             with self.subTest(mode=mode):
                 args = SimpleNamespace(
                     solver_profile="ngspice-default", sine_solver_control=False,
-                    corners=False, mechanism_probe=False, node_trace=False,
-                    cm_trace=False, decision_margin_trace=False, solver_audit=False,
-                    coherent_sine=False, supersedes="", jobs=1, audit_profile=[],
+                    corners=False, node_trace=False, cm_trace=False,
+                    decision_margin_trace=False, input_sweep=False,
+                    solver_audit=False, coherent_sine=False, supersedes="",
+                    jobs=1, audit_profile=[],
                 )
                 setattr(args, mode, True)
                 self.assertEqual(rc.resolve_solver_cli(args), ("ngspice-default", ""))
                 args.solver_profile = "gear-only"
                 self.assertIn("SOLVER CONTROL", rc.resolve_solver_cli(args)[1])
+
+    def test_input_sweep_runs_the_reference_policy_only(self):
+        """issue #913: the boundary sweep has no pre-DR-023 record to
+        reproduce, so a control profile has nothing to say on it -- the
+        resolver refuses the combination (the dispatcher refuses any
+        explicit --solver-profile with the mode before this ever runs)."""
+        args = SimpleNamespace(
+            solver_profile="ngspice-default", sine_solver_control=False,
+            corners=False, node_trace=False, cm_trace=False,
+            decision_margin_trace=False, input_sweep=True,
+            solver_audit=False, coherent_sine=False, supersedes="",
+            jobs=1, audit_profile=[],
+        )
+        self.assertIn("SOLVER CONTROL", rc.resolve_solver_cli(args)[1])
 
     def test_ngspice_default_grid_passes_the_cli_to_check_env(self):
         argv = ["run_conversion.py", "--solver-profile", "ngspice-default", "--corners",
@@ -228,9 +253,58 @@ class TestCliRefusesControlAsReference(unittest.TestCase):
             ("gear-only", "reltol-only"))
 
 
-def _point(offset: int = 0, profile: str = rc.REFERENCE_SOLVER_PROFILE, guards=None) -> dict:
+class TestRetiredMechanismProbe(unittest.TestCase):
+    """Issue #873 retired `--mechanism-probe`. The mode ran the DUT twice --
+    as committed, and on a testbench-only copy whose comparator strobe was
+    re-pointed to a half-period-delayed clock -- and the pair WAS the control.
+    Issue #264's capture-timing fix (`c54c9566`) both answered the question it
+    asked and made it unrunnable: its deck-patching branch anchored on the
+    literal instance-line prefix `xcmp VDD CLK `, which the committed netlist
+    (`xcmp VDD CLKN ...`) stopped matching, so the delayed variant refused and
+    the mode produced nothing.
+
+    Pinned here because a retirement that leaves the flag parseable, or leaves
+    the deck-patching parameter reachable, is the failure this issue was filed
+    about reappearing in a different shape."""
+
+    def test_parser_rejects_the_retired_flag(self):
+        argv = ["run_conversion.py", "--mechanism-probe"]
+        with mock.patch.object(sys, "argv", argv), mock.patch("sys.stderr"), \
+                mock.patch.object(rc.toolchain, "check_env",
+                                  return_value=_NO_TOOLCHAIN) as check:
+            with self.assertRaises(SystemExit) as cm:
+                rc.main()
+        self.assertEqual(cm.exception.code, 2)  # argparse: unrecognized argument
+        check.assert_not_called()               # before anything could be simulated
+
+    def test_no_deck_assembly_path_takes_a_strobe_delay_option(self):
+        # Asserted by shape rather than by name: no parameter of either deck
+        # entry point may offer a strobe delay at all, and no public name in
+        # the DC-codes module may offer the mode. A re-introduction under a
+        # new spelling fails here too.
+        for fn in (fc_common.assemble_deck, fc_common.run_point):
+            with self.subTest(fn=fn.__name__):
+                self.assertEqual(
+                    [n for n in inspect.signature(fn).parameters if "strobe" in n], [])
+        self.assertEqual([n for n in dir(fc_dc) if "mechanism" in n], [])
+        self.assertNotIn("probe", inspect.signature(fc_dc.write_record).parameters)
+
+    def test_the_committed_netlist_body_reaches_the_deck_unmodified(self):
+        # The guard this issue was filed about existed because the probe was
+        # the one mode that rewrote the DUT body. Nothing does now: whatever
+        # netlist text goes in comes back out, instance lines untouched.
+        body = "xcmp VDD CLKN TOP_P TOP_N COMP_OUT OUTN_NC comparator\nR1 a b 1\n.end\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            deck = fc_common.assemble_deck(body, _fake_pdk(Path(tmp)))
+        for ln in ("xcmp VDD CLKN TOP_P TOP_N COMP_OUT OUTN_NC comparator", "R1 a b 1"):
+            self.assertIn(ln, deck.splitlines())
+        self.assertNotIn("CLK_CMP", deck)
+        self.assertNotIn("VCLKCMP", deck)
+
+
+def _point(offset: int = 0, profile: str = fc_common.REFERENCE_SOLVER_PROFILE, guards=None) -> dict:
     codes = {c: v + offset for c, v in _ideal_codes().items()}
-    point = rc.decode(_synthetic_parsed(codes), 1.8)
+    point = fc_common.decode(_synthetic_parsed(codes), 1.8)
     point.update(process_corner="tt", temp_c=27.0, supply_v=1.8, corner_id="tt_27c_1.80v",
                  missing=[], log_text=f"* log {profile}\n", wall_s=100.0,
                  solver_profile=profile)
@@ -239,42 +313,35 @@ def _point(offset: int = 0, profile: str = rc.REFERENCE_SOLVER_PROFILE, guards=N
              excursions={"TOP_P": None, "TOP_N": None})
         for c in tb.measured_conversions()
     ]
-    point["solver_stats"] = rc.parse_solver_stats("Transient timepoints = 1000\n")
+    point["solver_stats"] = fc_common.parse_solver_stats("Transient timepoints = 1000\n")
     return point
 
 
-class _TmpExperiment:
-    """Redirect EXPERIMENT_DIR and provenance into a temp dir."""
+@contextlib.contextmanager
+def _tmp_experiment(tmp: Path):
+    """`provenance_fixture.fake_provenance()` plus a PRIOR `records/LATEST`.
 
-    def __init__(self, tmp: Path):
-        self.tmp = tmp
+    Every test in this file drives a writer that either must leave that
+    pointer alone (a solver CONTROL run, a diagnostic) or must move it (a
+    reference run), so the prior pointer has to exist before the writer runs
+    -- that, and not the provenance stub, is what is specific to this file.
 
-    def __enter__(self):
-        self.real = rc.EXPERIMENT_DIR, evidence.resolve_provenance
-        tmp = self.tmp
-
-        def fake_resolve(experiment_dir: Path, netlist_text: str):
-            (experiment_dir / "records").mkdir(parents=True, exist_ok=True)
-            return evidence.ProvenanceInfo(
-                record_id="REC", record_path=experiment_dir / "records" / "REC.md",
-                netlist_sha="0" * 64, pdk_line="sky130A @ testing", ng_version="ngspice-47",
-            )
-
-        rc.EXPERIMENT_DIR = tmp
-        evidence.resolve_provenance = fake_resolve
+    The stub is the shared one, on its `ngspice-46` default: this site used to
+    return `ngspice-47`, which nothing here asserted on and which no writer
+    branches on (`solver_audit.py` only renders the version into a prose
+    comparison against `records/LATEST`'s own row), so it was drift rather
+    than a requirement -- issue #914.
+    """
+    with provenance_fixture.fake_provenance(fc_common, tmp):
         (tmp / "records").mkdir(parents=True, exist_ok=True)
         (tmp / "records" / "LATEST").write_text("PRIOR.md\n")
-        return self
-
-    def __exit__(self, *exc):
-        rc.EXPERIMENT_DIR, evidence.resolve_provenance = self.real
-        return False
+        yield
 
 
 class TestControlRecordNeverReplacesReference(unittest.TestCase):
     def test_control_record_is_labelled_and_leaves_latest_alone(self):
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
-            path = rc.write_record([_point(profile="ngspice-default")], "* n\n",
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
+            path = fc_dc.write_record([_point(profile="ngspice-default")], "* n\n",
                                    solver_profile="ngspice-default")
             text = path.read_text()
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
@@ -286,9 +353,9 @@ class TestControlRecordNeverReplacesReference(unittest.TestCase):
         self.assertIn("--record --solver-profile ngspice-default", text)
 
     def test_control_record_refuses_supersedes_in_the_writer(self):
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
             with self.assertRaises(ValueError):
-                rc.write_record([_point()], "* n\n", supersedes="PRIOR",
+                fc_dc.write_record([_point()], "* n\n", supersedes="PRIOR",
                                 solver_profile="gear-only")
             self.assertFalse((Path(tmp) / "records" / "REC.md").exists())
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
@@ -298,8 +365,8 @@ class TestControlRecordNeverReplacesReference(unittest.TestCase):
         # pre-DR-023 campaign: labelled control, LATEST untouched, and the
         # Written-by command is the one that reproduces it.
         pts = [_point(profile="ngspice-default") for _ in range(9)]
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
-            text = rc.write_record(pts, "* n\n", solver_profile="ngspice-default").read_text()
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
+            text = fc_dc.write_record(pts, "* n\n", solver_profile="ngspice-default").read_text()
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
         self.assertIn("SOLVER-CONTROL RUN (issue #637) -- NOT REFERENCE EVIDENCE", text)
         self.assertIn("run_conversion.py --corners --record --solver-profile ngspice-default",
@@ -307,8 +374,8 @@ class TestControlRecordNeverReplacesReference(unittest.TestCase):
         self.assertEqual(report_generate.extract_field(text, "Supersedes"), "(none)")
 
     def test_reference_record_still_moves_latest_and_names_its_settings(self):
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
-            text = rc.write_record([_point()], "* n\n").read_text()
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
+            text = fc_dc.write_record([_point()], "* n\n").read_text()
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text().strip(), "REC.md")
         self.assertNotIn("SOLVER-CONTROL RUN", text)
         self.assertIn("simulator options: profile `reltol-gear` (reference policy, DR-023)", text)
@@ -316,12 +383,12 @@ class TestControlRecordNeverReplacesReference(unittest.TestCase):
 
 class TestTransitionGuard(unittest.TestCase):
     def test_guard_is_the_event_and_excursion_subset_of_the_switch_trace(self):
-        full = set(rc.switch_trace_measure_lines(3, 1.8))
-        guard = rc.transition_guard_measure_lines(3, 1.8)
+        full = set(fc_common.switch_trace_measure_lines(3, 1.8))
+        guard = fc_common.transition_guard_measure_lines(3, 1.8)
         meas = [ln for ln in guard if ln.startswith(".meas")]
         self.assertTrue(set(meas) <= full)
         names = [ln.split()[2] for ln in meas]
-        self.assertEqual(sorted(names), sorted(rc.transition_guard_flat_names(3)))
+        self.assertEqual(sorted(names), sorted(fc_common.transition_guard_flat_names(3)))
         self.assertEqual(len(names), len(set(names)))
         # none of the bulky per-phase snapshot / strobe probes
         self.assertFalse(any("_p0_" in n for n in names))
@@ -329,7 +396,7 @@ class TestTransitionGuard(unittest.TestCase):
     def test_guard_names_do_not_collide_across_conversions(self):
         seen: set[str] = set()
         for c in tb.measured_conversions():
-            names = set(rc.transition_guard_flat_names(c))
+            names = set(fc_common.transition_guard_flat_names(c))
             self.assertFalse(names & seen)
             seen |= names
         self.assertFalse(seen & set(tb.all_measure_names()))
@@ -340,9 +407,9 @@ class TestAuditRunPoint(unittest.TestCase):
         log = _as_log(_synthetic_parsed(_ideal_codes())) + "Transient timepoints = 4242\n"
         decks = {}
         for profile in ("reltol-gear", "ngspice-default"):
-            with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
-                    mock.patch.object(rc, "_run_ngspice", return_value=log):
-                point = rc.run_point("* n\n", None, Path("/nonexistent"), "tt", 27.0, 1.8,
+            with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n") as deck, \
+                    mock.patch.object(fc_common, "_run_ngspice", return_value=log):
+                point = fc_common.run_point("* n\n", None, Path("/nonexistent"), "tt", 27.0, 1.8,
                                      solver_profile=profile, audit=True)
             decks[profile] = deck.call_args.kwargs
             self.assertEqual(deck.call_args.kwargs["solver_profile"], profile)
@@ -352,15 +419,15 @@ class TestAuditRunPoint(unittest.TestCase):
             self.assertEqual(point["solver_stats"]["stats"]["Transient timepoints"], 4242)
         self.assertEqual(decks["ngspice-default"]["extra_meas"], decks["reltol-gear"]["extra_meas"])
         extra = decks["ngspice-default"]["extra_meas"]
-        self.assertEqual(extra[0], rc.SOLVER_AUDIT_STATS_CARD)
+        self.assertEqual(extra[0], fc_common.SOLVER_AUDIT_STATS_CARD)
         # the only `.options` the instrumentation adds is the print-only acct card
         self.assertEqual([ln for ln in extra if ln.startswith(".options")], [".options acct"])
 
     def test_non_audit_run_point_adds_no_probes(self):
-        with mock.patch.object(rc, "assemble_deck", return_value="* deck\n") as deck, \
-                mock.patch.object(rc, "_run_ngspice",
+        with mock.patch.object(fc_common, "assemble_deck", return_value="* deck\n") as deck, \
+                mock.patch.object(fc_common, "_run_ngspice",
                                   return_value=_as_log(_synthetic_parsed(_ideal_codes()))):
-            point = rc.run_point("* n\n", None, Path("/nonexistent"), "tt", 27.0, 1.8)
+            point = fc_common.run_point("* n\n", None, Path("/nonexistent"), "tt", 27.0, 1.8)
         self.assertIsNone(deck.call_args.kwargs["extra_meas"])
         self.assertNotIn("guards", point)
 
@@ -373,7 +440,7 @@ class TestSolverStats(unittest.TestCase):
             "Total analysis time (seconds) = 0.0043\nWarning: something\n"
             "doAnalyses: TRAN:  Timestep too small; trouble with x\n"
         )
-        st = rc.parse_solver_stats(log)
+        st = fc_common.parse_solver_stats(log)
         self.assertEqual(st["stats"]["Rejected timepoints"], 8)
         self.assertEqual(st["stats"]["Total analysis time (seconds)"], 0.0043)
         self.assertEqual(st["log_counts"]["timestep too small"], 1)
@@ -383,16 +450,16 @@ class TestSolverStats(unittest.TestCase):
 
 class TestCompareAuditRuns(unittest.TestCase):
     def test_identical_runs_move_nothing(self):
-        self.assertEqual(rc.compare_audit_runs(_point(), _point(profile="gear-only")), [])
+        self.assertEqual(fc_audit.compare_audit_runs(_point(), _point(profile="gear-only")), [])
 
     def test_code_moving_inside_tolerance_is_a_value_change_not_a_failure_mode(self):
-        moved = rc.compare_audit_runs(_point(0), _point(1, "gear-only"))
+        moved = fc_audit.compare_audit_runs(_point(0), _point(1, "gear-only"))
         self.assertTrue(moved)
         self.assertTrue(all(not m["failure_mode"] for m in moved))
         self.assertTrue(any("captured code" in m["observation"] for m in moved))
 
     def test_code_verdict_flip_is_a_failure_mode(self):
-        moved = rc.compare_audit_runs(_point(0), _point(5, "ngspice-default"))
+        moved = fc_audit.compare_audit_runs(_point(0), _point(5, "ngspice-default"))
         fm = [m for m in moved if m["failure_mode"]]
         self.assertTrue(any("within +-1 LSB" in m["observation"] for m in fm))
         self.assertTrue(any("point verdict" in m["observation"] for m in fm))
@@ -405,7 +472,7 @@ class TestCompareAuditRuns(unittest.TestCase):
             excursions={"TOP_P": {"phase": 5, "offset_ns": 3.0}, "TOP_N": None},
         )
         ctl["power_w"] *= 1.05
-        obs = [m["observation"] for m in rc.compare_audit_runs(_point(), ctl)]
+        obs = [m["observation"] for m in fc_audit.compare_audit_runs(_point(), ctl)]
         self.assertTrue(any("UNSCHEDULED" in o for o in obs))
         self.assertTrue(any("TOP_P below" in o for o in obs))
         self.assertTrue(any(o.startswith("total power") for o in obs))
@@ -413,12 +480,12 @@ class TestCompareAuditRuns(unittest.TestCase):
     def test_power_change_within_audit_tolerance_is_not_reported(self):
         ctl = _point(profile="reltol-only")
         ctl["power_w"] *= 1.001
-        self.assertEqual(rc.compare_audit_runs(_point(), ctl), [])
+        self.assertEqual(fc_audit.compare_audit_runs(_point(), ctl), [])
 
 
 class TestLatestBaselineRow(unittest.TestCase):
     def test_reads_the_committed_latest_campaign_row(self):
-        row = rc.latest_baseline_row()
+        row = fc_audit.latest_baseline_row()
         self.assertIsNotNone(row)
         latest = (EXPERIMENT_DIR / "records" / "LATEST").read_text().strip()
         self.assertEqual(row["record_id"] + ".md", latest)
@@ -429,7 +496,7 @@ class TestLatestBaselineRow(unittest.TestCase):
         self.assertRegex(row["netlist_sha"], r"^[0-9a-f]{64}$")
         # issue #638: the committed LATEST is the DR-023 reference re-mint,
         # whose Environment block states its own resolved solver profile
-        self.assertIn(f"profile `{rc.REFERENCE_SOLVER_PROFILE}` (reference",
+        self.assertIn(f"profile `{fc_common.REFERENCE_SOLVER_PROFILE}` (reference",
                       row["simulator_options"])
 
     def test_pre_637_record_settings_are_named_not_blank(self):
@@ -440,14 +507,14 @@ class TestLatestBaselineRow(unittest.TestCase):
             records = Path(tmp)
             (records / old).write_text((EXPERIMENT_DIR / "records" / old).read_text())
             (records / "LATEST").write_text(old + "\n")
-            row = rc.latest_baseline_row(records)
+            row = fc_audit.latest_baseline_row(records)
         self.assertIsNotNone(row)
         self.assertEqual(row["record_id"] + ".md", old)
         self.assertIn("pre-#637 record", row["simulator_options"])
 
     def test_missing_latest_is_none(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertIsNone(rc.latest_baseline_row(Path(tmp)))
+            self.assertIsNone(fc_audit.latest_baseline_row(Path(tmp)))
 
 
 class TestSolverAuditRecord(unittest.TestCase):
@@ -457,8 +524,8 @@ class TestSolverAuditRecord(unittest.TestCase):
                   simulator_options="not stated (pre-#637 record: ngspice defaults)")
 
     def _write(self, runs, tmp: Path) -> str:
-        with _TmpExperiment(tmp):
-            path = rc.write_solver_audit_record(
+        with _tmp_experiment(tmp):
+            path = fc_audit.write_solver_audit_record(
                 runs, "* n\n", 400.0, self.LATEST,
                 "sim/full-conversion-transient/run_conversion.py --solver-audit --record")
             self.assertEqual((tmp / "records" / "LATEST").read_text(), "PRIOR.md\n")
@@ -487,10 +554,10 @@ class TestSolverAuditRecord(unittest.TestCase):
         self.assertIn("**yes -- SOLVER-SENSITIVE**", text)
 
     def test_audit_must_start_with_the_reference_profile(self):
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
             for runs in ([_point(profile="gear-only"), _point(profile="ngspice-default")], [_point()]):
                 with self.assertRaises(ValueError):
-                    rc.write_solver_audit_record(runs, "* n\n", 1.0, None, "x")
+                    fc_audit.write_solver_audit_record(runs, "* n\n", 1.0, None, "x")
 
 
 if __name__ == "__main__":
@@ -509,26 +576,17 @@ class TestDiagnosticModesHonourTheProfile(unittest.TestCase):
             return ""
 
         with tempfile.TemporaryDirectory() as tmp, \
-                mock.patch.object(rc, "_run_ngspice", side_effect=fake_run):
+                mock.patch.object(fc_common, "_run_ngspice", side_effect=fake_run):
             fake = _fake_pdk(Path(tmp))
             for profile in ("ngspice-default", "reltol-gear"):
-                rc.run_node_trace_point("* dut\n", fake, Path(tmp), "tt", 27.0, 1.8,
-                                        rc.NODE_TRACE_CONVERSIONS, solver_profile=profile)
-                rc.run_decision_margin_point("* dut\n", fake, Path(tmp), "tt", 27.0, 1.8,
+                fc_common.run_node_trace_point("* dut\n", fake, Path(tmp), "tt", 27.0, 1.8,
+                                        fc_node.NODE_TRACE_CONVERSIONS, solver_profile=profile)
+                fc_dm.run_decision_margin_point("* dut\n", fake, Path(tmp), "tt", 27.0, 1.8,
                                              "as-committed", solver_profile=profile)
         self.assertEqual([_options_lines(d) for d in decks], [
             [], [],
             [".options reltol=1e-4 method=gear"], [".options reltol=1e-4 method=gear"],
         ])
-
-    def test_mechanism_probe_runs_both_variants_under_the_profile(self):
-        seen = []
-        with mock.patch.object(rc, "pdk"), mock.patch.object(rc, "dut_text", return_value=""), \
-                mock.patch.object(rc, "run_point",
-                                  side_effect=lambda *a, **k: seen.append(k["solver_profile"])
-                                  or {}):
-            rc.run_mechanism_probe(Path("/nonexistent"), True, "ngspice-default")
-        self.assertEqual(seen, ["ngspice-default", "ngspice-default"])
 
     def _node_trace_record(self, profile: str) -> str:
         traces = {
@@ -536,8 +594,8 @@ class TestDiagnosticModesHonourTheProfile(unittest.TestCase):
             for cid, pc, tc, sv in (("tt_27c_1.62v", "tt", 27.0, 1.62),
                                     ("ff_27c_1.80v", "ff", 27.0, 1.80))
         }
-        with tempfile.TemporaryDirectory() as tmp, _TmpExperiment(Path(tmp)):
-            text = rc.write_node_trace_record(traces, "* n\n", profile).read_text()
+        with tempfile.TemporaryDirectory() as tmp, _tmp_experiment(Path(tmp)):
+            text = fc_node.write_node_trace_record(traces, "* n\n", profile).read_text()
             self.assertEqual((Path(tmp) / "records" / "LATEST").read_text(), "PRIOR.md\n")
         return text
 

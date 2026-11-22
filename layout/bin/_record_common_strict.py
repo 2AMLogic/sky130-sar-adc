@@ -3,18 +3,19 @@ scripts that require every stage to have already completed before rendering
 runs.
 
 Used by `layout/bin/render-record.py` (trivial-cell), `layout/comparator/bin/
-render-record.py`, `layout/sampling-frontend/bin/render-record.py`, and
-`layout/sampling-frontend-wells/bin/render-record.py` -- each imports this
-module via a `sys.path` insert (see any of the four scripts' own header)
-rather than a package install, matching sim/harness/'s
-no-extra-runtime-dependency convention.
+render-record.py`, `layout/sampling-frontend/bin/render-record.py`,
+`layout/sampling-frontend-wells/bin/render-record.py`, and
+`layout/halflsb-offset/bin/render-record.py` -- each imports this module via a
+`sys.path` insert (see any of the five scripts' own header) rather than a
+package install, matching sim/harness/'s no-extra-runtime-dependency
+convention.
 
 Deliberately a **separate** module from `layout/bin/_record_common.py`, not a
 merge into it. That module's docstring documents an intentional split: its
 `load_json`/git helpers are lenient and missing-file-tolerant, for flows
 (`layout/cdac-array/`, `layout/sar-sequencer/`) that are honest about
 partial/blocked completion, where a missing JSON envelope means "that stage
-hasn't run yet" rather than "something is broken". The four flows this
+hasn't run yet" rather than "something is broken". The five flows this
 module serves are the opposite: they require full completion, so a missing or
 malformed envelope should raise rather than degrade to `{}`. Folding either
 flavor into the other would blur that intentional difference -- see
@@ -52,6 +53,23 @@ def git_field(repo_root: Path, *args: str) -> str:
         capture_output=True,
         text=True,
     ).stdout.strip()
+
+
+def git_identity(repo_root: Path) -> tuple[str, str, bool]:
+    """Return `(sha, branch, dirty)` for the working tree at *repo_root*.
+
+    The three `git_field` probes every strict `render-record.py` runs before
+    rendering, in the order `render_provenance_header` consumes them. `dirty`
+    is `True` whenever `git status --porcelain` reports anything at all, so an
+    untracked file counts as a dirty tree just as a modified tracked one does
+    -- a record minted from a tree carrying either cannot be reproduced from
+    its named commit alone, which is what the provenance line warns about.
+    """
+    return (
+        git_field(repo_root, "rev-parse", "HEAD"),
+        git_field(repo_root, "rev-parse", "--abbrev-ref", "HEAD"),
+        git_field(repo_root, "status", "--porcelain") != "",
+    )
 
 
 def tool_version_strict(*args: str) -> str:
@@ -108,6 +126,25 @@ def build_argparser_strict() -> argparse.ArgumentParser:
     return parser
 
 
+def render_verdict_checklist(checks: list[tuple[str, bool]]) -> list[str]:
+    """Return the `## Overall verdict` heading and its checkbox list, shared
+    byte-for-byte by all five strict `render-record.py` flows.
+
+    *checks* stays in the caller -- each flow's `[(description, ok), ...]` list
+    is its own verdict set, and which checks a flow asserts is the one thing
+    about this section that must not be shared. Only the rendering is.
+
+    The heading says `PASS` only when every entry is `ok`, re-derived here from
+    *checks* with the same `all(...)` the callers use for their exit status, so
+    the printed verdict and the exit code cannot disagree.
+    """
+    lines = ["## Overall verdict: " + ("PASS" if all(ok for _, ok in checks) else "FAIL"), ""]
+    for desc, ok in checks:
+        lines.append(f"- [{'x' if ok else ' '}] {desc}")
+    lines.append("")
+    return lines
+
+
 def render_provenance_header(
     klt_version: str,
     drc: dict,
@@ -133,6 +170,89 @@ def render_provenance_header(
         f"- PDK: {pdk_info.get('variant')} ({pdk_info.get('version')})",
         f"- PDK root: resolved via `{pdk_info.get('resolved_via')}`",
         f"- repo commit: `{sha}` on `{branch}`{' (dirty working tree)' if dirty else ''}",
+    ]
+
+
+def render_blocks_table(
+    out_dir: Path, blocks: tuple[str, ...], block_drc: dict
+) -> list[str]:
+    """Return the ``## Blocks (`klt gen`)`` table shared byte-for-byte by the
+    `comparator`/`sampling-frontend`/`halflsb-offset` flows: one row per entry
+    of *blocks*, read from that block's own `<block>.json` `klt gen` envelope
+    under *out_dir*, with its per-block DRC status looked up in *block_drc*.
+
+    Each envelope is read with `load_json_strict`, so a block named in *blocks*
+    whose `klt gen` envelope is missing aborts rendering rather than emitting a
+    row of `None`s -- these flows have already generated every block they list.
+    """
+    lines = [
+        "## Blocks (`klt gen`)",
+        "",
+        "| Block | Cell | Devices | bbox (um) | own DRC |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for block in blocks:
+        report = load_json_strict(out_dir / f"{block}.json")
+        bbox = report.get("bbox_um", {})
+        lines.append(
+            f"| `{block}` | `{report.get('cell_name')}` | "
+            f"{report.get('device_count')} | "
+            f"{bbox.get('x0')},{bbox.get('y0')} .. {bbox.get('x1')},{bbox.get('y1')} | "
+            f"{block_drc.get(block, {}).get('status')} |"
+        )
+    lines.append("")
+    return lines
+
+
+def render_lvs_counts_row(lvs: dict, label: str) -> list[str]:
+    """Return the matched-counts results-table row the `comparator`/
+    `sampling-frontend`/`sampling-frontend-wells`/`halflsb-offset` flows render
+    for their good-reference LVS run: the envelope's `status` verdict plus
+    `matched`/`reference` device, net and pin counts from its `counts` block.
+
+    `label` is the row's parenthesised reference name -- the only thing that
+    differs across the four. Three title it `LVS (good reference)`; the
+    `halflsb-offset` flow titles it `LVS (schematic-derived reference)`, naming
+    where its reference netlist comes from. Required rather than defaulted, so
+    a new caller has to state which reference its row is reporting on.
+
+    Returned as a one-element `list[str]`, like the other `render_*` helpers,
+    to keep the `for line in render_...(): a(line)` call sites uniform.
+    """
+    counts = lvs.get("counts", {})
+    return [
+        f"| LVS ({label}) | {lvs.get('status')} | "
+        f"devices {counts.get('devices', {}).get('matched')}/"
+        f"{counts.get('devices', {}).get('reference')} matched, "
+        f"nets {counts.get('nets', {}).get('matched')}/"
+        f"{counts.get('nets', {}).get('reference')} matched, "
+        f"pins {counts.get('pins', {}).get('matched')}/"
+        f"{counts.get('pins', {}).get('reference')} matched |"
+    ]
+
+
+def render_drc_coverage(coverage: dict) -> list[str]:
+    """Return the `## DRC coverage` section shared byte-for-byte by the
+    `sampling-frontend`/`halflsb-offset` flows: the heading, the sentence
+    recording that these numbers are `klt drc`'s own `coverage` block rather
+    than a prose assertion, and the four scope/skip bullets read from it.
+
+    *coverage* is the envelope's `coverage` sub-dict (`drc.get("coverage")`),
+    not the whole DRC envelope.
+    """
+    return [
+        "## DRC coverage (what the deck did and did not check)",
+        "",
+        "Recorded straight from `klt drc`'s own `coverage` block rather than "
+        "asserted in prose, so a later deck release changing it shows up as a "
+        "diff in the next record.",
+        "",
+        f"- rule families in scope: {coverage.get('deck_scope')}",
+        f"- layers checked: {coverage.get('layers_checked')}",
+        "- layers present in the stream with **no** rule: "
+        f"{coverage.get('layers_in_stream_without_rules')}",
+        f"- rules skipped (layer absent from the stream): {coverage.get('rules_skipped')}",
+        "",
     ]
 
 

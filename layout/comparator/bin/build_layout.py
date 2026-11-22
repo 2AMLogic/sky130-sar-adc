@@ -100,7 +100,6 @@ from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
 # `_tap_shapes_core` (imported above) -- this module no longer needs them by
 # name, since `tap_shapes()` below is a thin wrapper around that shared core.
 L_NWELL = (64, 20)
-L_DIFF = (65, 20)
 L_MCON = (67, 44)
 L_MET1 = (68, 20)
 L_MET1_PIN = (68, 5)

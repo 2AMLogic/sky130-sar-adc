@@ -46,40 +46,21 @@ set -euo pipefail
 
 COMPARATOR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAYOUT_DIR="$(cd "$COMPARATOR_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
-KLT="$LAYOUT_DIR/.venv/bin/klt"
-PDK_VARIANT=sky130A
-# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
-export PDK=sky130A
 TOP=gen_compose_0
 BLOCKS=(tail inpair latn latp rst rstd)
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"
 
-require_klt "$KLT"
-require_pdk "$KLT" "$PDK_VARIANT"
-
-RECORD_ID="$(new_record_id "$REPO_ROOT")"
-OUT_DIR="$COMPARATOR_DIR/reports/$RECORD_ID"
-mkdir -p "$OUT_DIR"
-echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
+# Sets REPO_ROOT/KLT/PDK_VARIANT, exports PDK, gates on the venv and the PDK.
+flow_init "$COMPARATOR_DIR"
+# Sets RECORD_ID and OUT_DIR.
+flow_begin_record "$COMPARATOR_DIR"
 
 # --- 1. Generate the six matched-device/pair blocks ------------------------
 python3 "$COMPARATOR_DIR/bin/gen_blocks.py" "$OUT_DIR" --klt "$KLT" --pdk "$PDK_VARIANT"
 
 # --- 2. Per-block DRC: every input block must be clean in isolation ---------
-# Recorded as one envelope keyed by block id, so a later composed-DRC failure
-# can be attributed to the routing rather than to a device block.
-{
-  echo '{'
-  sep=''
-  for block in "${BLOCKS[@]}"; do
-    printf '%s  "%s": ' "$sep" "$block"
-    "$KLT" drc "$OUT_DIR/$block.gds" --deck sky130 --format json || true
-    sep=$',\n'
-  done
-  echo '}'
-} > "$OUT_DIR/drc.blocks.json"
+drc_blocks_fanout "$OUT_DIR" "${BLOCKS[@]}"
 
 # --- 3. Floorplan + route ---------------------------------------------------
 python3 "$COMPARATOR_DIR/bin/build_layout.py" "$OUT_DIR"
@@ -124,19 +105,6 @@ EOF
       > "lvs${kind}.json" ) || true
 done
 
-# --- 9. Combined human-readable report --------------------------------------
-"$KLT" report "$OUT_DIR/drc.json" "$OUT_DIR/lvs.json" \
-  --format github-summary > "$OUT_DIR/report.md"
-
-# --- 10. Record summary (pass/fail verdicts, evidence-record style) --------
-set +e
-python3 "$COMPARATOR_DIR/bin/render-record.py" \
-  --out-dir "$OUT_DIR" --record-id "$RECORD_ID" --repo-root "$REPO_ROOT" \
-  --klt "$KLT" --pdk-variant "$PDK_VARIANT" \
-  > "$OUT_DIR/record.md"
-record_status=$?
-set -e
-
-echo "$RECORD_ID" > "$COMPARATOR_DIR/reports/LATEST"
-echo "run-flow.sh: done. See $OUT_DIR/record.md"
-exit "$record_status"
+# --- 9/10. Combined human-readable report + record summary (pass/fail
+# verdicts, evidence-record style), then exit on the record's own status.
+finish_record "$COMPARATOR_DIR" "$OUT_DIR" "$RECORD_ID"

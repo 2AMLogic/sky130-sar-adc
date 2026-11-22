@@ -115,16 +115,6 @@ set -euo pipefail
 
 TOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAYOUT_DIR="$(cd "$TOP_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$LAYOUT_DIR/.." && pwd)"
-# Optional override (operator-approved 2026-09-09, re-instated for #103's
-# post-klayout-tools#2396/#2398 re-measurement): point at an unreleased
-# `klt` build, e.g. a throwaway venv built from a klayout-tools git SHA.
-# Leaves the PyPI pin in layout/requirements.txt untouched; the record's
-# own `klt` version line shows which build ran.
-KLT="${SAR_ADC_TOP_KLT:-$LAYOUT_DIR/.venv/bin/klt}"
-PDK_VARIANT=sky130A
-# klt resolves the PDK from $PDK; unset, it can pick a sibling (gf180mcu) install.
-export PDK=sky130A
 TOP=gen_compose_0
 ROUTE_CELL_NAME=SAR_ADC_TOP_ROUTE
 # The literal cell name `klt gen-compose` gives this flow's own routing cell
@@ -135,8 +125,16 @@ ROUTE_CELL_QUALIFIED="route__${ROUTE_CELL_NAME}"
 
 source "$LAYOUT_DIR/bin/_flow_common.sh"
 
-require_klt "$KLT"
-require_pdk "$KLT" "$PDK_VARIANT"
+# Sets REPO_ROOT/KLT/PDK_VARIANT, exports PDK, gates on the venv and the PDK.
+#
+# `$SAR_ADC_TOP_KLT` is this flow's optional `klt` override (operator-approved
+# 2026-09-09, re-instated for #103's post-klayout-tools#2396/#2398
+# re-measurement): point it at an unreleased `klt` build, e.g. a throwaway
+# venv built from a klayout-tools git SHA. It leaves the PyPI pin in
+# layout/requirements.txt untouched, and the record's own `klt` version line
+# shows which build ran. Unset/empty -- the normal case -- falls back to the
+# pinned `.venv/bin/klt` every other layout flow uses.
+flow_init "$TOP_DIR" "${SAR_ADC_TOP_KLT:-}"
 
 # --- 0. Composition parity: HARD GATE ---------------------------------------
 # Deliberately BEFORE the record directory is created, for the same reason
@@ -148,8 +146,9 @@ require_pdk "$KLT" "$PDK_VARIANT"
 python3 "$TOP_DIR/bin/check-composition-parity.py" --self-test
 python3 "$TOP_DIR/bin/check-composition-parity.py"
 
-RECORD_ID="$(new_record_id "$REPO_ROOT")"
-OUT_DIR="$TOP_DIR/reports/$RECORD_ID"
+# Sets RECORD_ID and OUT_DIR.
+flow_begin_record "$TOP_DIR"
+
 # The record `reports/LATEST` names RIGHT NOW -- read before this run overwrites
 # it at the end. `probe-decap-sites.py` (step 7b) uses it as the baseline its
 # free-field arm measures against; that arm is only meaningful when the baseline
@@ -160,8 +159,6 @@ OUT_DIR="$TOP_DIR/reports/$RECORD_ID"
 # against a specific earlier record -- which is what issue #440's own README
 # numbers do, against the last pre-placement record.
 PREV_RECORD="${DECAP_BASELINE_RECORD:-$(cat "$TOP_DIR/reports/LATEST" 2>/dev/null || true)}"
-mkdir -p "$OUT_DIR"
-echo "run-flow.sh: record $RECORD_ID -> $OUT_DIR"
 
 # The gate's own output, kept beside the verdicts it licenses (same convention
 # as layout/top-glue/reports/<id>/schematic-parity.txt).

@@ -130,10 +130,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+# The repo's one PDK resolver (issue #859): `sim/pdk.json` holds the search
+# roots and the variant, so the `--pdk-root` / `--variant` flags below are the
+# only PDK location this file knows about.
+sys.path.append(str(_REPO_ROOT / "sim"))
+
+from harness import pdk  # noqa: E402
 
 #: Default measurement targets: `(label, flow directory, GDS basename)`.
 #: The GDS basename is each flow's own top-level artefact -- the same file
@@ -450,8 +457,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        pdk_root = args.pdk_root or Path(os.environ.get("PDK_ROOT", "~/.ciel")).expanduser()
-        variant = args.variant or os.environ.get("PDK", "sky130A")
+        # One definition of the search order (issue #859): `pdk.resolve()`
+        # reads $PDK_ROOT/$PDK, then sim/pdk.json's default and fallback
+        # roots. The two flags stay as explicit per-invocation overrides of
+        # whatever it picked; `found` is not consulted, because find_deck()
+        # below reports a missing deck with the path and install hint this
+        # script's own error contract promises.
+        info = pdk.resolve()
+        pdk_root = args.pdk_root.expanduser() if args.pdk_root else info.root
+        variant = args.variant or info.variant
         deck = find_deck(Path(pdk_root).expanduser(), variant)
         rules = parse_min_area_rules(deck.read_text())
 

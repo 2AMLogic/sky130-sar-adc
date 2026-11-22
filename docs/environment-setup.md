@@ -33,9 +33,11 @@ except where noted) — `sim/harness/toolchain.py` / `sim/run_corners.py
 is simulated. Verify by hand first.
 
 ciel is **not** machine-checked by `sim/toolchain.json`. The pin that is
-authoritative for CI is `pip install "ciel==2.6.1"` in the `pdk-smoke` job of
-`.github/workflows/ci.yml`; the table above records the same version. Bump
-both together. (The PDK *contents* are machine-checked: the harness reads the
+authoritative for CI is `pip install "ciel==2.6.1"` in
+`.github/actions/setup-ngspice-pdk/action.yml` — the shared composite action
+all four PDK-provisioning CI jobs call (`pdk-smoke` plus the three
+dispatch-only evidence jobs; issue #875). The table above records the same
+version. Bump both together. (The PDK *contents* are machine-checked: the harness reads the
 `SOURCES` file at the root of the resolved variant tree and fails on an
 open_pdks revision other than `sim/pdk.json`'s.)
 
@@ -198,13 +200,14 @@ sim/selftest.sh                # the harness acceptance test (a few minutes)
 sim/selftest.sh --quick        # unit tests + environment check only, no ngspice
 sim/selftest.sh --require-pdk  # fail rather than skip if ngspice/the PDK are missing
 
-npm run check:ci               # lint + unit tests + spec-row coverage + sim/selftest.sh
+npm run check:ci               # lint + python compile + the check:* gates + sim/selftest.sh (the unit suite runs before the citation gate)
 npm run check:spec-coverage    # spec row -> testbench -> record index only (no PDK needed)
 npm run check:layout           # the klt DRC/LVS trivial-cell proof (layout/README.md)
 ```
 
 `sim/selftest.sh` is the acceptance test for everything in sections 2–6: it
-runs the harness unit tests, checks the installed toolchain against
+runs the `sim/tests` unit suite (stage 1 — since issue #889 this is also the
+only place `npm run check:ci` runs it), checks the installed toolchain against
 `sim/toolchain.json`, runs an end-to-end PVT sweep and a Monte-Carlo sweep,
 and then — the part that makes the rest mean anything — re-runs the PVT sweep
 with the process corner deliberately forced to `tt` and requires that run to

@@ -151,6 +151,10 @@ layout/comparator/**/.klt/
 # Repo Skills machine-local install metadata (absolute source path + timestamp)
 .claude/skills/repo/.install-local.json
 layout/.venv-*/
+# Rendering venv for the docs/plots/ summary plots (issue #835): created by
+# `python3 -m venv .venv-plots` per sim/report/plots-requirements.txt. The
+# rendered SVGs are committed; the renderer's dependency never is.
+/.venv-plots/
 .aider*
 
 # Repo Skills Codex-side machine-local install metadata (never committed)

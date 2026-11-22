@@ -22,7 +22,6 @@ class CornerPointResult:
     supply_v: float
     corner_id: str
     measures: dict[str, float]
-    log_path: Path
     log_text: str
     ok: bool
     check_failures: list[str] = field(default_factory=list)
@@ -95,7 +94,6 @@ def run(
     record_id = evidence.new_record_id()
     netlist_sha = evidence.sha256_file(manifest.netlist_fragment)
 
-    corners_out_dir = manifest.experiment_dir / "corners" / record_id
     points: list[CornerPointResult] = []
 
     # See corners_mod.oat_grid()'s docstring for why this is a one-at-a-time
@@ -119,7 +117,6 @@ def run(
             )
             log_text = toolchain.run_ngspice(netlist, scratch_dir, cid)
             parsed = measure.parse(log_text, list(manifest.measure.keys()))
-            log_path = corners_out_dir / f"{cid}.log"
             points.append(
                 CornerPointResult(
                     process_corner=process_corner,
@@ -127,7 +124,6 @@ def run(
                     supply_v=supply_v,
                     corner_id=cid,
                     measures=parsed,
-                    log_path=log_path,
                     log_text=log_text,
                     ok=True,
                 )
@@ -153,11 +149,21 @@ def run(
             for p in points
             if p.process_corner == baseline_process and p.temp_c == baseline_temp and name in p.measures
         ]
-        axis_spreads[name] = {
-            "process": _spread_pct(process_slice),
-            "temperature": _spread_pct(temp_slice),
-            "supply": _spread_pct(supply_slice),
-        }
+        # SPREAD_AXES order is (process, temperature, supply): the three
+        # slices below are built in that same order, and strict=True turns
+        # a constant/slice count mismatch into a loud error instead of a
+        # zip-truncated, silently-missing spread axis (issue #984).
+        axis_spreads[name] = dict(
+            zip(
+                testbench.SPREAD_AXES,
+                (
+                    _spread_pct(process_slice),
+                    _spread_pct(temp_slice),
+                    _spread_pct(supply_slice),
+                ),
+                strict=True,
+            )
+        )
 
     overall_ok = True
     for p in points:
@@ -200,9 +206,12 @@ def write_evidence(
     rid = result.record_id
 
     # Persist the logs already captured by run() -- no need to re-invoke
-    # ngspice a second time (each sky130-library invocation costs ~15-20s on
-    # this toolchain; doubling it here for a --record run would be wasteful
-    # and could theoretically diverge from what was just evaluated).
+    # ngspice a second time (each sky130-library invocation is dominated by
+    # model-library load, ~2.9 s each measured on a GitHub-hosted
+    # ubuntu-latest runner with the pinned toolchain, 2026-11-15,
+    # pdk-smoke run 43718624521; doubling it here for a --record run would
+    # be wasteful and could theoretically diverge from what was just
+    # evaluated).
     info = pdk.resolve()
     if store:
         stage = SIM_DIR / ".work" / experiment_dir.name / rid

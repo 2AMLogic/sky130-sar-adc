@@ -3,12 +3,12 @@
   "kind": "generic",
   "t1_item": 9,
   "status": "pass",
-  "summary": "Testbenches shipped: 10 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
+  "summary": "Testbenches shipped: 11 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
   "source": "signoff/attest/item-9.inventory.json",
   "provenance": {
     "input": {
       "path": "signoff/attest/item-9.inventory.json",
-      "content_hash": "sha256:6a5e0f6044a48c3ede3e29dee539e71ef558d9abb1b233e08ab4c97516c8b4c4"
+      "content_hash": "sha256:07029f0347aa26e7d04d5161edc30b4746db944f5367825b4797368b3afea33b"
     }
   },
   "checks": [
@@ -55,6 +55,14 @@
     {
       "check": "present",
       "role": "testbench",
+      "path": "sim/full-conversion-transient/testbench/input_sweep_tb_fragment.spice",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:d8c29af925745359d9d4ea486fc31aab806bb56e0c5e975a5b3a71fd4b607122"
+    },
+    {
+      "check": "present",
+      "role": "testbench",
       "path": "sim/sampling-cdac-handoff/testbench/cdac_array_dut.spice",
       "passed": true,
       "executed": true,
@@ -90,7 +98,7 @@
       "path": "sim/top-plate-cpar/run_top_plate_cpar.py",
       "passed": true,
       "executed": true,
-      "content_hash": "sha256:4ac1d0c4b20b7433c918e6fca5343e90302e9b0d4296056293479d22021f54e3"
+      "content_hash": "sha256:6b1d2890a28a7d88c9816159978f13abbae74c16ee1193873fd08473e524b29b"
     },
     {
       "check": "command",

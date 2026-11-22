@@ -78,7 +78,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -86,6 +85,13 @@ from pathlib import Path
 CDAC_DIR = Path(__file__).resolve().parents[1]
 LAYOUT_DIR = CDAC_DIR.parent
 REPO_ROOT = LAYOUT_DIR.parent
+
+# The shared sim harness owns this repo's one xschem-netlisting policy
+# (headless flags, timeout budget, exit-code handling) -- see
+# netlist_schematic() below. layout/comparator/pex/regen_probe.py is the
+# existing precedent for a layout script importing it.
+sys.path.insert(0, str(REPO_ROOT / "sim"))
+from harness import toolchain  # noqa: E402
 
 _spec = importlib.util.spec_from_file_location(
     "cdac_layout", Path(__file__).resolve().parent / "cdac_layout.py"
@@ -125,24 +131,32 @@ SUBSTRATE_NET_BY_TOP = {
 
 
 def netlist_schematic(top: str, outdir: Path) -> str:
-    """Run xschem headlessly over `design/cdac/<top>.sch`."""
+    """Run xschem headlessly over `design/cdac/<top>.sch`.
+
+    Delegates to `harness.toolchain.netlist_with_xschem()` (issue #860) rather
+    than shelling out to xschem here, so this step shares the one netlisting
+    policy the rest of the repo uses: the same headless flags, the same
+    `SIM_NGSPICE_TIMEOUT_S` budget (a hung xschem now fails instead of hanging
+    the LVS-reference step forever), and the same structural completeness test
+    instead of a bare "the file exists" check. `cdac_array.sch` exits 10 on a
+    perfectly good netlist because its open nets fail xschem's ERC, which is
+    what `accept_complete_on_nonzero` is for -- a truncated netlist is no
+    longer accepted as the LVS reference. The helper's RuntimeError is
+    re-raised as SystemExit to keep this script's CLI contract.
+    """
     sch = REPO_ROOT / "design" / "cdac" / f"{top}.sch"
     if not sch.is_file():
         raise SystemExit(f"generate-lvs-reference.py: no such schematic: {sch}")
-    subprocess.run(
-        [
-            "xschem", "-x", "-n", "-s", "-q",
-            "--rcfile", str(REPO_ROOT / "sim" / "xschemrc"),
-            "-o", str(outdir),
-            str(sch),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,  # xschem exits non-zero even on a successful headless netlist
-    )
-    produced = outdir / f"{top}.spice"
-    if not produced.is_file():
-        raise SystemExit(f"generate-lvs-reference.py: xschem produced no {produced}")
+    try:
+        produced = toolchain.netlist_with_xschem(
+            sch,
+            outdir,
+            REPO_ROOT / "sim" / "xschemrc",
+            f"{top}.spice",
+            accept_complete_on_nonzero=True,
+        )
+    except RuntimeError as exc:
+        raise SystemExit(f"generate-lvs-reference.py: {exc}") from exc
     return produced.read_text()
 
 

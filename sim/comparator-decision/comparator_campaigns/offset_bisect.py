@@ -311,8 +311,6 @@ class BisectCornerResult:
     corner: str
     temp_c: float
     supply_v: float
-    evaluate_ns: float
-    tol_mv: float
     probes: list[_BisectProbe]  # in the order they were run
     # Converged brackets. `*_lo`/`*_hi` are the final bracket ENDPOINTS, both
     # of them actually probed, so every number below is traceable to a row of
@@ -460,7 +458,7 @@ def run_offset_bisect(
     scan = sorted(scan_mv if scan_mv is not None else BISECT_SCAN_MV)
     result = BisectCornerResult(
         corner=corner, temp_c=temp_c, supply_v=supply_v,
-        evaluate_ns=BISECT_EVALUATE_NS, tol_mv=tol_mv, probes=[],
+        probes=[],
     )
     seen: dict[float, _BisectProbe] = {}
 

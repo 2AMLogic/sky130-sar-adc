@@ -143,6 +143,20 @@ def classify(envelope: dict) -> str:
         return "drc"
     if "mismatches" in envelope and "reference" in envelope:
         return "lvs"
+    # `klt yield` (item 6, issue #1015), detected by the same structural
+    # triple `klt signoff` uses: a `measurements` list plus
+    # `measurement_count` plus a `source` object, and never `corner_count`
+    # (that pair is `sim`, which this fixture-grade classifier does not need
+    # and which the yield test therefore cannot collide with). A yield
+    # envelope is the one kind whose freshness artifact is NOT described by
+    # its own `provenance` block -- it names a second document, `samples`,
+    # and the grader hashes THAT file live (klayout-tools#870/#2197).
+    if (
+        isinstance(envelope.get("measurements"), list)
+        and "measurement_count" in envelope
+        and isinstance(envelope.get("source"), dict)
+    ):
+        return "yield"
     if "devices" in envelope and "nets" in envelope:
         return "extract"
     return "unknown"
@@ -358,6 +372,58 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
     kind = classify(envelope)
     recorded = (((envelope.get("provenance") or {}).get("input")) or {}).get("content_hash")
     pinned = entry.get("content_hash")
+
+    # 2b. A `klt yield` citation's pin describes the SAMPLES DOCUMENT the
+    #     envelope names, not the envelope itself. `klt yield` writes no
+    #     `provenance` block, so the grader computes this citation's
+    #     content_hash as a live hash of `envelope["samples"]`
+    #     (klayout-tools `_yield_samples_content_hash`, issues #870/#2197)
+    #     and compares the manifest pin against THAT. The generic legs below
+    #     cannot express this ("pin vs. the envelope's own recorded hash"
+    #     would refuse every yield pin outright), so the kind gets its own:
+    #     resolve the named samples document inside this checkout, require a
+    #     pin at all (an unpinned yield citation is a citation with no
+    #     freshness claim -- exactly the `/tmp`-samples shape that kept item
+    #     6 uncited before issue #1015), and re-hash the file against it.
+    #     This holds headlessly the freshness rule the grader itself can only
+    #     check at signoff time.
+    if kind == "yield":
+        samples = envelope.get("samples")
+        if not isinstance(samples, str) or not samples:
+            failures.append(
+                f"item {item_key}: {named_file} (kind=yield) names no samples document -- "
+                "its freshness cannot be verified"
+            )
+            return
+        artifact = resolve_artifact(samples, envelope_path)
+        if artifact is None:
+            failures.append(
+                f"item {item_key}: {named_file} names samples '{samples}' "
+                "which does not resolve to a committed file -- its pin describes "
+                "nothing this repo contains (the pre-#1015 /tmp-samples shape)"
+            )
+            return
+        actual = sha256_file(artifact)
+        if pinned is None:
+            failures.append(
+                f"item {item_key}: {named_file} (kind=yield) pins no content_hash. A "
+                "yield citation's freshness claim IS the samples pin -- pin the "
+                f"samples re-hash ({actual}) or do not cite the envelope"
+            )
+            return
+        if pinned != actual:
+            failures.append(
+                f"item {item_key}: manifest pin {pinned} != the re-hash {actual} of the "
+                f"samples document {artifact.relative_to(REPO_ROOT)} that {named_file} "
+                "names. The samples changed under the evidence: re-run the campaign "
+                "analysis that mints the report, then re-render signoff/t1-report.json."
+            )
+            return
+        notes.append(
+            f"item {item_key}: yield samples {artifact.relative_to(REPO_ROOT)} verified "
+            f"({actual[:23]}...)"
+        )
+        return
 
     # 2. manifest pin vs. the envelope's own recorded hash.
     if pinned is not None:

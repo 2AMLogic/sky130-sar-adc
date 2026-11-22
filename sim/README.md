@@ -53,6 +53,70 @@ Divergences from those sources, each deliberate:
    modules keeps the two runners from drifting apart in how they resolve the
    PDK or stamp a record. Stdlib only, no virtualenv, in both repos.
 
+## Batch campaign submits go through one helper (issue #865)
+
+A campaign whose corner grid is a `klt sim` request (`top-plate-cpar`,
+`reference-drive-budget`, `input-drive-budget`, `digital-partition`) builds its
+own deck and request and decodes its own measurements — but the step in
+between is **`sim/harness/klt_sim.py`**, not a per-campaign copy:
+
+- `submit(request, outdir, backend=..., capacity_wait_s=...)` writes the argv,
+  runs `klt sim`, reads the JSON report off stdout (or off stderr, where the
+  client writes its error envelope), refuses an error ENVELOPE rather than
+  reading it as zero corners, and caches `report.json` beside the request so a
+  campaign that died partway resumes without re-spending completed fleet jobs.
+- **One fleet-capacity policy.** `--wait-for-capacity` (default 600 s) is
+  passed on every submit that is not explicitly `--backend local`, per
+  `CLAUDE.md`'s host rule: the Spot fleet is vCPU-budgeted, so a burst is
+  refused with `batch_no_capacity`, and that refusal means "no capacity right
+  now", never "the design failed". `capacity_retries=` adds a bounded
+  client-side retry on top, for the client/runner pairings where the flag
+  alone does not wait a refusal out (`digital-partition` uses it).
+- `run_info(report)` reads run-level facts from **either** batch report
+  shape — a one-job run's `environment.remote`, or a sharded run's
+  `environment.remote.fleet[]` — and reports the executing PDK and simulator
+  only when every shard agrees. Reading only the single-job shape is how a
+  sharded record ends up reporting `job None`.
+
+The subprocess runner is injectable, so `sim/tests/test_harness_klt_sim.py`
+exercises all of it without `klt`, the PDK or the fleet. That file's last test
+class is a structural guard: it fails if a driver grows its own `klt sim` argv,
+`SubmitError` or capacity-marker list again, which is how the four copies this
+helper replaced had drifted to three different capacity policies (one of them
+none at all).
+
+## Record-writer tests stub provenance through one fixture (issue #914)
+
+A record-writer unit test runs with no PDK and no ngspice, which it buys by
+replacing `harness.evidence.resolve_provenance()` — the one step in a writer
+that needs both — and redirecting the campaign module's `EXPERIMENT_DIR` into
+a temp dir, so the test mints nothing under `sim/`. That replacement is
+**`sim/tests/provenance_fixture.py`**, not a per-file copy:
+
+- `make_fake_resolve(...)` returns the stub. Its filesystem side effects are
+  the real `evidence.write_netlist_snapshot_text()` — the helper production
+  `resolve_provenance()` itself calls — so the directories it creates, the
+  snapshot it writes and the `records/<record-id>.md` path it returns are
+  production behaviour. Only the four fields that need a toolchain to resolve
+  (`record_id`, `netlist_sha`, `pdk_line`, `ng_version`) are faked, and each
+  is overridable by keyword.
+- `fake_provenance(module, tmp_dir)` is the context manager for the common
+  case: it patches `<module>.EXPERIMENT_DIR` and `evidence.resolve_provenance`
+  together with `mock.patch.object`, so the restore is not a `try:`/`finally:`
+  pair re-typed at each call site.
+- **One stubbed ngspice version.** `ngspice-46`, which
+  `sim/tests/test_harness.py` asserts on directly — so that assertion pins the
+  fixture's default. A test needing another version passes `ng_version=` and
+  says why.
+
+`sim/tests/test_provenance_fixture.py` covers the fixture (including that both
+patched names are restored when the writer under test raises) and ends in a
+structural guard: it fails if any `sim/tests/test_*.py` defines its own
+`fake_resolve`, builds its own `evidence.ProvenanceInfo`, or rebinds either
+name by hand. That is how the thirteen copies this fixture replaced had
+drifted — twelve returned `ngspice-46` and one `ngspice-47`, on a field
+nothing asserted on at that site.
+
 ## Quick start
 
 ```sh
@@ -236,15 +300,20 @@ and appends the `.control`/`let`/`print` block built from `measure`.
 asserts a measurement *must* move by at least some amount along a given PVT
 axis. That is what catches the failure mode a corner runner is most prone to —
 silently simulating typical everywhere while printing a plausible-looking
-table. `sim/selftest.sh` stage 4 exercises exactly this (see below).
+table. `sim/selftest.sh` stage 4 exercises exactly this (see below). The axis
+keys of `min_spread_pct_by_axis` / `max_spread_pct_by_axis` are validated at
+manifest load: an axis outside `process` / `temperature` / `supply` raises
+`ValueError` rather than silently grading as if the floor were not there.
 
 ### Corner-grid shape (one-at-a-time, not full factorial)
 
 `sim/run_corners.py` runs a baseline point plus, for each axis in turn, every
 other value on that axis with the remaining two axes held at baseline. This is
 precisely the set the per-axis sensitivity computation consumes, and a single
-ngspice invocation against sky130's combined model library costs ~15–20 s on
-the reference toolchain (library load dominates, not the simulation). A record
+ngspice invocation against sky130's combined model library is dominated by
+library load, not the simulation (~2.9 s per invocation measured on a
+GitHub-hosted `ubuntu-latest` runner with the pinned toolchain, 2026-11-15,
+`pdk-smoke` run 43718624521). A record
 therefore states 9 points where a full grid would state 45, at no loss of
 per-axis signal. A record whose claim genuinely needs corner *interactions*
 (e.g. worst-case ss/−40 °C/low-supply simultaneously) must say so and run
@@ -383,6 +452,32 @@ corner evidence rather than substituting for it, per each record's own
   (issue #754): AC C(V) extraction on `TOP_P`/`TOP_N` in hold, leave-one-out
   composition, PVT plus MiM r+c corners, run through `klt sim`. Own runner
   (`run_top_plate_cpar.py`); see its README.
+- **`sim/reference-drive-budget/`** — how much series source resistance the
+  `VREFP`/`VREFN` pads tolerate before the captured codes move (issue #841).
+  Like `top-plate-cpar` above this is a deterministic PVT campaign with its
+  own runner rather than a Monte Carlo one, listed here because it is another
+  campaign whose grid is a `klt sim` request: the whole
+  `design/sar_adc_top.spice` driven by `sim/full-conversion-transient/`'s
+  committed fragment, used verbatim except for an ideal source plus `R_ref`
+  in series on each reference pad, with `R_ref` and the supply carried as
+  `corners.params` axes. Every error is referenced to that corner's own
+  `R_ref = 0` control row, never to the ideal code. Own runner
+  (`run_reference_drive_budget.py`); see its README for what the testbench
+  does not model.
+- **`sim/input-drive-budget/`** — how much series source resistance the
+  `VINP`/`VINN` signal-input pads tolerate while the sampling front end still
+  acquires a new full-scale differential input inside the acquisition window
+  (issue #847). The signal-input counterpart of `reference-drive-budget` above,
+  and likewise a deterministic PVT campaign with its own runner rather than a
+  Monte Carlo one, listed here because its grid too is a `klt sim` request:
+  one submission of 9 corner units, each running 16 transient steps (2
+  acquisition windows x 8 source resistances) against
+  `sim/sampling-frontend/`'s DUT read in place, the only signal-path addition
+  being one ideal source plus one series resistor per input pin. Every corner
+  and window carries its own `R_source = 0` control row, and every budget is
+  computed on the error relative to that row. It grades no spec row. Own runner
+  (`run_input_drive_budget.py`); see its README for what the testbench does not
+  model, and `records/LATEST` for the figures.
 - **`sim/cdac-array-transfer/run_mc.py`** — Monte Carlo DNL/INL campaign.
   Extends #53/#28's deterministic 5-code transfer-curve experiment (same
   directory) with mismatch draws (`tt_mm`) over a larger, programmatically
@@ -689,6 +784,20 @@ fix; it is out of scope for issue #405 and any future issue doing it should
 say so explicitly rather than mint a pointer that silences one of these two
 flows' rows by accident.
 
+**Docs prose citing a record must name the pointer in the same bullet.**
+Where `README.md` or `docs/ROADMAP.md` cites a
+`sim/<campaign>/records/<stamp>.md` record in a top-level bullet, that bullet
+must also name that campaign's `records/LATEST` pointer, and at least one
+stamp the bullet cites must be what the pointer resolves to — informational
+or superseded records may be cited additionally (this is
+`docs/citation-gate.md` check 3's shape), campaigns publishing no pointer are
+exempt, and `layout/<block>/reports/` citations are out of its scope. The
+gate is `sim/tests/test_doc_pointer_claims.py`: a bullet citing only a stamp
+id fails `npm run test:unit`, so "the newest record" prose cannot go stale
+silently. Issue #974 was filed on exactly that defect — `docs/ROADMAP.md`'s
+Conversion bullet named a record id and never the pointer — and PR #973's
+hand correction is the shape this convention now imposes mechanically.
+
 ## The aggregated characterization report (issue #30)
 
 `records/*.md` are the append-only evidence trail; `docs/characterization-
@@ -730,16 +839,140 @@ pass) to the specific record(s) its verdict rests on, per
   unless the campaign meets the checklist. See
   [`sim/digital-partition/README.md`](digital-partition/README.md).
 
+## Summary plots (`docs/plots/`, issue #835)
+
+The published Chipalooza brief asks that "simulation results should be
+summarized in plots, not raw data", while also requiring the raw data stay
+reproducible. This directory's append-only convention over-meets the second
+half; `docs/plots/` is the first half. The plots are rendered **from evidence
+that is already committed** — no run, no network, no display — by
+`sim/report/plots.py`.
+
+```bash
+# Regenerate (needs the pin; see sim/report/plots-requirements.txt)
+python3 -m venv .venv-plots
+.venv-plots/bin/pip install -r sim/report/plots-requirements.txt
+.venv-plots/bin/python sim/report/plots.py --render
+
+# What is plotted, and from what
+python3 sim/report/plots.py --list
+
+# The gate CI runs (stdlib only, no matplotlib needed)
+python3 sim/report/plots.py --check
+```
+
+### The three decisions, recorded
+
+1. **Location: `docs/plots/`, regenerable, outside every evidence gate.** A
+   plot is a *derived view* of evidence, never evidence: it is overwritten on
+   regeneration and is not cited by `signoff/block-manifest.json`.
+   `sim/check_append_only.py` protects `sim/<experiment>/records/*.md` and the
+   `corners` / `mc-draws` / `netlist-snapshots` / `diagnostics` / `runs` /
+   `yield-reports` artifact directories; `docs/plots/` is outside that set (the
+   same way `docs/characterization-report.md` is), so a re-render can never
+   churn an evidence hash. **No plot is ever written inside a `records/` tree.**
+2. **Format: SVG**, written head-less with `svg.fonttype = "none"` — reviewable
+   text with greppable labels, not an opaque binary diff.
+3. **Gate: input-hash staleness, stdlib only.** `--render` records, per figure,
+   the SHA-256 of every committed file it read, of `sim/report/plots.py`, and
+   of the SVG it wrote, into `docs/plots/manifest.json`. `--check` re-hashes
+   those and fails on a mismatch, on a committed SVG no manifest entry claims,
+   and on a manifest entry with no file. It is reached from `python3
+   sim/report/generate.py --check` (`npm run check:report`, part of `npm run
+   check:ci`), so it needs no new `package.json` script and no CI dependency.
+
+   `--check` deliberately does **not** re-render and compare bytes. SVG output
+   is not expected to be stable across matplotlib and font versions, so a
+   byte-comparison gate would need matplotlib pinned into CI and would still be
+   fragile. (Within one matplotlib version output *is* byte-stable — a fixed
+   `svg.hashsalt` and `metadata={"Date": None}` — so a second `--render` on an
+   unchanged tree leaves `git status` clean.)
+
+### The second half of the gate: provenance cross-checks
+
+Hashes alone only prove nothing moved. Each loader also re-derives, from the
+raw artifact, a number the **record** states in prose, and fails if the two
+disagree — the coherent-sine FFT's SNDR/ENOB/SFDR/spur bin, the transfer
+bench's per-corner minimum adjacent-code gap, the Monte Carlo max|INL| *and*
+max|DNL| mean/stdev/min/max. Those loaders are stdlib-only, so `--check` runs
+them too, and
+`--check` additionally fails if a figure's source record has been **superseded**
+by a sibling (the same `Supersedes` read `sim/report/generate.py` does). A
+figure therefore cannot keep asserting a record's authority once that record's
+own numbers stop reproducing, or once a later record replaces it.
+
+Every figure prints its source **Record ID** and the record's own corner set /
+statistical convention onto its own face, so a plot cannot outlive the PVT
+context it was measured in, and a DRAFT row's figure says DRAFT.
+
+A number a record states with a particular estimator is drawn with **that**
+estimator, and every σ a figure prints names which one it is. The CDAC Monte
+Carlo σ values are the *population* ones `sim/cdac-array-transfer/run_mc.py`
+prints into the record's own table (`statistics.pstdev`), not the sample (n−1)
+values the campaign's `klt yield` report carries; the ENOB figure's σ is the
+yield report's sample (n−1) value, because that record states no σ of its own.
+Both are labelled on the figure, so the two conventions cannot be read as one.
+
+### What is plotted
+
+| Figure | Spec row | What it shows |
+| --- | --- | --- |
+| `enob-distribution.svg` | ENOB | per-draw achieved ENOB (N=40) against the DRAFT lower limit |
+| `cdac-inl-distribution.svg` | INL / DNL | per-draw worst-case \|INL\| and \|DNL\| (N=40, one panel each) against the DRAFT ±1 LSB target |
+| `cdac-transfer-spot-check.svg` | Sampling cap | measured differential level at each of 5 codes, all 9 corners, plus the per-corner monotonicity margin |
+| `bit-trial-settling-corners.svg` | Sample rate | worst-case `t_settle_99%` per corner against the DR-006 phase budget |
+| `coherent-sine-spectrum.svg` | ENOB | single-sided spectrum of the captured 32-code record, measured vs ideal quantizer |
+
+The exact inputs of each figure — its source record and every raw file it
+reads — are pinned per figure in the committed manifest
+[`docs/plots/manifest.json`](../docs/plots/manifest.json), which is the copy
+`--check` actually gates; `python3 sim/report/plots.py --list` prints the same
+from the rendering configuration. This table deliberately does not repeat the
+record IDs or draw-log paths: a hand-maintained second copy of them here went
+stale the moment a source record was superseded (#1010).
+
+Both CDAC Monte Carlo series are re-derived from that campaign's own 40
+committed raw draw logs (paths pinned in the manifest) by its own
+`run_mc._parse_draw()` — the same pure parser `run_mc.reanalyze_from_logs()`
+and `sim/enob-estimate/run_enob.py` use, and the same computation that minted
+the record's table. Those logs, that parser and `sim/harness/measure.py` are
+hashed inputs of the figure, so a change to any of them fails `--check`. The
+campaign's `klt yield` report supplies only the DRAFT limit, the empirical
+yields and their Clopper-Pearson intervals; its persisted `samples` path is a
+scratch file, which costs the figure nothing because the per-draw values are
+not read from it.
+
+Deliberately **not** plotted:
+
+- **Linearity from the 5-code transfer bench.** That record states DR-003
+  defers the formal DNL/INL budget to the Monte Carlo campaign; the transfer
+  figure plots measured levels and the monotonicity margin only, and says so on
+  its face.
+- **Anything needing a new run.** A candidate with no parseable committed
+  source is listed here as not plotted, never filled in by simulating.
+
+Rendering is **not** a CI dependency: matplotlib is pinned in
+`sim/report/plots-requirements.txt` and installed by whoever regenerates. CI
+only runs the stdlib `--check`.
+
 ## The harness acceptance test (`sim/selftest.sh`)
 
 `sim/selftest.sh` is the harness's own gate, wired into `npm run check:ci`:
 
 | Stage | What it proves | Needs PDK? |
 | --- | --- | --- |
-| 1/4 | `sim/harness/*` unit tests (`sim/tests/`) | no |
+| 1/4 | the `sim/tests` unit suite -- all of it, not just `sim/harness/*`: that directory is the repo's only unittest root | no |
 | 2/4 | toolchain + PDK pin match `sim/toolchain.json` | — |
 | 3/4 | `harness-corner-smoke` PVT run and `mc-smoke` Monte Carlo run (incl. its negative control) both pass end to end | yes |
 | 4/4 | **negative control**: re-running `harness-corner-smoke` with `--sabotage-corners` (the process-corner `.lib` section forced to `tt`, everything else untouched) must **FAIL** its process-axis sensitivity floor | yes |
+
+Stage 1 is where `npm run check:ci` runs the unit suite — the only place it
+does, since issue #889 removed the chain's second, identical run via
+`npm run test`. The PDK-gated `pdk-smoke` job also invokes
+`./sim/selftest.sh --require-pdk` directly rather than `check:ci`, so this
+stage is that job's only unit-suite run as well, and the suite's only CI run
+on a machine that has ngspice. `sim/tests/test_check_ci_unit_suite_once.py`
+holds both facts.
 
 Stage 4 is the one that matters most. Stages 1–3 can all pass while the corner
 runner silently simulates typical everywhere — every number would look
@@ -759,11 +992,18 @@ version is a **warning**: xschem only turns a schematic into a netlist, and
 each record already pins the exact netlist it ran by SHA-256, so the drift is
 reported and recorded without blocking a PVT run.
 
-Runtime: the default run is 17 ngspice invocations, ~5 minutes measured on the
-reference toolchain and dominated by sky130 model-library load (~15–20 s per
-invocation, largely independent of the circuit). `--full` runs the complete
-corner grid and a larger Monte Carlo N and is meant as a deliberate periodic
-deeper pass. On a runner without ngspice or the PDK it costs seconds.
+Runtime: the default run is 17 ngspice invocations, dominated by sky130
+model-library load (largely independent of the circuit). Measured on a
+GitHub-hosted `ubuntu-latest` runner with the pinned toolchain
+(2026-11-15, `pdk-smoke` run 43718624521): the 17-invocation simulation
+stages took ~49 s (≈2.9 s per invocation) and the whole script 73.9 s,
+24.9 s of which is the stage-1 unit suite. This repo defines no
+"reference host" — the only formal reference is `sim/toolchain.json`'s
+version pins, which that run satisfies — so attribute any runtime figure
+to the hardware and date it was measured on. `--full` runs the complete
+corner grid and a larger Monte Carlo N and is meant as a deliberate
+periodic deeper pass. On a runner without ngspice or the PDK it costs
+seconds.
 
 ## Bootstrap smoke test
 

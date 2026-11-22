@@ -1,0 +1,167 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * cdac-array-transfer monte carlo -- corner=tt_mm temp=27.0c supply=1.8v seed=37 (issue #29)
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+ Reference value :  0.00000e+00
+ Reference value :  4.00000e-11
+ Reference value :  1.07166e-09
+ Reference value :  1.52663e-09
+ Reference value :  3.75277e-09
+ Reference value :  6.25277e-09
+ Reference value :  1.27528e-08
+ Reference value :  1.87528e-08
+ Reference value :  2.37528e-08
+ Reference value :  2.97528e-08
+ Reference value :  3.52528e-08
+ Reference value :  3.67528e-08
+ Reference value :  3.87528e-08
+ Reference value :  4.52528e-08
+ Reference value :  5.17528e-08
+ Reference value :  5.77528e-08
+ Reference value :  6.37528e-08
+ Reference value :  6.92528e-08
+ Reference value :  7.52528e-08
+ Reference value :  8.12528e-08
+ Reference value :  8.67528e-08
+ Reference value :  8.97528e-08
+ Reference value :  9.57528e-08
+ Reference value :  1.01753e-07
+ Reference value :  1.07753e-07
+ Reference value :  1.13753e-07
+ Reference value :  1.19753e-07
+ Reference value :  1.25753e-07
+ Reference value :  1.31253e-07
+ Reference value :  1.35753e-07
+ Reference value :  1.38753e-07
+ Reference value :  1.44253e-07
+ Reference value :  1.49753e-07
+ Reference value :  1.55253e-07
+ Reference value :  1.61753e-07
+ Reference value :  1.64753e-07
+ Reference value :  1.66753e-07
+ Reference value :  1.69753e-07
+ Reference value :  1.74253e-07
+ Reference value :  1.79253e-07
+ Reference value :  1.83253e-07
+ Reference value :  1.86753e-07
+ Reference value :  1.90253e-07
+ Reference value :  1.94753e-07
+ Reference value :  1.96253e-07
+ Reference value :  1.99253e-07
+ Reference value :  2.05253e-07
+ Reference value :  2.11253e-07
+ Reference value :  2.13753e-07
+ Reference value :  2.19253e-07
+ Reference value :  2.24753e-07
+ Reference value :  2.31253e-07
+ Reference value :  2.36753e-07
+ Reference value :  2.37753e-07
+ Reference value :  2.39753e-07
+ Reference value :  2.46253e-07
+ Reference value :  2.51753e-07
+ Reference value :  2.58253e-07
+ Reference value :  2.64253e-07
+ Reference value :  2.67753e-07
+ Reference value :  2.71253e-07
+ Reference value :  2.77253e-07
+ Reference value :  2.83253e-07
+ Reference value :  2.89253e-07
+ Reference value :  2.95753e-07
+ Reference value :  3.02253e-07
+ Reference value :  3.07253e-07
+ Reference value :  3.10753e-07
+ Reference value :  3.16253e-07
+ Reference value :  3.22253e-07
+ Reference value :  3.27253e-07
+ Reference value :  3.33753e-07
+ Reference value :  3.36253e-07
+ Reference value :  3.41753e-07
+ Reference value :  3.47753e-07
+ Reference value :  3.53253e-07
+ Reference value :  3.59253e-07
+ Reference value :  3.62253e-07
+ Reference value :  3.64253e-07
+ Reference value :  3.66753e-07
+ Reference value :  3.70253e-07
+ Reference value :  3.74253e-07
+ Reference value :  3.78753e-07
+ Reference value :  3.82753e-07
+ Reference value :  3.85753e-07
+ Reference value :  3.88753e-07
+ Reference value :  3.94753e-07
+ Reference value :  4.00753e-07
+ Reference value :  4.06253e-07
+ Reference value :  4.12253e-07
+ Reference value :  4.17753e-07
+ Reference value :  4.23753e-07
+ Reference value :  4.25753e-07
+ Reference value :  4.31753e-07
+ Reference value :  4.37253e-07
+ Reference value :  4.42753e-07
+ Reference value :  4.48253e-07
+ Reference value :  4.53753e-07
+ Reference value :  4.56253e-07
+ Reference value :  4.59253e-07
+ Reference value :  4.64253e-07
+ Reference value :  4.70253e-07
+ Reference value :  4.76253e-07
+ Reference value :  4.82253e-07
+ Reference value :  4.86753e-07
+ Reference value :  4.91253e-07
+ Reference value :  4.95253e-07
+ Reference value :  4.99626e-07
+No. of Data Rows : 1026
+vtop_p_0            =  9.00000e-01
+vtop_n_0            =  2.69720e+00
+vtop_p_1            =  9.03515e-01
+vtop_n_1            =  2.69372e+00
+vtop_p_2            =  9.07049e-01
+vtop_n_2            =  2.69011e+00
+vtop_p_3            =  9.10558e-01
+vtop_n_3            =  2.68666e+00
+vtop_p_4            =  9.14047e-01
+vtop_n_4            =  2.68306e+00
+vtop_p_7            =  9.24690e-01
+vtop_n_7            =  2.67239e+00
+vtop_p_8            =  9.28126e-01
+vtop_n_8            =  2.66892e+00
+vtop_p_15           =  9.52869e-01
+vtop_n_15           =  2.64430e+00
+vtop_p_16           =  9.56286e-01
+vtop_n_16           =  2.64094e+00
+vtop_p_31           =  1.00895e+00
+vtop_n_31           =  2.58782e+00
+vtop_p_32           =  1.01308e+00
+vtop_n_32           =  2.58488e+00
+vtop_p_63           =  1.12157e+00
+vtop_n_63           =  2.47524e+00
+vtop_p_64           =  1.12610e+00
+vtop_n_64           =  2.47193e+00
+vtop_p_127          =  1.34745e+00
+vtop_n_127          =  2.25044e+00
+vtop_p_128          =  1.35003e+00
+vtop_n_128          =  2.24735e+00
+vtop_p_255          =  1.79827e+00
+vtop_n_255          =  1.80182e+00
+vtop_p_256          =  1.80087e+00
+vtop_n_256          =  1.79702e+00
+vtop_p_383          =  2.24721e+00
+vtop_n_383          =  1.34842e+00
+vtop_p_384          =  2.24985e+00
+vtop_n_384          =  1.34848e+00
+vtop_p_385          =  2.25412e+00
+vtop_n_385          =  1.34256e+00
+vtop_p_510          =  2.69364e+00
+vtop_n_510          =  9.03526e-01
+vtop_p_511          =  2.69717e+00
+vtop_n_511          =  9.00000e-01
+Note: Simulation executed from .control section 

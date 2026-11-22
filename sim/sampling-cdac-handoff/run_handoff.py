@@ -89,7 +89,24 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners as corners_mod, pdk, toolchain, evidence, measure, testbench  # noqa: E402
+from harness import corners as corners_mod  # noqa: E402
+from harness import evidence, measure, pdk, toolchain  # noqa: E402
+from harness.acquisition import (  # noqa: E402
+    BUDGET_PROBE_AT_NS,
+    CONFIRM_AT_NS,
+    SIDES,
+    T_PHASE_SLOW_NS,
+    T_PHASE_WORST_NS,
+    T_SAMPLE1_WIDTH_NS,
+    T_SAMPLE2_RISE_NS,
+    TRAN_STOP_NS,
+    TRIG_AT_NS,
+    V_FINAL_N,
+    V_FINAL_P,
+    V_INITIAL_N,
+    V_INITIAL_P,
+    acquisition_sources,
+)
 
 FE_FRAG = EXPERIMENT_DIR / "testbench" / "sampling_frontend_dut.spice"
 CDAC_FRAG = EXPERIMENT_DIR / "testbench" / "cdac_array_dut.spice"
@@ -145,29 +162,8 @@ SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
 TEMPS_C = corners_mod.RATIFIED_TEMPS_C
 PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 
-# --- issue #469: mechanism (d)'s stimulus, replayed at the combined load ----
-# Every constant below is lifted unchanged from
-# sim/sampling-acquisition-settling/run_acquisition_settling.py, deliberately:
-# the ONLY intended difference between that campaign's PVT-complete record and
-# this one is the capacitive load on TOP_P/TOP_N (front end alone there; front
-# end + real CDAC array here, tied exactly as design/sar_adc_top.sch wires
-# them). See that script's own module docstring for the full rationale of each
-# interval, of the two-pulse shape, and of why the budget-relevant read is a
-# fixed-time `find ... at=` probe rather than a TRIG/TARG crossing search.
-EDGE_TR_NS = 0.2
-T_SAMPLE1_RISE_NS = 10.0
-T_SAMPLE1_WIDTH_NS = 100.0
-T_SAMPLE1_FALL_NS = T_SAMPLE1_RISE_NS + T_SAMPLE1_WIDTH_NS  # 110.0
-T_INPUT_TOGGLE_NS = T_SAMPLE1_FALL_NS + 20.0  # 130.0 -- input steps while Msw is off
-T_SAMPLE2_RISE_NS = T_INPUT_TOGGLE_NS + 30.0  # 160.0 -- the acquiring edge
-T_SAMPLE2_WIDTH_NS = 150.0
-T_SAMPLE2_FALL_NS = T_SAMPLE2_RISE_NS + T_SAMPLE2_WIDTH_NS  # 310.0
-TRAN_STOP_NS = T_SAMPLE2_FALL_NS + 20.0  # 330.0
-
-# The ONE stimulus constant that is deliberately NOT the front-end-only
-# campaign's own value (0.02 ns), and why. `tran <step> <stop>`'s first
-# argument is a step CEILING, not a fixed step: ngspice still reduces the step
-# adaptively through the fast edges either way, so the ceiling only bounds how
+# The first argument of `tran <step> <stop>` sets the step ceiling. ngspice
+# reduces the step adaptively through fast edges, so this ceiling bounds how
 # coarsely it may march through the slow intervals. The front-end-only campaign
 # needs 0.02 ns because it ALSO measures sub-ns `TRIG/TARG` 50%/90% crossings;
 # this mode measures only the two fixed-time `find ... at=` reads deep in the
@@ -179,24 +175,6 @@ TRAN_STOP_NS = T_SAMPLE2_FALL_NS + 20.0  # 330.0
 # ceiling so the choice is checkable rather than asserted; the record reports
 # the ceiling it was produced at.
 TRAN_STEP_NS = 0.2
-
-# DR-006-derived per-phase clock budgets (one CLK period per phase, uniform
-# allocation) -- quoted for comparison only, never as a pass/fail gate: the
-# sample-rate spec row they descend from is entirely DRAFT (#1/#27).
-T_PHASE_WORST_NS = 1.0e3 / 12.0  # 83.333... ns @ f_clk_max = 12 MHz
-T_PHASE_SLOW_NS = 1.0e3 / 1.2  # 833.33... ns @ f_clk_min = 1.2 MHz
-
-TRIG_AT_NS = T_SAMPLE2_RISE_NS + EDGE_TR_NS / 2.0  # 160.1 -- 50% of the edge
-BUDGET_PROBE_AT_NS = TRIG_AT_NS + T_PHASE_WORST_NS  # 243.433...
-CONFIRM_AT_NS = T_SAMPLE2_FALL_NS - 5.0  # 305.0
-
-V_INITIAL_P, V_FINAL_P = 0.2, 1.6
-V_INITIAL_N, V_FINAL_N = 1.6, 0.2
-
-SIDES = {
-    "p": ("TOP_P", V_INITIAL_P, V_FINAL_P),
-    "n": ("TOP_N", V_INITIAL_N, V_FINAL_N),
-}
 
 # The `.meas tran ... find ... at=` names build_acquisition_netlist() emits.
 BUDGET_MEASURE_NAMES = [f"{stat}_{side}" for side in SIDES for stat in ("budget", "confirm")]
@@ -275,44 +253,6 @@ def _device_lines(fragment_text: str) -> list[str]:
     ]
 
 
-def _netlist_schematic(sch: Path, out_dir: Path, out_name: str) -> Path:
-    """toolchain.netlist_with_xschem() plus a documented tolerance for one
-    xschem quirk this campaign is the first in the tree to hit.
-
-    Measured with the pinned xschem 3.4.7 on this repo's own schematics:
-    `design/sampling_frontend.sch`, `design/sar_sequencer.sch` and
-    `design/cdac/cdac_unit_cell.sch` all netlist with exit 0, while
-    `design/cdac/cdac_array.sch` and `design/sar_adc_top.sch` exit **10** with
-    empty stdout/stderr -- having written a complete, correct netlist (its
-    device lines are byte-identical to the committed fragment, and it ends with
-    the `**.ends` / `.end` pair xschem emits last). `netlist_with_xschem()`
-    treats any nonzero exit as fatal, which is right in general, so rather than
-    weaken that shared helper for every caller this wrapper accepts a nonzero
-    exit ONLY when the output file is present and structurally complete --
-    header line present and `.end` as its last card. A genuinely truncated
-    netlist still raises.
-    """
-    try:
-        return toolchain.netlist_with_xschem(sch, out_dir, XSCHEMRC, out_name)
-    except RuntimeError as exc:
-        out_path = out_dir / out_name
-        if not out_path.is_file():
-            raise
-        text = out_path.read_text()
-        cards = [line for line in text.splitlines() if line.strip()]
-        complete = (
-            any(line.startswith("**.subckt") for line in cards)
-            and cards[-1].strip() == ".end"
-        )
-        if not complete:
-            raise
-        print(
-            f"  (note: xschem exited nonzero on {sch.name} but wrote a complete "
-            f"netlist -- accepted, see _netlist_schematic()'s docstring: {exc})"
-        )
-        return out_path
-
-
 def assert_fragments_current(scratch: Path) -> str:
     """Re-netlist design/sampling_frontend.sch and design/cdac/cdac_array.sch
     with xschem and refuse to continue if either committed testbench fragment's
@@ -331,9 +271,18 @@ def assert_fragments_current(scratch: Path) -> str:
         if not sch.is_file():
             raise RuntimeError(f"schematic not found: {sch}")
     regen_dir = scratch / "regen"
+    # `accept_complete_on_nonzero` covers design/cdac/cdac_array.sch, which
+    # exits 10 with a complete netlist because its open nets fail xschem's ERC
+    # -- see toolchain.netlist_with_xschem()'s docstring (issue #860).
     fresh = {
-        FE_FRAG: _netlist_schematic(FE_SCH, regen_dir, "sampling_frontend.spice"),
-        CDAC_FRAG: _netlist_schematic(CDAC_SCH, regen_dir, "cdac_array.spice"),
+        FE_FRAG: toolchain.netlist_with_xschem(
+            FE_SCH, regen_dir, XSCHEMRC, "sampling_frontend.spice",
+            accept_complete_on_nonzero=True,
+        ),
+        CDAC_FRAG: toolchain.netlist_with_xschem(
+            CDAC_SCH, regen_dir, XSCHEMRC, "cdac_array.spice",
+            accept_complete_on_nonzero=True,
+        ),
     }
     for committed, regenerated in fresh.items():
         want = _device_lines(regenerated.read_text())
@@ -375,31 +324,6 @@ def build_acquisition_netlist(
     fe_frag = FE_FRAG.read_text()
     cdac_frag = CDAC_FRAG.read_text()
 
-    sample_points = [
-        (0.0, 0.0),
-        (T_SAMPLE1_RISE_NS, 0.0),
-        (T_SAMPLE1_RISE_NS + EDGE_TR_NS, vdd),
-        (T_SAMPLE1_FALL_NS, vdd),
-        (T_SAMPLE1_FALL_NS + EDGE_TR_NS, 0.0),
-        (T_SAMPLE2_RISE_NS, 0.0),
-        (T_SAMPLE2_RISE_NS + EDGE_TR_NS, vdd),
-        (T_SAMPLE2_FALL_NS, vdd),
-        (T_SAMPLE2_FALL_NS + EDGE_TR_NS, 0.0),
-        (TRAN_STOP_NS, 0.0),
-    ]
-    vinp_points = [
-        (0.0, V_INITIAL_P),
-        (T_INPUT_TOGGLE_NS, V_INITIAL_P),
-        (T_INPUT_TOGGLE_NS + EDGE_TR_NS, V_FINAL_P),
-        (TRAN_STOP_NS, V_FINAL_P),
-    ]
-    vinn_points = [
-        (0.0, V_INITIAL_N),
-        (T_INPUT_TOGGLE_NS, V_INITIAL_N),
-        (T_INPUT_TOGGLE_NS + EDGE_TR_NS, V_FINAL_N),
-        (TRAN_STOP_NS, V_FINAL_N),
-    ]
-
     lines = toolchain.deck_preamble(
         corner,
         temp_c,
@@ -412,9 +336,7 @@ def build_acquisition_netlist(
         f"Vrefp VREFP 0 dc {vdd}",
         "Vrefn VREFN 0 dc 0",
         f"Vvcm VCM 0 dc {VCM}",
-        f"Vinp VINP 0 {testbench.pwl(vinp_points)}",
-        f"Vinn VINN 0 {testbench.pwl(vinn_points)}",
-        f"Vsample SAMPLE 0 {testbench.pwl(sample_points)}",
+        *acquisition_sources(vdd),
         "",
         "* SELp<i>/SELn<i>: ideal DC sources standing in for the SAR",
         "* sequencer's DOUT<i> register held at a fixed previous-conversion",
@@ -595,15 +517,9 @@ def main() -> int:
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
-    check = toolchain.check_env()
-    if check.status == 3:
-        print("SKIP: ngspice/PDK not available (" + "; ".join(check.messages) + ")")
-        return 0
-    if check.status == 1:
-        print("FAIL: toolchain drift -- " + "; ".join(check.messages))
-        return 1
-    for w in check.warnings:
-        print(f"WARNING: {w}")
+    gate = toolchain.preflight()
+    if gate is not None:
+        return gate
 
     if args.corners:
         with tempfile.TemporaryDirectory(prefix="sampling-cdac-handoff-corners-") as tmp:

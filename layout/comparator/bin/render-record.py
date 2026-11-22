@@ -41,11 +41,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
 from _record_common_strict import (  # noqa: E402
     build_argparser_strict,
-    git_field,
+    git_identity,
     load_json_strict,
+    render_blocks_table,
+    render_lvs_counts_row,
     render_lvs_findings,
     render_net_correspondence,
     render_provenance_header,
+    render_verdict_checklist,
     resolve_pdk_info_strict,
     tool_version_strict,
 )
@@ -53,7 +56,6 @@ from _record_common_strict import (  # noqa: E402
 BLOCKS = ("tail", "inpair", "latn", "latp", "rst", "rstd")
 
 _load = load_json_strict
-_git = git_field
 
 
 def main() -> int:
@@ -71,9 +73,7 @@ def main() -> int:
     lvs_bad_dev = _load(out_dir / "lvs.broken-device.json")
     lvs_bad_topo = _load(out_dir / "lvs.broken-topology.json")
 
-    sha = _git(args.repo_root, "rev-parse", "HEAD")
-    branch = _git(args.repo_root, "rev-parse", "--abbrev-ref", "HEAD")
-    dirty = _git(args.repo_root, "status", "--porcelain") != ""
+    sha, branch, dirty = git_identity(args.repo_root)
 
     klt_version = tool_version_strict(args.klt, "--version")
     pdk_info = resolve_pdk_info_strict(args.klt, args.pdk_variant)
@@ -106,7 +106,6 @@ def main() -> int:
     ]
     all_pass = all(ok for _, ok in checks)
 
-    counts = lvs.get("counts", {})
     lines: list[str] = []
     a = lines.append
     a(f"# Comparator layout record: {args.record_id}")
@@ -122,11 +121,8 @@ def main() -> int:
         "sky130 DRC deck and the schematic-derived LVS reference."
     )
     a("")
-    a("## Overall verdict: " + ("PASS" if all_pass else "FAIL"))
-    a("")
-    for desc, ok in checks:
-        a(f"- [{'x' if ok else ' '}] {desc}")
-    a("")
+    for line in render_verdict_checklist(checks):
+        a(line)
 
     for line in render_provenance_header(klt_version, drc, pdk_info, sha, branch, dirty):
         a(line)
@@ -136,20 +132,8 @@ def main() -> int:
     )
     a("")
 
-    a("## Blocks (`klt gen`)")
-    a("")
-    a("| Block | Cell | Devices | bbox (um) | own DRC |")
-    a("| --- | --- | --- | --- | --- |")
-    for block in BLOCKS:
-        report = _load(out_dir / f"{block}.json")
-        bbox = report.get("bbox_um", {})
-        a(
-            f"| `{block}` | `{report.get('cell_name')}` | "
-            f"{report.get('device_count')} | "
-            f"{bbox.get('x0')},{bbox.get('y0')} .. {bbox.get('x1')},{bbox.get('y1')} | "
-            f"{block_drc.get(block, {}).get('status')} |"
-        )
-    a("")
+    for line in render_blocks_table(out_dir, BLOCKS, block_drc):
+        a(line)
 
     a("## Routing + composition")
     a("")
@@ -186,15 +170,8 @@ def main() -> int:
         f"pin_count={extract.get('pin_count')}, "
         f"unbiased_pmos_body_nets={len(unbiased)} |"
     )
-    a(
-        f"| LVS (good reference) | {lvs.get('status')} | "
-        f"devices {counts.get('devices', {}).get('matched')}/"
-        f"{counts.get('devices', {}).get('reference')} matched, "
-        f"nets {counts.get('nets', {}).get('matched')}/"
-        f"{counts.get('nets', {}).get('reference')} matched, "
-        f"pins {counts.get('pins', {}).get('matched')}/"
-        f"{counts.get('pins', {}).get('reference')} matched |"
-    )
+    for line in render_lvs_counts_row(lvs, "good reference"):
+        a(line)
     a(
         f"| LVS (device-parameter negative control) | {lvs_bad_dev.get('status')} | "
         f"mismatch_count={lvs_bad_dev.get('mismatch_count')}, "
