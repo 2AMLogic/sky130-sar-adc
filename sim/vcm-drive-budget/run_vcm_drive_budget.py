@@ -30,10 +30,10 @@ realistic shared-rail case, not two independently driven half-circuits.
 
 **What "acquisition window" means here.** `spec/decision-records/DR-006-sar-
 sequencer-bit-count-and-timing-budget.md` derives `f_clk = 12 * f_s` from the
-DRAFT 100 kS/s-1 MS/s sample-rate row and a uniform one-`CLK`-period SAMPLE
+DRAFT sample-rate row (100 kS/s-1 MS/s) and a uniform one-`CLK`-period SAMPLE
 phase, i.e. `t_sample = 1 / f_clk`:
 
-  - `t_sample_worst_ns` = 1e3 / 12 MHz  = 83.33 ns  (fastest provisional clock
+  - `t_sample_worst_ns` = 1e3 / 12 MHz  = 83.333 ns (fastest provisional clock
     -- the SHORTEST window, i.e. the case least forgiving of a slow VCM)
   - `t_sample_slow_ns`  = 1e3 / 1.2 MHz = 833.3 ns (slowest provisional clock)
 
@@ -41,17 +41,15 @@ Every prior sampling-frontend record (`run_transient.py`, `run_hold_kick.py`)
 used a fixed testbench convention of 400 ns for the SAMPLE pulse width,
 independent of DR-006 -- itself never previously reconciled against the
 DRAFT clock-rate row. This script tests BOTH the DR-006-derived worst-case
-window (83.33 ns) and the repo's existing 400 ns testbench convention, so the
+window (83.333 ns) and the repo's existing 400 ns testbench convention, so the
 two are for the first time shown side by side.
 
-No claim here is graded against a ratified spec row: `spec/target-spec.md`
-is entirely DRAFT (#1/#27), `LSB_DIFF_MV_PROVISIONAL` is quoted only as a
-reference scale (same convention `run_hold_kick.py` already established), and
-the DR-006 timing window is itself downstream of the DRAFT sample-rate row
-(the gap `docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2 already
-names). What this DOES produce, for the first time, is a concrete R_source /
-C_decouple relationship the design can be checked against once any of those
-upstream numbers ratify.
+In the single-corner run, the resistance sweep uses both windows. The
+decoupling sweep uses only the DR-006 window. The limits are 1 LSB and
+0.1 LSB for `R_source` and 1 LSB for `C_decouple`. At each limit, the
+budget is the largest tested non-control value whose absolute differential
+error relative to its sweep's control is within that limit.
+`LSB_DIFF_MV_PROVISIONAL` supplies the reference scale only.
 
 FULL-PVT-GRID MODE (``--corners``, added 2026-09-07). The single-corner
 caveat above ("switch R_on varies materially with process/temperature, so a
@@ -420,6 +418,17 @@ WINDOW_DESCRIPTION = {
     "worst": f"DR-006 worst-case (12 MHz, {T_SAMPLE_WORST_NS:.3f} ns)",
     "legacy": f"legacy ({T_SAMPLE_LEGACY_NS:.1f} ns) testbench convention",
 }
+WINDOW_TIMING = {
+    "worst": (f"DR-006 derives the {T_SAMPLE_WORST_NS:.3f} ns worst-case window "
+              "from the DRAFT sample-rate row (Section 7 Item 2)."),
+    "legacy": (f"The {T_SAMPLE_LEGACY_NS:g} ns legacy window is a fixed "
+               "testbench convention."),
+}
+BUDGET_RULE = (
+    "At each limit, the budget is the largest tested non-control value whose "
+    "absolute differential error relative to its sweep's control is within "
+    "that limit. `LSB_DIFF_MV_PROVISIONAL` supplies the reference scale only."
+)
 # Bare (undecoupled) 1-LSB R_source budget the single-corner
 # (tt/27C/1.8V) seed record (SINGLE_CORNER_SEED_RECORD) reports per window
 # -- read directly from that record's own "## Result" section, used only to
@@ -1813,8 +1822,7 @@ def write_corners_decouple_record(points: list[dict], point: str,
     a(
         "- **Claim**: extends the single-corner (tt/27C/1.8V) `C_decouple` "
         f"sweep in [`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
-        f"({SINGLE_CORNER_SEED_RECORD}.md) -- at the {window_desc} "
-        "acquisition window only -- to the FULL ratified PVT corner set "
+        f"({SINGLE_CORNER_SEED_RECORD}.md) to the FULL ratified PVT corner set "
         "(spec/target-spec.md's \"Numeric rows -- RATIFIED 2026-08-19\" "
         "section), the same OAT grid this mechanism's own bare R_source "
         "campaigns and every other "
@@ -1830,11 +1838,8 @@ def write_corners_decouple_record(points: list[dict], point: str,
         "invocation) rather than a value borrowed from tt/27C/1.8V, so "
         "that a borrowed resistance cannot silently stand in for the "
         f"marginal case at corners where it is not one. {shape_note_brief} "
-        "No claim here is "
-        "graded against a ratified spec row: `spec/target-spec.md` is "
-        "entirely DRAFT (#1/#27); `LSB_DIFF_MV_PROVISIONAL` is a reference "
-        "scale, never a pass/fail gate; the DR-006 acquisition window is "
-        "itself downstream of the DRAFT sample-rate row (Section 7 Item 2)."
+        "This sweep uses a limit of 1 LSB for `C_decouple`. "
+        f"{BUDGET_RULE} {WINDOW_TIMING[window]}"
     )
     a(
         "- **Netlist provenance**: unmodified "
@@ -2086,8 +2091,7 @@ def write_corners_record(points: list[dict], point: str,
     a(
         "- **Claim**: extends the single-corner (tt/27C/1.8V) bare "
         f"(undecoupled) R_source budget in [`records/{SINGLE_CORNER_SEED_RECORD}.md`]"
-        f"({SINGLE_CORNER_SEED_RECORD}.md) -- at the {window_desc} "
-        "acquisition window only -- to the "
+        f"({SINGLE_CORNER_SEED_RECORD}.md) to the "
         "FULL ratified PVT corner set (spec/target-spec.md's \"Numeric "
         "rows -- RATIFIED 2026-08-19\" section), the same OAT grid every "
         "other `docs/chipalooza/challenge-4-proposal.md` Section 7 Item 2 "
@@ -2096,11 +2100,9 @@ def write_corners_record(points: list[dict], point: str,
         "unmodified), identical R_source sweep list, identical diff_err "
         "definition (referenced to that same corner's own R_source=0 "
         "point) as the single-corner record -- only the `.lib` corner, "
-        "`.temp`, and supply voltage vary per point. No claim here is "
-        "graded against a ratified spec row: `spec/target-spec.md` is "
-        "entirely DRAFT (#1/#27); `LSB_DIFF_MV_PROVISIONAL` is a reference "
-        "scale, never a pass/fail gate; the DR-006 acquisition window is "
-        "itself downstream of the DRAFT sample-rate row (Section 7 Item 2)."
+        "`.temp`, and supply voltage vary per point. This sweep uses limits "
+        "of 1 LSB and 0.1 LSB for `R_source`. "
+        f"{BUDGET_RULE} {WINDOW_TIMING[window]}"
     )
     a(
         "- **Netlist provenance**: unmodified "
@@ -2386,13 +2388,11 @@ def write_record(all_results: dict, supersedes: str = "") -> None:
         "that bound -- answering "
         "`docs/chipalooza/challenge-4-proposal.md` Section 7 Item 5 (every "
         "existing testbench drives `VCM` ideally; no drive-impedance/"
-        "decoupling budget existed). No claim against a ratified spec row: "
-        "`spec/target-spec.md` is entirely DRAFT (#1/#27); the DR-006 "
-        "acquisition-window figures used here are themselves downstream of "
-        "the DRAFT sample-rate row (Section 7 Item 2); "
-        "`LSB_DIFF_MV_PROVISIONAL` is quoted only as a reference scale, "
-        "never a pass/fail gate, matching "
-        "`sim/sampling-frontend/run_hold_kick.py`'s own convention."
+        "decoupling budget existed). The limits are 1 LSB and 0.1 LSB for "
+        "`R_source` and 1 LSB for `C_decouple`. "
+        f"{BUDGET_RULE} {WINDOW_TIMING['worst']} {WINDOW_TIMING['legacy']} "
+        "The resistance sweep uses both windows. The decoupling sweep uses "
+        "only the DR-006 window."
     )
     a(
         "- **Netlist provenance**: unmodified "
