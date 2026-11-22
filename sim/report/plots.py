@@ -289,40 +289,53 @@ def load_enob_distribution(rel_record: str) -> dict:
 
     Source: the persisted `klt yield` samples document, which carries the 40
     per-draw `enob_bit` values, plus the yield report minted from it (for the
-    distribution summary and the limits). Cross-check: the samples' own mean
-    must reproduce the yield report's stated `distribution.mean`.
+    distribution summary and the limits). The sample mean must reproduce the
+    yield report's `distribution.mean`. The sample minimum, mean and maximum
+    must also match the per-draw summary in `rel_record` at its printed precision.
 
     The sigma drawn is the yield report's own `distribution.stddev`, which is
     the sample (n-1) estimator; the source record states no sigma of its own,
     so nothing is contradicted, but the figure labels which estimator it is
     (the INL/DNL figure labels the population one its record prints) rather
     than leaving two differently-estimated sigmas unmarked across the set.
-
-    `rel_record` is the figure's declared citation, passed in by the loader
-    dispatch like every other loader; this one does not read it, because its
-    series comes from the declared JSON inputs (which the manifest hashes
-    individually) and the record states no distribution numbers of its own
-    to cross-check against.
     """
     samples_doc = json.loads((REPO_ROOT / ENOB_SAMPLES).read_text())
     report = json.loads((REPO_ROOT / ENOB_YIELD).read_text())
     measurement = _one_measurement(samples_doc, "enob_bit", ENOB_SAMPLES)
     reported = _one_measurement(report, "enob_bit", ENOB_YIELD)
     values = [float(v) for v in measurement["samples"]]
+    mean = statistics.mean(values)
     _agree(
         "enob_bit mean",
-        statistics.mean(values),
+        mean,
         float(reported["distribution"]["mean"]),
         tolerance=5e-7,
         where=f"{ENOB_SAMPLES} vs {ENOB_YIELD}",
     )
+    number = r"-?\d+(?:\.\d+)?"
+    summary = re.search(
+        rf"^Per-draw ENOB: min (?P<min>{number}), mean (?P<mean>{number}), "
+        rf"max (?P<max>{number}) bit\.",
+        (REPO_ROOT / rel_record).read_text(),
+        re.MULTILINE,
+    )
+    if summary is None:
+        raise ProvenanceError(f"{rel_record}: missing Per-draw ENOB min/mean/max summary")
+    for label, derived in (("min", min(values)), ("mean", mean), ("max", max(values))):
+        _agree(
+            f"Per-draw ENOB {label}",
+            round(derived, 3),
+            float(summary[label]),
+            tolerance=1e-9,
+            where=f"{ENOB_SAMPLES} vs {rel_record}",
+        )
     limits = measurement.get("limits") or {}
     return {
         "values": values,
         "unit": measurement.get("unit", "bit"),
         "limit_min": limits.get("min"),
         "target_yield": limits.get("target_yield"),
-        "mean": statistics.mean(values),
+        "mean": mean,
         "stdev": float(reported["distribution"]["stddev"]),
         "empirical_yield": reported["yield"]["empirical"]["estimate"],
         "yield_ci": reported["yield"]["empirical"]["confidence_interval"],

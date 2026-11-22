@@ -341,6 +341,38 @@ class TestCommittedPlots(unittest.TestCase):
             f"{problems}",
         )
 
+    def test_enob_rejects_a_record_without_its_per_draw_summary(self):
+        enob = next(spec for spec in plots.PLOTS if spec.key == "enob-distribution")
+        for other in plots.PLOTS:
+            if other == enob:
+                continue
+            with self.subTest(citation=other.key):
+                swapped = replace(enob, source_record=other.source_record)
+                problems = plots.provenance_problems((swapped,))
+                self.assertEqual(len(problems), 1, problems)
+                self.assertIn(enob.key, problems[0])
+                self.assertIn(other.source_record, problems[0])
+                self.assertIn("Per-draw ENOB", problems[0])
+
+    def test_enob_rejects_each_mismatched_summary_statistic(self):
+        enob = next(spec for spec in plots.PLOTS if spec.key == "enob-distribution")
+        data = plots.load_enob_distribution(enob.source_record)
+        stats = {"min": min(data["values"]), "mean": data["mean"], "max": max(data["values"])}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(plots, "REPO_ROOT", Path(tmp)):
+            (Path(tmp) / "sim").symlink_to(SIM_DIR, target_is_directory=True)
+            record = Path(tmp) / "summary.md"
+            for label in stats:
+                with self.subTest(statistic=label):
+                    changed = {**stats, label: stats[label] + 0.001}
+                    record.write_text(
+                        f"Per-draw ENOB: min {changed['min']:.3f}, mean {changed['mean']:.3f}, "
+                        f"max {changed['max']:.3f} bit.\n"
+                    )
+                    with self.assertRaises(plots.ProvenanceError) as raised:
+                        plots.load_enob_distribution(record.name)
+                    self.assertIn(f"Per-draw ENOB {label}", str(raised.exception))
+                    self.assertIn(record.name, str(raised.exception))
+
     def test_transfer_rejects_a_record_without_its_gap_table(self):
         figures = {p.key: p for p in plots.PLOTS}
         transfer = figures["cdac-transfer-spot-check"]
