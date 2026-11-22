@@ -96,9 +96,13 @@ from harness import evidence, klt_sim, measure, pdk, testbench, toolchain  # noq
 from harness.acquisition import (  # noqa: E402
     BUDGET_PROBE_AT_NS,
     CONFIRM_AT_NS,
+    EDGE_TR_NS,
     SIDES,
+    T_INPUT_TOGGLE_NS,
     T_PHASE_SLOW_NS,
     T_PHASE_WORST_NS,
+    T_SAMPLE1_FALL_NS,
+    T_SAMPLE1_RISE_NS,
     T_SAMPLE1_WIDTH_NS,
     T_SAMPLE2_RISE_NS,
     TRAN_STOP_NS,
@@ -1325,6 +1329,7 @@ def build_candidate_body(code_name: str = CORNERS_CODE_STATE) -> str:
         f"{CAND_SUPPLY_KEY} VDD 0 DC {VDD}",
         "Bvrefp VREFP 0 V=v(VDD)",
         "Vrefn VREFN 0 DC 0",
+        "Vvss VSS 0 dc 0",
         f"Vvcm VCM 0 DC {VCM}",
         f"Vinp VINP 0 {testbench.pwl(vinp)}",
         f"Vinn VINN 0 {testbench.pwl(vinn)}",
@@ -1472,13 +1477,14 @@ def submit_candidate(
     """Write body+request under `workdir` for one CDAC previous-code state,
     run `klt sim`, return (report, info). The report is cached beside the
     request (harness.klt_sim.submit's own resume behavior)."""
-    workdir.mkdir(parents=True, exist_ok=True)
     body = build_candidate_body(code_name)
-    (workdir / "tb.spice").write_text(body)
     req = build_candidate_request(
         "tb.spice", cids, timeout_s=timeout_s, backend=backend, hosts=hosts,
     )
-    (workdir / "request.json").write_text(json.dumps(req, indent=1) + "\n")
+    # A cached report beside different inputs is set aside, not reused.
+    klt_sim.write_inputs(
+        workdir, {"tb.spice": body, "request.json": json.dumps(req, indent=1) + "\n"}
+    )
     # A single-corner submit is one fleet unit, which `klt sim` resolves to
     # the LOCAL backend on its own -- and `--wait-for-capacity` is a
     # batch-only flag (the client refuses the pairing). The two code-state
@@ -1527,6 +1533,11 @@ def candidate_corner_row(values: dict[str, float | None], code_name: str) -> dic
             SIDES, key=lambda s: abs(row[f"fast_{s}_err_mv"])
         )
         row["worst_fast_err_mv"] = row[f"fast_{row['worst_node']}_err_mv"]
+        # Per-endpoint worst node: each deadline's table names its OWN worst.
+        for stat in ("fast", "slow"):
+            row[f"worst_node_{stat}"] = max(
+                SIDES, key=lambda s, st=stat: abs(row[f"{st}_{s}_err_mv"])
+            )
     return row
 
 
@@ -1653,12 +1664,25 @@ def verdict_lines(
                     f"{deadline:.3f} ns phase vs the {need:.4f} ns the "
                     "comparator + sequencer delays need"
                 )
+        # A positive verdict needs the FULL requested corner set on both
+        # sides; a demonstrated failure on the corners present still stands.
+        missing_acq = [c for c in cids if c not in complete]
+        missing_bt = (
+            [c for c in cids if c not in (bt_complete or [])]
+            if bt_by_corner is not None else []
+        )
         if bt_ok is None:
             verdict = "NO VERDICT (companion evidence missing)"
-        elif acq_ok and bt_ok:
-            verdict = "HOLDS"
-        else:
+        elif not acq_ok or not bt_ok:
             verdict = "DOES NOT HOLD"
+        elif missing_acq or missing_bt:
+            verdict = "NO VERDICT (incomplete evidence)"
+            bt_txt += (
+                f"; INCOMPLETE: acquisition missing {missing_acq or 'none'}, "
+                f"bit-trial missing {missing_bt or 'none'}"
+            )
+        else:
+            verdict = "HOLDS"
         reason = (
             f"differential acquisition error {bind_err:+.4f} mV at `{bind_cid}` "
             f"({abs(bind_err) / HALF_LSB_MV:.2f}x the {HALF_LSB_MV:.4f} mV "
@@ -1792,8 +1816,8 @@ def write_candidate_record(
         lines += [
             f"## Acquisition residual per corner -- {desc}",
             "",
-            "Single-ended residuals are each side's own target minus its "
-            "read; the differential error is "
+            "Single-ended residuals are each side's read minus its own "
+            "target (negative = short of the target); the differential error is "
             "(TOP_P - TOP_N) - 1.4 V, the quantity the half-LSB reference "
             f"scale ({HALF_LSB_MV:.4f} mV) is stated against. `late` is a "
             f"read at {CAND_LATE_AT_NS:g} ns, inside pulse #2 and ahead of "
@@ -1811,7 +1835,7 @@ def write_candidate_record(
                 continue
             d = row[f"{stat}_diff_err_mv"]
             lines.append(
-                f"| `{cid}` | `{row['worst_node']}` | "
+                f"| `{cid}` | `{row[f'worst_node_{stat}']}` | "
                 f"{_fmt_mv(row[f'{stat}_p_err_mv'])} | "
                 f"{_fmt_mv(row[f'{stat}_n_err_mv'])} | "
                 f"{_fmt_mv(d)} | {abs(d) / HALF_LSB_MV:.2f}x | "
@@ -1935,16 +1959,20 @@ def write_candidate_record(
         "# One-time machine bootstrap: docs/environment-setup.md sections 1-3.",
         "source sim/env.sh",
         "# the companion bit-trial candidate record first:",
-        "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --dr027-candidate --record",
+        "# `--wait-for-capacity` is batch-only, so the backend must be batch:",
+        "export KLT_SIM_BACKEND=batch",
+        "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --dr027-candidate --record --backend batch",
         "# then this campaign, linking it:",
-        "python3 sim/sampling-cdac-handoff/run_handoff.py --dr027-candidate --record \\",
+        "python3 sim/sampling-cdac-handoff/run_handoff.py --dr027-candidate --record --backend batch \\",
         f"    --bit-trial-record <that run's record id>",
         "```",
         "",
-        "Three `klt sim` submits (the 9-corner grid, then the two "
-        "code-state controls at the baseline corner), each with "
-        "`--wait-for-capacity 600`; no ngspice loop runs on the submitting "
-        "host. `--probe` runs one corner on the local backend and is the "
+        "Three `klt sim` submits: the 9-corner grid goes to the batch fleet "
+        "with `--wait-for-capacity 600`; the two code-state controls are "
+        "single-corner submits that `klt sim` keeps on the local backend, "
+        "so they carry no capacity wait (the control reports record "
+        "`environment.backend.resolved=local`). No ngspice loop runs on "
+        "the submitting host. `--probe` runs one corner on the local backend and is the "
         "only path that simulates locally. Requests and bodies are committed "
         f"under `corners/{prov.record_id}/request/`, the raw reports beside "
         f"this record under `corners/{prov.record_id}/`.",

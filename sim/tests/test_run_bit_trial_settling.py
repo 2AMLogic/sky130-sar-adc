@@ -234,8 +234,8 @@ class TestDR027CandidateEndpointWindows(unittest.TestCase):
         steps = {s["name"]: s for s in rt.candidate_analysis_steps()}
         fast = " ".join(m["spice"] for m in steps["fast"]["measurements"])
         slow = " ".join(m["spice"] for m in steps["slow"]["measurements"])
-        self.assertIn(f"at={rt.CAND_DEADLINE_FAST_NS:.6f}n", fast)
-        self.assertIn(f"at={rt.CAND_DEADLINE_SLOW_NS:.6f}n", slow)
+        self.assertIn(f"at={rt.EDGE_TD_NS + rt.CAND_DEADLINE_FAST_NS:.6f}n", fast)
+        self.assertIn(f"at={rt.EDGE_TD_NS + rt.CAND_DEADLINE_SLOW_NS:.6f}n", slow)
         self.assertIn(f"at={rt.CAND_LATE_AT_NS:.6f}n", slow)
 
     def test_measurement_names_never_collide_with_node_names(self):
@@ -280,3 +280,17 @@ class TestDR027CandidateRequest(unittest.TestCase):
         deck = rt.unit_cap_probe_deck(rt.CANDIDATE_UNIT_CAP_WL_UM)
         self.assertIn("Xc BOT 0 sky130_fd_pr__cap_mim_m3_1", deck)
         self.assertNotIn("BOT TOP", deck)
+
+
+class TestReviewFixes(unittest.TestCase):
+    def test_reads_are_measured_from_the_sel_edge(self):
+        steps = {s["name"]: s for s in rt.candidate_analysis_steps()}
+        fast = " ".join(m["spice"] for m in steps["fast"]["measurements"])
+        self.assertIn("at=84.333333n", fast)
+        slow = " ".join(m["spice"] for m in steps["slow"]["measurements"])
+        self.assertIn("at=834.333333n", slow)
+
+    def test_missing_fixed_time_read_makes_corner_incomplete(self):
+        report_vals = {}
+        rows = rt.candidate_rows(report_vals, 1.8)
+        self.assertTrue(all(r["plate_err_mv"] is None for r in rows))

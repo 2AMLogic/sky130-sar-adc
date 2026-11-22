@@ -1291,12 +1291,14 @@ def candidate_analysis_steps() -> list[dict]:
             "name": f"pend_fast_{tag}",
             "spice": (
                 f".meas tran pend_fast_{tag} find v(TOP_{tag}) "
-                f"at={CAND_DEADLINE_FAST_NS:.6f}n"
+                f"at={EDGE_TD_NS + CAND_DEADLINE_FAST_NS:.6f}n"
             ),
             "unit": "V",
         })
         for name, at_ns in (
-            ("pend_slow", CAND_DEADLINE_SLOW_NS),
+            # Absolute read times: the phase deadline runs from the SEL edge
+            # center (EDGE_TD_NS), not from t=0.
+            ("pend_slow", EDGE_TD_NS + CAND_DEADLINE_SLOW_NS),
             ("plate", CAND_LATE_AT_NS),
         ):
             slow_meas.append({
@@ -1393,14 +1395,15 @@ def submit_candidate(
     `(report, run info, request)`. An existing `report.json` beside the
     request is reused, so a re-run after a successful submit does not
     re-spend fleet capacity (harness.klt_sim.submit's own cache)."""
-    workdir.mkdir(parents=True, exist_ok=True)
     body = build_candidate_body()
-    (workdir / "tb.spice").write_text(body)
     req = build_candidate_request(
         "tb.spice", cids if cids is not None else candidate_corner_ids(),
         timeout_s=timeout_s, backend=backend, hosts=hosts,
     )
-    (workdir / "request.json").write_text(json.dumps(req, indent=1) + "\n")
+    # A cached report beside different inputs is set aside, not reused.
+    klt_sim.write_inputs(
+        workdir, {"tb.spice": body, "request.json": json.dumps(req, indent=1) + "\n"}
+    )
     report = klt_sim.submit(
         workdir / "request.json", workdir / "out", backend=backend
     )
@@ -1471,13 +1474,15 @@ def read_candidate_report(report: dict) -> tuple[dict[str, list[dict]], list[str
         # row (the tau_i(i) shape's own worst case) produced its 99 %
         # crossing AND every fixed-time read parsed.
         msb = [r for r in rows if r["test_bit"] == TEST_BITS[-1]]
-        if all(
-            r["t99_ns"] is not None
-            and r["pend_fast_err_mv"] is not None
+        # EVERY (bit, direction) row must carry all three fixed-time reads
+        # (a bit-0 crossing may be absent; a missing fixed-time read may
+        # not), and the MSB rows must also have their 99 % crossing.
+        if rows and all(
+            r["pend_fast_err_mv"] is not None
             and r["pend_slow_err_mv"] is not None
             and r["plate_err_mv"] is not None
-            for r in msb
-        ):
+            for r in rows
+        ) and all(r["t99_ns"] is not None for r in msb):
             complete.append(cid)
     return out, complete
 
@@ -1786,7 +1791,9 @@ def write_candidate_record(
         "```bash",
         "# One-time machine bootstrap: docs/environment-setup.md sections 1-3.",
         "source sim/env.sh",
-        "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --dr027-candidate --record",
+        "# `--wait-for-capacity` is batch-only, so the backend must be batch:",
+        "export KLT_SIM_BACKEND=batch",
+        "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --dr027-candidate --record --backend batch",
         "```",
         "",
         "The grid is ONE `klt sim` request (six independent deck copies in "

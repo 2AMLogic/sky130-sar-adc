@@ -387,3 +387,61 @@ class TestDR027CandidateBodyAndRequest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCandidateReviewFixes(unittest.TestCase):
+    """Regressions for the PR #1041 review findings."""
+
+    def test_candidate_body_grounds_vss(self):
+        body = rh.build_candidate_body()
+        self.assertIn("Vvss VSS 0 dc 0", body)
+
+    def _grid(self, cids, complete_ids):
+        grid = {}
+        for c in cids:
+            row = {"complete": c in complete_ids}
+            for st in ("fast", "slow"):
+                row[f"{st}_diff_err_mv"] = 0.0
+                row[f"{st}_p_err_mv"] = 0.0
+                row[f"{st}_n_err_mv"] = 0.0
+            grid[c] = row
+        return grid
+
+    def test_positive_verdict_requires_full_corner_set(self):
+        cids = ["a", "b", "c"]
+        bt = {"a": [{"t99_ns": 1.0, "test_bit": 0, "direction": "rise"}]}
+        full = "\n".join(rh.verdict_lines(self._grid(cids, cids), cids, "r", bt, cids))
+        self.assertIn("HOLDS", full)
+        sub = "\n".join(rh.verdict_lines(self._grid(cids, ["a"]), cids, "r", bt, cids))
+        self.assertNotIn(": HOLDS", sub)
+        self.assertIn("incomplete evidence", sub)
+        nobt = "\n".join(rh.verdict_lines(self._grid(cids, cids), cids, "r", bt, []))
+        self.assertNotIn(": HOLDS", nobt)
+        self.assertIn("incomplete evidence", nobt)
+
+    def test_per_endpoint_worst_node_and_sign(self):
+        vals = {}
+        for st, p, n in (("fast", -2e-3, -1e-3), ("slow", -1e-5, -5e-5)):
+            vals[f"{st}.acq_{st}_p"] = rh.V_FINAL_P + p
+            vals[f"{st}.acq_{st}_n"] = rh.V_FINAL_N + n
+        vals["slow.acq_late_p"] = rh.V_FINAL_P
+        vals["slow.acq_late_n"] = rh.V_FINAL_N
+        row = rh.candidate_corner_row(vals, "zero")
+        self.assertEqual(row["worst_node_fast"], "p")
+        self.assertEqual(row["worst_node_slow"], "n")
+        self.assertAlmostEqual(row["fast_p_err_mv"], -2.0, places=6)  # read - target
+
+
+class TestInputsFence(unittest.TestCase):
+    def test_changed_inputs_set_stale_report_aside(self):
+        import tempfile
+        from harness import klt_sim
+        with tempfile.TemporaryDirectory() as t:
+            wd = Path(t)
+            self.assertFalse(klt_sim.write_inputs(wd, {"tb.spice": "A", "request.json": "{}"}))
+            (wd / "report.json").write_text("{}")
+            self.assertFalse(klt_sim.write_inputs(wd, {"tb.spice": "A", "request.json": "{}"}))
+            self.assertTrue((wd / "report.json").is_file())
+            self.assertTrue(klt_sim.write_inputs(wd, {"tb.spice": "B", "request.json": "{}"}))
+            self.assertFalse((wd / "report.json").exists())
+            self.assertEqual(len(list(wd.glob("report.stale-*.json"))), 1)

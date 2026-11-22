@@ -36,6 +36,7 @@ the fleet.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -155,6 +156,34 @@ def submit_argv(
     if backend != "local" and capacity_wait_s is not None:
         argv += ["--wait-for-capacity", f"{capacity_wait_s:g}"]
     return argv
+
+
+def write_inputs(workdir: Path, files: dict[str, str]) -> bool:
+    """Write the named input files under `workdir` and fence the report cache.
+
+    `submit()` reuses a `report.json` found beside the request by path alone,
+    so a work directory re-used after the deck or request changed would
+    attach the OLD report to the NEW inputs. This records a fingerprint of
+    every input in `inputs.sha256`; when an existing fingerprint differs (or
+    a report exists with none), the stale `report.json` is renamed to
+    `report.stale-<fingerprint>.json` -- never deleted -- so the next
+    `submit()` re-simulates. Returns True when a stale report was set aside.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    h = hashlib.sha256()
+    for name in sorted(files):
+        h.update(name.encode() + b"\0" + files[name].encode() + b"\0")
+    fp = h.hexdigest()
+    stamp = workdir / "inputs.sha256"
+    report = workdir / "report.json"
+    previous = stamp.read_text().strip() if stamp.is_file() else None
+    stale = report.is_file() and previous != fp
+    if stale:
+        report.rename(workdir / f"report.stale-{(previous or 'unfingerprinted')[:12]}.json")
+    for name, text in files.items():
+        (workdir / name).write_text(text)
+    stamp.write_text(fp + "\n")
+    return stale
 
 
 def submit(
