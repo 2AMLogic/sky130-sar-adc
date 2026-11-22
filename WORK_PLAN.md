@@ -1,10 +1,10 @@
 # Work Plan
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-20T20:08:54Z (snapshot; compare against live labels)_
+_Generated: 2026-11-22T07:39:32Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
-Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
+Judge-approved PRs awaiting an operator decision on a merge hold (`loom:blocked` or `loom:operator`).
 
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
@@ -13,7 +13,7 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 `loom:very-important` (one counts per workspace); every stage takes these first.
 
-- **#1015**: T1 item 6: declare the statistical rows in spec_rows and cite the two freshness-pinnable klt yield envelopes
+_None._
 
 ## Important
 
@@ -27,6 +27,7 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 - **#771**: Re-mint digital item 5/7 evidence on the regenerated sar_sequencer netlist *(held)*
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#785**: layout: re-run sar-adc-top on fully regenerated children and triage DRC met1.space.1 + LVS mismatch *(held)*
+- **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
 - **#1013**: Isolate the ff_27c_1.80v 3e-5 V delta that parks #811 (klt sim batch vs baseline 20261001-120402-d24f700)
 - **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry
 
@@ -34,12 +35,7 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
-- **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
-- **#1013**: Isolate the ff_27c_1.80v 3e-5 V delta that parks #811 (klt sim batch vs baseline 20261001-120402-d24f700)
-- **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry
-- **#1015**: T1 item 6: declare the statistical rows in spec_rows and cite the two freshness-pinnable klt yield envelopes
-- **#1016**: CDAC linearity: design iteration toward INL/DNL <= +-1 LSB at 0.99 yield (the redesign path DR-007 left as future work)
-- **#1017**: T1 item 7 (analog): klt pex records for the LVS-matching analog sub-blocks (cdac_array, sampling_frontend, refreshed comparator)
+- **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route) — existing PR #788 awaits the merge of #798 into its branch
 
 ## In Progress
 
@@ -50,6 +46,11 @@ Issues currently being built (`loom:building`).
 - **#773**: Restate 53 stale proposal citations after the sar_sequencer regeneration (PR #772)
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits"
 - **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST
+- **#1013**: Isolate the ff_27c_1.80v 3e-5 V delta that parks #811 (klt sim batch vs baseline 20261001-120402-d24f700)
+- **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry
+- **#1016**: CDAC linearity: design iteration toward INL/DNL <= +-1 LSB at 0.99 yield (the redesign path DR-007 left as future work)
+- **#1023**: T1 item 5: bind the Resolution N row (sar-sequencer behavioral bench) to the digital partition's item 5 row set
+- **#1033**: Re-derive the settling / sample-rate budget at the DR-027 array size (C_tot ~12.4 pF/side) against DR-006
 
 ## PRs Awaiting Review
 
@@ -83,9 +84,10 @@ Issues carrying `loom:curated`.
 - **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST *(curated)*
 - **#1013**: Isolate the ff_27c_1.80v 3e-5 V delta that parks #811 (klt sim batch vs baseline 20261001-120402-d24f700) *(curated)*
 - **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry *(curated)*
-- **#1015**: T1 item 6: declare the statistical rows in spec_rows and cite the two freshness-pinnable klt yield envelopes *(curated)*
 - **#1016**: CDAC linearity: design iteration toward INL/DNL <= +-1 LSB at 0.99 yield (the redesign path DR-007 left as future work) *(curated)*
-- **#1017**: T1 item 7 (analog): klt pex records for the LVS-matching analog sub-blocks (cdac_array, sampling_frontend, refreshed comparator) *(curated)*
+- **#1021**: T1 item 5 (analog): grade V_REF, LSB and sampling cap as full ratified claims, not just top-plate voltages *(curated)*
+- **#1023**: T1 item 5: bind the Resolution N row (sar-sequencer behavioral bench) to the digital partition's item 5 row set *(curated)*
+- **#1033**: Re-derive the settling / sample-rate budget at the DR-027 array size (C_tot ~12.4 pF/side) against DR-006 *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -107,13 +109,13 @@ Issues carrying `loom:curated`.
 | Bucket | Count |
 |------|-------|
 | Operator merge-risk holds | 2 |
-| Very important | 1 |
-| Important | 10 |
-| Ready (`loom:issue`, net of holds/building/merge-pending) | 6 |
-| In Progress (`loom:building`) | 5 |
+| Very important | 0 |
+| Important | 11 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
+| In Progress (`loom:building`) | 10 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 3 |
-| Curated | 17 |
+| Curated | 18 |
 | Architect / Hermit proposals | 8 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->

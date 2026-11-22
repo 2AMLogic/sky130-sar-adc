@@ -188,48 +188,13 @@ FLEET_JOB_OVERHEAD_S = 120.0
 # Deck assembly (pure; no PDK, no ngspice, no network)
 # --------------------------------------------------------------------------
 def split_fragment(fragment_text: str) -> tuple[str, list[str], str]:
-    """Split the committed full-conversion fragment into the three pieces a
-    `klt sim` request needs them in: the circuit BODY (sources only -- `klt
-    sim` owns the `.control`/`.end` wrapper), the `.meas` cards (which become
-    `measurements[].spice` entries), and the `.tran` card's arguments (which
-    become `analysis.args`).
-
-    Asserted rather than assumed: exactly one `.tran` card, and the `.meas`
-    card names must be exactly the set `gen_full_conversion_tb.py` says it
-    emits. A fragment that changes shape fails here instead of silently
-    producing a deck that measures something else."""
-    body: list[str] = []
-    meas: list[str] = []
-    tran_args: str | None = None
-    for line in fragment_text.splitlines():
-        stripped = line.strip()
-        low = stripped.lower()
-        if low.startswith(".meas"):
-            meas.append(stripped)
-            continue
-        if low.startswith(".tran"):
-            if tran_args is not None:
-                raise RuntimeError(
-                    "expected exactly one .tran card in the committed fragment, found more "
-                    "-- the fragment changed shape; re-derive this campaign."
-                )
-            tran_args = stripped.split(None, 1)[1].strip()
-            continue
-        body.append(line)
-    if not tran_args:
-        raise RuntimeError(
-            "no .tran card found in the committed fragment -- the fragment changed shape; "
-            "re-derive this campaign."
-        )
-    names = sorted(card.split()[2] for card in meas)
-    expected = sorted(tb.all_measure_names())
-    if names != expected:
-        raise RuntimeError(
-            f"committed fragment declares {len(names)} .meas cards, "
-            f"gen_full_conversion_tb.all_measure_names() names {len(expected)}, and the two "
-            "sets differ -- the fragment changed shape; re-derive this campaign."
-        )
-    return "\n".join(body) + "\n", meas, tran_args
+    """The committed full-conversion fragment's three pieces for a `klt sim`
+    request (circuit body, `.meas` cards, `.tran` arguments) -- the shared
+    `harness.klt_sim.split_fragment()` (issue #1030), asserted against
+    exactly the measurement names `gen_full_conversion_tb.all_measure_names()`
+    says it emits, so a fragment that changes shape fails there instead of
+    silently producing a deck that measures something else."""
+    return klt_sim.split_fragment(fragment_text, tb.all_measure_names())
 
 
 def series_reference_lines() -> list[str]:
@@ -308,7 +273,6 @@ def build_body(dut_text: str, fragment_text: str, *,
 # `klt sim` request
 # --------------------------------------------------------------------------
 _CURRENT_MEAS = {name for name, _src, _pot in tb.SUPPLY_SOURCES}
-_VECTOR_RE = re.compile(r"\b([vi])\(([^)]+)\)", re.IGNORECASE)
 
 
 def measurement_entries(meas_cards: list[str]) -> list[dict]:
@@ -321,16 +285,6 @@ def measurement_entries(meas_cards: list[str]) -> list[dict]:
         out.append({"name": name, "spice": card,
                     "unit": "A" if name in _CURRENT_MEAS else "V"})
     return out
-
-
-def saved_vectors(meas_cards: list[str]) -> list[str]:
-    """Exactly the vectors the `.meas` cards read, so a 6.3 us transient over
-    ~2000 devices does not carry a `save all` rawfile per unit."""
-    found = set()
-    for card in meas_cards:
-        for kind, node in _VECTOR_RE.findall(card):
-            found.add(f"{kind.lower()}({node.strip().lower()})")
-    return sorted(found)
 
 
 def ratified_points() -> list[tuple[str, float, float]]:
@@ -439,7 +393,7 @@ def build_request(
         "options": {
             "timeout_s": timeout_s,
             "keep_artifacts": True,
-            "save_vectors": saved_vectors(meas_cards),
+            "save_vectors": klt_sim.saved_vectors(meas_cards),
         },
     }
     if exclude:

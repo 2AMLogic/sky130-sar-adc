@@ -6,8 +6,29 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-22
+
+- **PR #1039**: fix(report): read plot data from the record each figure cites
+- **PR #1042**: feat(layout): klt pex flows and OAT records for the analog sub-blocks (cdac_array, sampling_frontend, comparator)
+- **PR #1026**: refactor: share acquisition waveforms and probe timing across deck builders
+- **Issue #1035** (closed): Read plot data from the record each figure cites
+- **Issue #1020** (closed): Share the two-pulse acquisition stimulus between the front-end and CDAC handoff runners
+- **Issue #1017** (closed): T1 item 7 (analog): klt pex records for the LVS-matching analog sub-blocks (cdac_array, sampling_frontend, refreshed comparator)
+
+### 2026-11-21
+
+- **PR #1045**: ci: stop re-running required checks on PR label writes; move run-pdk-smoke opt-in to its own workflow
+- **Issue #1043** (closed): ci.yml: every PR label write re-runs the full checks job, and the Judge claim label can starve a PR of review
+- **Issue #1029** (closed): Remove the stale “entirely DRAFT” spec claim from VCM drive-budget records
+- **PR #1038**: docs(sim): state VCM drive-budget campaign limits instead of blanket spec status
+- **Issue #1030** (closed): Share SPICE fragment parsing between the reference-drive budget and input sweep
+- **PR #1040**: refactor(sim): share the SPICE fragment split and save-set scan in harness.klt_sim
+
 ### 2026-11-20
 
+- **Issue #1025** (closed as not planned): test
+- **Issue #1015** (closed): T1 item 6: declare the statistical rows in spec_rows and cite the two freshness-pinnable klt yield envelopes
+- **PR #1019**: feat: declare item-6 statistical rows and cite the two pinnable yield envelopes
 - **PR #1011**: docs: point the summary-plot guide at the manifest instead of pinned record IDs
 - **Issue #1010** (closed): Remove duplicate source-record pins from the summary plot guide
 
