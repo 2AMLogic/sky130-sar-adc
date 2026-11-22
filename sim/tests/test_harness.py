@@ -5,6 +5,7 @@ sim/selftest.sh stage 1/4)."""
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import io
 import json
@@ -758,6 +759,265 @@ class TestTestbenchManifest(unittest.TestCase):
             )
             self.assertIn(".lib /fake/sky130.lib.spice tt", netlist)
             self.assertIn(".temp 125", netlist)
+
+
+def _write_tb_manifest(tb_dir: Path, checks: dict) -> Path:
+    """A minimal load()-able manifest fixture with the given checks dict."""
+    tb_dir.mkdir(parents=True, exist_ok=True)
+    (tb_dir / "fake.spice").write_text("R1 vdd 0 1k\n")
+    manifest_json = tb_dir / "tb.json"
+    manifest_json.write_text(
+        json.dumps(
+            {
+                "name": "fake",
+                "netlist_fragment": "fake.spice",
+                "nominal_supply_v": 1.8,
+                "measure": {"v": "v(vdd)"},
+                "checks": checks,
+            }
+        )
+    )
+    return manifest_json
+
+
+def _checks_key_literals(module_path: Path) -> set[str]:
+    """The string keys read out of a `checks` mapping anywhere in a harness
+    module's source: subscripts (checks["min"]), membership tests
+    ("min" in checks), and .get() chains rooted at the name checks
+    (mc_runner's checks.get(name, {}).get("min_stdev", ...)). Used to pin
+    RECOGNIZED_CHECK_KEYS to the readers (issue #997)."""
+    tree = ast.parse(module_path.read_text())
+
+    def is_checks_expr(node: ast.expr) -> bool:
+        if isinstance(node, ast.Name) and node.id == "checks":
+            return True
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and is_checks_expr(node.func.value)
+        )
+
+    keys: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript) and is_checks_expr(node.value):
+            sl = node.slice
+            if isinstance(sl, ast.Constant) and isinstance(sl.value, str):
+                keys.add(sl.value)
+        elif (
+            isinstance(node, ast.Compare)
+            and isinstance(node.ops[0], ast.In)
+            and is_checks_expr(node.comparators[0])
+            and isinstance(node.left, ast.Constant)
+            and isinstance(node.left.value, str)
+        ):
+            keys.add(node.left.value)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and is_checks_expr(node.func.value)
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            keys.add(node.args[0].value)
+    return keys
+
+
+class TestSpreadAxisValidation(unittest.TestCase):
+    """A typo'd spread axis key is silently ungraded at runtime
+    (`_evaluate_checks` skips an axis it has no spread for), so it must be
+    rejected at manifest load instead (issue #984)."""
+
+    def _load_with_checks(self, checks: dict) -> testbench.Manifest:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(Path(tmp) / "fake" / "testbench", checks)
+            return testbench.load(manifest_json)
+
+    def test_unknown_min_spread_axis_raises_with_manifest_check_and_valid_set(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(
+                Path(tmp) / "fake" / "testbench",
+                {"vgs_nfet": {"min_spread_pct_by_axis": {"proces": 1.0}}},
+            )
+            with self.assertRaises(ValueError) as ctx:
+                testbench.load(manifest_json)
+        message = str(ctx.exception)
+        self.assertIn(str(manifest_json), message)
+        self.assertIn("checks.vgs_nfet.min_spread_pct_by_axis", message)
+        self.assertIn("'proces'", message)
+        self.assertIn("process, temperature, supply", message)
+
+    def test_unknown_max_spread_axis_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self._load_with_checks(
+                {"x": {"max_spread_pct_by_axis": {"temp": 0.001}}}
+            )
+        self.assertIn("checks.x.max_spread_pct_by_axis", str(ctx.exception))
+        self.assertIn("'temp'", str(ctx.exception))
+
+    def test_valid_spread_axes_load(self):
+        manifest = self._load_with_checks(
+            {
+                "x": {
+                    "min": 0.3,
+                    "max": 1.2,
+                    "min_spread_pct_by_axis": {"process": 1.0, "temperature": 3.0},
+                    "max_spread_pct_by_axis": {"supply": 0.001},
+                }
+            }
+        )
+        self.assertEqual(manifest.name, "fake")
+
+    def test_checks_without_spread_keys_and_empty_spread_dicts_load(self):
+        manifest = self._load_with_checks(
+            {
+                "x": {"min": 0.3, "max": 1.2},
+                "y": {"min_spread_pct_by_axis": {}, "max_spread_pct_by_axis": {}},
+            }
+        )
+        self.assertEqual(set(manifest.checks), {"x", "y"})
+
+    def test_committed_tb_json_manifests_still_load(self):
+        # The two committed manifests are the load path's live fixtures;
+        # all their spread keys spelled valid axes before validation landed
+        # and must keep loading unchanged.
+        for experiment in ("harness-corner-smoke", "mc-smoke"):
+            manifest = testbench.load(SIM_DIR / experiment / "testbench" / "tb.json")
+            self.assertEqual(manifest.experiment_dir.name, experiment)
+
+    def test_spread_axes_constant_matches_runner_emission(self):
+        # Drift pin: the axes runner.run actually emits a spread for must be
+        # exactly SPREAD_AXES -- the validator rejects anything outside the
+        # constant, so a runner that stopped emitting one of them would
+        # strand a legal manifest with a floor that never grades (and a new
+        # runner-only axis would be rejected at load forever).
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(
+                Path(tmp) / "fake" / "testbench",
+                {"v": {"min_spread_pct_by_axis": {"temperature": 1.0}}},
+            )
+            manifest = testbench.load(manifest_json)
+
+            class FakePdkInfo:
+                found = True
+                error = None
+                ngspice_lib = "/fake/sky130.lib.spice"
+
+            def fake_ngspice(netlist, scratch_dir, cid, **kwargs):
+                temp = float(netlist.split(".temp ")[1].split()[0])
+                return f"v = {0.5 + temp / 1000:.6f}\n"
+
+            with mock.patch.object(runner.pdk, "resolve", return_value=FakePdkInfo()):
+                with mock.patch.object(runner.toolchain, "run_ngspice", fake_ngspice):
+                    result, axis_spreads = runner.run(
+                        manifest, process_corners=["tt"], temperatures_c=[27, 47],
+                        quiet=True,
+                    )
+        self.assertTrue(result.overall_ok)
+        self.assertEqual(set(axis_spreads["v"]), set(testbench.SPREAD_AXES))
+        for name in manifest.measure:
+            self.assertEqual(set(axis_spreads[name]), set(testbench.SPREAD_AXES))
+
+
+class TestCheckKeyValidation(unittest.TestCase):
+    """A typo'd *block key* in a checks entry (e.g. min_spread_pct_by_axi)
+    is silently ungraded -- every reader looks the keys up by exact name, so
+    a typo'd key loads fine and its floor never grades, indistinguishable
+    from a passing run. It must be rejected at manifest load instead
+    (issue #997; the block level of #984's axis-name fix)."""
+
+    def _load_with_checks(self, checks: dict) -> testbench.Manifest:
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(Path(tmp) / "fake" / "testbench", checks)
+            return testbench.load(manifest_json)
+
+    def test_typoed_spread_block_key_raises_with_check_and_valid_set(self):
+        # The issue's measured repro: ...by_axi loaded with no error before
+        # this validation and the floor survived into the manifest unread.
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest_json = _write_tb_manifest(
+                Path(tmp) / "fake" / "testbench",
+                {"vgs": {"min_spread_pct_by_axi": {"process": 1.0}}},
+            )
+            with self.assertRaises(ValueError) as ctx:
+                testbench.load(manifest_json)
+        message = str(ctx.exception)
+        self.assertIn(str(manifest_json), message)
+        self.assertIn("checks.vgs.min_spread_pct_by_axi", message)
+        self.assertIn("'min_spread_pct_by_axi'", message)
+        self.assertIn(
+            "min, max, min_spread_pct_by_axis, max_spread_pct_by_axis, "
+            "min_stdev, description",
+            message,
+        )
+
+    def test_typoed_scalar_keys_raise(self):
+        for typo in ("minn", "min_stdevv"):
+            with self.assertRaises(ValueError) as ctx:
+                self._load_with_checks({"x": {typo: 0.5}})
+            self.assertIn(f"'{typo}'", str(ctx.exception))
+            self.assertIn("checks.x", str(ctx.exception))
+
+    def test_description_annotation_key_loads_and_typo_raises(self):
+        # The one blessed non-reader key: sim/README.md documents
+        # "description" as "why this check exists" and the committed
+        # harness-corner-smoke manifest carries it on every check. A typo'd
+        # annotation is rejected like any other unknown key.
+        manifest = self._load_with_checks(
+            {"x": {"min": 0.5, "description": "why this check exists"}}
+        )
+        self.assertEqual(manifest.checks["x"]["description"], "why this check exists")
+        with self.assertRaises(ValueError) as ctx:
+            self._load_with_checks({"x": {"descritpion": "typo"}})
+        self.assertIn("'descritpion'", str(ctx.exception))
+
+    def test_all_recognized_keys_load(self):
+        # Edge: every recognized key -- including the MC-only min_stdev and
+        # the description annotation -- is accepted together on one entry.
+        manifest = self._load_with_checks(
+            {
+                "x": {
+                    "min": 0.3,
+                    "max": 1.2,
+                    "min_spread_pct_by_axis": {"process": 1.0},
+                    "max_spread_pct_by_axis": {"supply": 0.001},
+                    "min_stdev": 1e-6,
+                    "description": "all of them at once",
+                }
+            }
+        )
+        self.assertEqual(
+            set(manifest.checks["x"]), set(testbench.RECOGNIZED_CHECK_KEYS)
+        )
+
+    def test_empty_checks_entry_loads(self):
+        manifest = self._load_with_checks({"x": {}})
+        self.assertEqual(manifest.checks, {"x": {}})
+
+    def test_recognized_check_keys_matches_reader_sources(self):
+        # Drift pin (issue #997): every key the harness reads out of checks
+        # entries -- _evaluate_checks (runner.py) and positive_control_ok
+        # (mc_runner.py) -- must be in RECOGNIZED_CHECK_KEYS, so a new
+        # reader key added without extending the constant fails here; and
+        # every non-reader key in the constant must be the blessed
+        # "description" annotation, so a reader that disappears leaves no
+        # stale entry behind.
+        harness_dir = Path(testbench.__file__).resolve().parent
+        read_keys: set[str] = set()
+        for module in ("runner.py", "mc_runner.py"):
+            read_keys |= _checks_key_literals(harness_dir / module)
+        recognized = set(testbench.RECOGNIZED_CHECK_KEYS)
+        self.assertTrue(
+            read_keys <= recognized,
+            f"reader keys not recognized: {sorted(read_keys - recognized)}",
+        )
+        self.assertEqual(
+            recognized - read_keys,
+            {"description"},
+            "non-reader keys in RECOGNIZED_CHECK_KEYS beyond 'description'",
+        )
 
 
 class TestMcRunner(unittest.TestCase):

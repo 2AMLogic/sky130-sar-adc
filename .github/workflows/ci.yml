@@ -18,9 +18,13 @@ name: CI
 #   - The PDK-gated harness smoke test (the harness's own liveness check:
 #     proves the pinned sky130 PDK models load in ngspice and that the PVT
 #     and Monte Carlo knobs actually reach the simulator — including the two
-#     negative controls) runs in the `pdk-smoke` job below, gated on a
-#     nightly schedule / manual dispatch / an opt-in `run-pdk-smoke` label on
-#     a PR, because it needs a full ciel PDK fetch.
+#     negative controls) runs in the `pdk-smoke` job below, whose steps live
+#     in .github/workflows/pdk-smoke.yml (issue #1043), gated on a nightly
+#     schedule / manual dispatch / an opt-in `run-pdk-smoke` label on a PR,
+#     because it needs a full ciel PDK fetch. Since issue #1043 this file
+#     subscribes to no label event at all — the label opt-in is subscribed
+#     to only by pdk-smoke.yml — so no label write on a PR can re-run the
+#     required checks defined here.
 #   - The metal minimum-area gate (issue #338) also runs in `pdk-smoke`:
 #     `docs/chipalooza/measure_metal_min_area.py` cross-checks sky130A's own
 #     m1.6/m2.6/m3.6/m4.4a/m5.4 rules -- which the pinned klayout-tools==0.6.0
@@ -223,7 +227,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
+  merge_group:
   schedule:
     # 06:00 UTC daily
     - cron: "0 6 * * *"
@@ -334,6 +339,15 @@ jobs:
       #     merge-base), so a multi-commit push is covered in full and evidence
       #     dropped by a history rewrite is still seen. An all-zero `before`
       #     fails in the checker.
+      #   merge_group (issue #1002, the merge queue; adapted from
+      #     sky130-comparator#332): the queue's trial-merge commit vs the
+      #     event's merge_group.base_sha, directly (the same shape as push --
+      #     the base..head range IS the whole queued change). The queue
+      #     re-runs the gate on the merged result, so evidence cannot land on
+      #     a base it was never checked against. A missing or non-oid base
+      #     fails the step in `is_oid` below; the checker itself treats a
+      #     set-but-empty $APPEND_ONLY_BASE the same way (both sides fail
+      #     closed, never the checker's local default).
       #   schedule / workflow_dispatch: the checker's local default
       #     (merge-base with origin/main). On main that is a zero diff and
       #     checks no history; the PR and push runs are the history guard.
@@ -344,6 +358,8 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_AFTER: ${{ github.sha }}
+          MG_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MG_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
         run: |
           set -euo pipefail
           is_oid() { [[ "$1" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]; }
@@ -363,6 +379,10 @@ jobs:
             push)
               export_oid APPEND_ONLY_BASE "$PUSH_BEFORE"
               export_oid APPEND_ONLY_HEAD "$PUSH_AFTER"
+              ;;
+            merge_group)
+              export_oid APPEND_ONLY_BASE "$MG_BASE_SHA"
+              export_oid APPEND_ONLY_HEAD "$MG_HEAD_SHA"
               ;;
             *)
               echo "$EVENT_NAME: using the checker's local default (merge-base with origin/main)"
@@ -437,168 +457,32 @@ jobs:
 
   pdk-smoke:
     name: PDK-gated harness smoke test (nightly / workflow_dispatch / 'run-pdk-smoke' label)
-    runs-on: ubuntu-latest
+    # Issue #1043: the steps live in .github/workflows/pdk-smoke.yml, which
+    # also owns the `pull_request: [labeled]` subscription for the
+    # `run-pdk-smoke` opt-in. THIS workflow no longer subscribes to any label
+    # event, so a label write on a PR cannot re-run `checks`/`signoff-check`
+    # (the two branch-protection required contexts) and cannot hand the Judge
+    # a pending run its own claim label started. This caller keeps deciding
+    # WHEN the smoke runs for the events this file owns:
+    #   - schedule: always.
+    #   - workflow_dispatch: only when no dispatch-only evidence mode was
+    #     requested (those exclude smoke, as they always have).
+    #   - pull_request synchronize/reopened: only while the PR carries the
+    #     `run-pdk-smoke` label. The `opened` action is deliberately excluded
+    #     from the label branch: a label present at open was necessarily
+    #     applied after creation, so its own `labeled` event (pdk-smoke.yml's
+    #     direct subscription) is what runs the smoke — exactly once, rather
+    #     than racing this `opened` run for a second copy.
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && !inputs.coherent_sine_evidence &&
        !inputs.full_conversion_solver_audit &&
        !inputs.full_conversion_reference_campaign) ||
       (github.event_name == 'pull_request' &&
-       contains(github.event.pull_request.labels.*.name, 'run-pdk-smoke'))
-    steps:
-      - uses: actions/checkout@v4
+       contains(github.event.pull_request.labels.*.name, 'run-pdk-smoke') &&
+       github.event.action != 'opened')
+    uses: ./.github/workflows/pdk-smoke.yml
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install xschem + ngspice build deps
-        # Neither tool comes from apt (issue #116): ubuntu-latest's xschem
-        # package (3.4.4-1 as of this comment) is OLDER than
-        # sim/toolchain.json's `xschem_tag` pin (3.4.7) and, critically, does
-        # NOT evaluate the sky130 PDK symbols' `tcleval()`-wrapped parametric
-        # properties (ad/as/pd/ps/nrd/nrs on every MOS device) into concrete
-        # numbers the way 3.4.7 does -- it emits the raw, unevaluated Tcl
-        # expression text into the netlist instead, which is not valid SPICE.
-        # This was invisible until this issue's investigation because
-        # `pdk-smoke` had never actually run end to end before: apt's xschem
-        # also prints extra PDK-banner/ERC/comment-echo chatter to
-        # stdout/stderr that design/regen_netlist.sh's "expect none" check
-        # (now tolerant of it, see that script) took as a hard failure before
-        # ever reaching the parametric-expression difference. Building the
-        # exact pinned tag from source (verified locally against this repo's
-        # own design/sar_adc_top.spice: a fresh `--check` run against the
-        # source-built 3.4.7 matches byte-for-byte) is the only build that
-        # produces a netlist this repo's own regeneration check can trust --
-        # matching the same "apt is too old, build the pinned version"
-        # rationale already used for ngspice below, not a new pattern.
-        #
-        # ngspice does NOT come from apt either. ubuntu-latest ships
-        # ngspice-42, below sim/toolchain.json's `ngspice_min_major` floor,
-        # and the harness correctly refuses to simulate on a drifted
-        # toolchain -- numbers from it would not be comparable with the
-        # records already in sim/. Lowering the pin to match whatever apt
-        # happens to ship would be relaxing the gate to make the check pass,
-        # which is precisely what CLAUDE.md forbids; so CI builds a version
-        # that meets the floor instead. Both builds are cached, so this costs
-        # a few minutes once per pin bump.
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential bison flex \
-            libreadline-dev libx11-dev libxaw7-dev libxpm-dev \
-            libxrender-dev libcairo2-dev tcl-dev tk-dev gawk \
-            automake libtool
-
-      - name: Resolve the pinned xschem version
-        id: xschem-pin
-        # xschem_tag is the bare version-number git tag this repo's own
-        # xschem release uses (e.g. "3.4.7") -- see sim/toolchain.json.
-        run: |
-          V="$(python3 -c 'import json;print(json.load(open("sim/toolchain.json"))["xschem_tag"])')"
-          echo "version=${V}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache xschem build
-        id: cache-xschem
-        uses: actions/cache@v4
-        with:
-          path: /opt/xschem
-          key: xschem-${{ steps.xschem-pin.outputs.version }}-${{ runner.os }}
-
-      - name: Build xschem ${{ steps.xschem-pin.outputs.version }} from source
-        if: steps.cache-xschem.outputs.cache-hit != 'true'
-        run: |
-          V="${{ steps.xschem-pin.outputs.version }}"
-          curl -fsSL -o /tmp/xschem.tar.gz \
-            "https://github.com/StefanSchippers/xschem/archive/refs/tags/${V}.tar.gz"
-          mkdir -p /tmp/xschem-src
-          tar -xzf /tmp/xschem.tar.gz -C /tmp/xschem-src --strip-components=1
-          cd /tmp/xschem-src
-          ./configure --prefix=/opt/xschem
-          make -j"$(nproc)"
-          make install
-
-      - name: Put the built xschem on PATH
-        run: |
-          echo "/opt/xschem/bin" >> "$GITHUB_PATH"
-
-      - name: Set up pinned ngspice + sky130 PDK
-        # Shared composite action (issue #875): the four provisioning copies in
-        # this file were hand-synchronised; one definition now backs `pdk-smoke`
-        # and the three dispatch-only evidence jobs, so the pins cannot drift
-        # between them. The xschem+ngspice apt deps installed above are a
-        # superset of the action's ngspice-only set, so its apt step is a no-op
-        # re-install here.
-        uses: ./.github/actions/setup-ngspice-pdk
-
-      - name: Harness acceptance test (PVT + Monte Carlo + both negative controls)
-        # --require-pdk turns the "tools unavailable, skipping" path into a
-        # failure: in this job the PDK is installed above, so a skip here
-        # would mean the install silently failed.
-        run: ./sim/selftest.sh --require-pdk
-
-      - name: SAR ADC top-level netlist regeneration check (issue #56)
-        # design/regen_netlist.sh --check re-derives design/sar_adc_top.spice
-        # (the full-hierarchy netlist: design/sar_adc_top.sch instantiating
-        # sampling_frontend/cdac_array/comparator/sar_sequencer, #52-#55) from
-        # the current schematic sources and fails if the committed netlist is
-        # stale -- staleness is failure, per this issue's AC4. xschem
-        # netlisting needs the PDK models this job already fetched above, so
-        # this check is necessarily gated the same as the rest of this job
-        # (nightly/workflow_dispatch/'run-pdk-smoke' label), not run on every
-        # ordinary PR -- see design/sar_adc_top.sch's own header and this
-        # issue's PR description for why.
-        run: |
-          source sim/env.sh
-          ./design/regen_netlist.sh --check
-
-      - name: Layout DRC/LVS trivial-cell proof
-        run: |
-          ./layout/bin/setup-venv.sh
-          ./layout/bin/run-trivial-cell-flow.sh
-
-      - name: Metal minimum-area gate (issue #338)
-        # `klt drc --deck sky130` now checks m1.6/m2.6/m3.6/m4.4a/m5.4
-        # natively (klayout-tools#1989, in the pinned klayout-tools==0.6.0
-        # deck since issue #103) -- but it only ever re-checks a record when
-        # someone re-runs a layout flow by hand and commits the result.
-        # docs/chipalooza/measure_metal_min_area.py is kept as an independent
-        # cross-check of the SAME rules, applied directly to the
-        # already-committed GDS in each flow's current reports/LATEST record
-        # on every push down this path -- so it re-runs no layout flow (costs
-        # seconds, not minutes) and, being a second implementation of the same
-        # check, would itself disagree with `klt drc` if either one had a bug
-        # (which is exactly how issue #363's under-merge defect in THIS
-        # script, not the deck, was found). Issue #326 used it to find and fix
-        # 17 real violations this repo's own generators drew; THIS step is
-        # what stops the next one landing silently.
-        #
-        # It belongs in this job, not in `checks`, for the same reason
-        # everything else here does: it needs the pinned PDK deck (above) and
-        # the `klayout` module from layout/.venv (installed by the previous
-        # step's setup-venv.sh).
-        #
-        # --self-test FIRST, deliberately: a clean verdict means nothing until
-        # "fails" is shown reachable on the same rules in the same run, the
-        # same falsifiability discipline layout/*/README.md's negative-control
-        # verdicts apply to every other layout claim here. It measures a
-        # deliberately-illegal fixture (one isolated sub-m3.6 square,
-        # attributed to `cdac-array`) and exits non-zero unless the gate
-        # catches it.
-        #
-        # No baseline/waiver argument: the gate is zero-tolerance. It had one
-        # real case to design against -- 145 shapes `klt`'s own
-        # place-and-route emitted inside the two PnR'd digital macros, tracked
-        # as issue #333 (klayout-tools#2072 upstream) -- but #363 found that
-        # figure was itself a measurement bug in this script (an under-merged
-        # region double-counting via pads a PDN strap already covers), not
-        # geometry `klt` drew; the corrected script and the deck's own
-        # `met*.area.1` rules both report 0 shapes below threshold on every
-        # target today, and #333 is closed. See
-        # layout/sar-adc-top/README.md's "Minimum-area rules" section for the
-        # full trace.
-        run: |
-          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py --self-test
-          ./layout/.venv/bin/python docs/chipalooza/measure_metal_min_area.py
 
   coherent-sine-evidence:
     name: Coherent-sine evidence capture (manual dispatch only, issue #605)

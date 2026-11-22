@@ -24,12 +24,18 @@
 # experiments" for why, and for what a future ADC testbench adds.
 #
 # Timing note: each ngspice invocation against the sky130 combined model
-# library costs roughly 15-20s on the reference toolchain (model-library
-# load dominates, not simulation time) -- see sim/harness/runner.py's OAT
-# design note. The default (non-quick, non-full) run below is 17 such
-# invocations, ~5 minutes measured on the reference toolchain; --full is
-# the complete corner grid plus a larger Monte Carlo N and is meant for a
-# deliberate, periodic deeper pass. The default is what `npm run check:ci`
+# library is dominated by model-library load, not simulation time -- see
+# sim/harness/runner.py's OAT design note. The default (non-quick,
+# non-full) run below is 17 such invocations. Measured on a GitHub-hosted
+# ubuntu-latest runner with the pinned toolchain (2026-11-15, pdk-smoke
+# run 43718624521): the 17-invocation simulation stages took ~49 s (~2.9 s
+# per invocation) and the whole script 73.9 s, 24.9 s of that being stage
+# 1's unit suite. This repo defines no "reference host" -- the only formal
+# reference is sim/toolchain.json's version pins, which that run satisfies
+# -- so attribute any runtime figure you quote to its hardware and date,
+# as this one is. --full is the complete corner grid plus a larger Monte
+# Carlo N and is meant for a deliberate, periodic deeper pass. The default
+# is what `npm run check:ci`
 # runs; on a machine (or CI runner) without ngspice or the pinned PDK the
 # simulation stages skip and it costs seconds instead. If the default ever
 # needs to be cheaper, cut mc_n before cutting corners: stage 4's negative

@@ -5996,7 +5996,7 @@ tracker already owns.
     > on the report `signoff/t1-report.json`, `klt signoff` **0.8.0** grades
     > **13** of **22** T1 items met, block tier **none**; the items whose cited
     > evidence was read and still failed are `1 digital`, `4 analog`,
-    > `4 digital`, `11 analog`, `11 digital`; and its manifest cites
+    > `4 digital`, `6 analog`, `11 analog`, `11 digital`; and its manifest cites
     > `layout/sar-adc-top/erc-reports/LATEST` at **20261017-193237-9522693e**
     > against a pointer naming **20261021-104830-ddc1d72**,
     > `layout/sar-adc-top/reports/LATEST` at **20261001-211249-1ca34e6**
@@ -6031,6 +6031,25 @@ tracker already owns.
     `sar_sequencer` netlist rather than the later schematic (issue #680). No §4
     verdict moves because of it. The earlier "Three of twenty-two" bullet below
     describes an earlier grade and is left as written.
+
+    **Update (2026-11-20, issue #1015): the failed list gains a sixth cited
+    row, `6 analog`.** The manifest now declares the block's statistical rows
+    under `spec_rows."6.analog"` and cites the two freshness-pinnable
+    `klt yield` envelopes (ENOB `20261008-233032-8bc3d1f`, CDAC DNL/INL
+    `20261115-014818-7adcfe77`), each pinned to its committed `.samples.json`.
+    Both report `status: "fail"`, so `klt signoff` renders item 6 analog
+    `unmet` / `check_failed` with both citations under `failed_citations`,
+    both rows under `unratified_rows` (their target values are DRAFT), and
+    the DR-020 comparator-offset term under `declared_gaps`. The met count
+    does not move (13 of 22): `check_failed` is a more informative reason
+    than the `no_evidence` it replaces, not a different verdict. What the
+    citations assert and what would turn each row `met` are stated in
+    [`signoff/README.md`](../../signoff/README.md) "Item 6". The
+    "`check_failed` is not `no_evidence`" bullet below said "four rows" and
+    "the other fifteen unmet rows cite nothing at all"; as of this update
+    six rows cite evidence that was read and failed, and three cite
+    nothing. The bullet is left as written for the same reason as the
+    "Three of twenty-two" one.
 
     Four things that readout states, each read out of the committed report
     rather than asserted here:
@@ -6298,9 +6317,9 @@ and is not claimed to be met.
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
   > **117** of the **122** records under `sim/*/records/` name both an `ngspice`
-  > version and a 40-hex `open_pdks` commit, while of the **114** records under
-  > `layout/*/reports/` and `layout/*/erc-reports/` **113** name a `klt`
-  > version and **76** name the `open_pdks` commit
+  > version and a 40-hex `open_pdks` commit, while of the **117** records under
+  > `layout/*/reports/` and `layout/*/erc-reports/` **116** name a `klt`
+  > version and **79** name the `open_pdks` commit
 
   **Update (2026-11-15, merge of issue #912's PR #938):** merging origin/main
   into this branch brings in
@@ -6320,9 +6339,10 @@ and is not claimed to be met.
   (`ngspice-47`) and a 40-hex `open_pdks` commit
   (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), the pair the *executing* batch
   workers reported, stated beside the submitting host's own. It counts as
-  pinned: the totals move 115 → **116** records and, because this flow's
-  newest records already pinned the commit, 115 → **116** pinned, which is the
-  figure the census above now states. No flow's count of records naming no
+  pinned: the totals move 120 → **121** records and, because this flow's
+  newest records already pinned the commit, 115 → **116** pinned — the figure
+  the census block stated at that commit, since the `#912` entry above has
+  since moved it to **117** of the **122**. No flow's count of records naming no
   commit changed, so no flow newly pins the commit. No earlier record was
   rewritten.
 

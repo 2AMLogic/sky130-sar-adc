@@ -1273,6 +1273,24 @@ class TestMarginalRSourceShapeNote(unittest.TestCase):
         self.assertIn("figure for figure", note)
         self.assertNotIn("not the two columns' identity", note)
 
+    def test_a_censored_reference_withholds_the_reproduces_claim(self):
+        """Issue #960: the legacy reference's top figure is right-censored
+        in that record's own table, so coincidence with it is not exact
+        figure-for-figure agreement. The exact-match branch must not claim
+        the shape was reproduced and must name the censoring instead --
+        `bare_budget_spread_note()`'s convention."""
+        points = [
+            self._pt("a", fallback=False, marginal=10e3),
+            self._pt("b", fallback=False, marginal=100e3),
+        ]
+        note = self._note(points, window="legacy")
+        self.assertNotIn("figure for figure", note)
+        self.assertNotIn("reproduces", note)
+        self.assertIn("right-censored lower bound", note)
+        self.assertIn("at the largest swept value", note)
+        self.assertIn("not a measured equality", note)
+        self.assertIn("not established either way", note)
+
     def test_varying_values_that_differ_do_not_say_reproduces(self):
         points = [
             self._pt("a", fallback=False, marginal=300.0),
@@ -1579,3 +1597,90 @@ class TestDeletedScopeClauses(TestCornersRecordTtNoteWiring):
             text = self._record_text(100e3, window=window)
             self.assertNotIn(rt.WINDOW_DESCRIPTION[other], text,
                              f"{window} record names the {other} window")
+
+
+class TestCampaignClaims(unittest.TestCase):
+    """Issue #1029: the Claim describes the budgets and timing of its run."""
+
+    def _single_corner_text(self) -> str:
+        rows = [
+            {"r_source_ohm": 0.0, "vcm_end": 0.9,
+             "diff_err_mv": 0.0, "diff_err_lsb": 0.0},
+            {"r_source_ohm": 10e3, "vcm_end": 0.8999,
+             "diff_err_mv": -0.1, "diff_err_lsb": -0.028},
+        ]
+        dec_rows = [
+            {"c_decouple_f": 0.0, "vcm_end": 0.8999,
+             "diff_err_mv": 0.0, "diff_err_lsb": 0.0},
+            {"c_decouple_f": 1e-12, "vcm_end": 0.9,
+             "diff_err_mv": 0.0, "diff_err_lsb": 0.0},
+        ]
+        all_results = {
+            "sweeps": [("worst-case (12 MHz)", rt.T_SAMPLE_WORST_NS,
+                        rows, [0.0, 10e3]),
+                       ("legacy (400 ns)", rt.T_SAMPLE_LEGACY_NS,
+                        rows, [0.0, 10e3])],
+            "decouple_sweeps": [("worst-case (12 MHz)", rt.T_SAMPLE_WORST_NS,
+                                 10e3, dec_rows)],
+            "notes": ["synthetic single-corner note"],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            with provenance_fixture.fake_provenance(rt, Path(tmp)):
+                rt.write_record(all_results)
+                return (Path(tmp) / "records"
+                        / f"{provenance_fixture.RECORD_ID}.md").read_text()
+
+    @staticmethod
+    def _claim(record: str) -> str:
+        return next(line for line in record.splitlines()
+                    if line.startswith("- **Claim**:"))
+
+    def _check_budget_rule(self, claim: str):
+        self.assertIn("largest tested non-control", claim)
+        self.assertIn("absolute differential error", claim)
+        self.assertIn("LSB_DIFF_MV_PROVISIONAL", claim)
+        self.assertIn("reference scale", claim)
+        self.assertNotIn("entirely draft", claim.lower())
+        self.assertNotRegex(claim.lower(), r"\bcross(?:es|ings?)\b")
+
+    def test_single_corner_claim_and_module_describe_both_sweeps(self):
+        for source, text in (("single corner", self._claim(self._single_corner_text())),
+                             ("module", " ".join(rt.__doc__.split()))):
+            with self.subTest(source=source):
+                self._check_budget_rule(text)
+                self.assertIn("1 LSB and 0.1 LSB for `R_source`", text)
+                self.assertIn("1 LSB for `C_decouple`", text)
+                self.assertIn("DR-006", text)
+                self.assertIn("DRAFT sample-rate row", text)
+                self.assertIn("83.333 ns", text)
+                self.assertIn("400 ns", text)
+                self.assertIn("fixed testbench convention", text)
+                self.assertIn("resistance sweep uses both windows", text.lower())
+                self.assertIn("decoupling sweep uses only the DR-006 window", text)
+
+    def test_grid_claims_describe_only_the_scored_limits_and_selected_window(self):
+        decouple = TestCornersDecoupleRecordPortSections()
+        for window in ("worst", "legacy"):
+            records = {
+                "rsource": TestCornersRecordTtNoteWiring()._record_text(100e3, window),
+                "decouple": decouple._record_text([decouple._point("tt_27c_1.80v")], window),
+            }
+            for sweep, record in records.items():
+                with self.subTest(sweep=sweep, window=window):
+                    claim = self._claim(record)
+                    self._check_budget_rule(claim)
+                    if sweep == "rsource":
+                        self.assertIn("1 LSB and 0.1 LSB for `R_source`", claim)
+                    else:
+                        self.assertIn("1 LSB for `C_decouple`", claim)
+                        self.assertNotRegex(claim, r"0\.1[- ]LSB")
+                    if window == "worst":
+                        self.assertIn("83.333 ns", claim)
+                        self.assertIn("DR-006", claim)
+                        self.assertIn("DRAFT sample-rate row", claim)
+                        self.assertNotIn("legacy", claim)
+                    else:
+                        self.assertIn("400 ns", claim)
+                        self.assertIn("fixed testbench convention", claim)
+                        self.assertNotIn("DR-006", claim)
+                        self.assertNotIn("sample-rate row", claim)

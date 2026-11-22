@@ -3,7 +3,7 @@
 A 10-bit charge-redistribution SAR ADC on the open sky130 PDK, designed forward
 from `spec/target-spec.md` with xschem, ngspice and klayout-tools (`klt`).
 
-Status as of 2026-11-13, `main` @ `1b3ab461`.
+Status as of 2026-11-15, `main` @ `04ae4a04`.
 
 Verdict of record: [`signoff/t1-report.json`](../signoff/t1-report.json), explained
 in [`signoff/README.md`](../signoff/README.md). Counts below are copied from it.
@@ -55,13 +55,8 @@ Can start today. None of these moves a T1 row; see "Blocked and waiting".
 
 | What | Done when | Issue |
 |---|---|---|
-| Correct the fixed-text sentences in the vcm-drive-budget full-grid records | superseding records minted whose text agrees with their own tables | #894 (in progress) |
+| Correct the fixed-text sentences in the vcm-drive-budget full-grid records | superseding records minted whose text agrees with their own tables | #894 |
 | Challenge #4 proposal: grade the two pages the earlier passes missed | PR #843 rebased, review findings resolved, `check:proposal-citations` passes | #121, PR #843 |
-| Dead-code and import cleanup already in review | PRs #899, #900, #901 merged with `check:ci` green | #877, #895, #884 |
-| Refresh the README status section | README no longer says "6 of 22", "Private for now", or links closed #265 as open; a test ties any met-count in the README to the report | none (seed 1) |
-| Give the CDAC DNL/INL `klt yield` envelope a committed samples file | new `sim/cdac-array-transfer/yield-reports/<id>.json` naming a committed `<id>.samples.json`; "Item 6" text updated | none (seed 2) |
-| Converging-range boundary sweep (DR-021 Open items) | a `sim/full-conversion-transient/` record stating, per input between 0.25 and 0.78·`V_REF`, whether the code lands within ±1 LSB | none (seed 3) |
-| Three maintenance proposals awaiting promotion | one composite CI action for ngspice + PDK provisioning; `run_info()` shared by digital-partition; unit suite runs once in `check:ci` | #875, #888, #889 |
 
 ## Next
 

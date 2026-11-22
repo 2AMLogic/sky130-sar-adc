@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # test-worktree-stale-reset-preserves-pushed-tip.sh — Tests for issue #475.
 #
-# LOCAL DIVERGENCE (this repo only). `.loom/scripts/worktree.sh` and this
-# suite are pinned in `.loom/resync-ignore` because the fix they cover could
-# not be upstreamed from this workspace: the forge credentials here are a
-# GitHub App installation token scoped to the `2AMLogic` org, with no push/PR
-# access to `rjwalters/loom`. Retire both pins (and this note) once the same
-# fix lands in `defaults/scripts/worktree.sh` upstream. This suite is
-# deliberately NOT added to `ci-wired.txt` / `ci-excluded.txt`: those manifests
+# REPO-OWNED REGRESSION SUITE (pinned in `.loom/resync-ignore`; Loom does not
+# ship this file upstream, so a resync would delete it — same disposition as
+# the #615 entry). The companion `scripts/worktree.sh` pin was RETIRED
+# 2026-11-16 (issue #990): upstream's stale_ref resets a stale worktree to
+# `origin/<branch>` (never the base ref), so a parked branch is fast-forwarded
+# to its own pushed tip — the same #475 data-loss property by a different
+# mechanism, measured by this suite. The suite stays pinned to guard that
+# property against future upstream regressions. This suite is deliberately
+# NOT added to `ci-wired.txt` / `ci-excluded.txt`: those manifests
 # describe Loom's OWN CI partition, `check-ci-suite-manifest.sh` is not part of
 # this repo's `npm run check:ci`, and editing them would widen the divergence
 # for no local effect.
@@ -37,8 +39,10 @@
 # path must still reset exactly as before):
 #   1. HEAD is a STRICT ANCESTOR of `origin/<branch>` (the incident shape:
 #      branch pushed ahead of main, worktree parked at an old main commit,
-#      0 ahead of base, clean tree) -> the branch ref is PRESERVED, never
-#      reset to the base ref, and never moved backwards past the pushed tip.
+#      0 ahead of base, clean tree) -> the branch ref is never reset to the
+#      base ref and never moved backwards past the pushed tip: either
+#      preserved in place or fast-forwarded to the pushed tip (the local fix
+#      did the former; upstream's stale_ref does the latter — both accepted).
 #   2. No `origin/<branch>` at all (branch never pushed) -> still resets.
 #   3. `origin/<branch>` exists but HEAD is NOT an ancestor of it (the
 #      squash-merged-and-main-moved-on shape) -> still resets.
@@ -152,7 +156,7 @@ run_worktree_sh() {
 }
 
 # --- Test 1: the incident — HEAD a strict ancestor of the pushed tip ---------
-echo "Test 1: worktree HEAD parked at an old main commit, 0 ahead of base, clean, but origin/<branch> holds an open PR's commits -> branch ref preserved, NOT reset to base"
+echo "Test 1: worktree HEAD parked at an old main commit, 0 ahead of base, clean, but origin/<branch> holds an open PR's commits -> branch ref never moved backwards past the pushed tip and never reset to base"
 read -r REPO WT_REL <<< "$(setup_repo incident 401 push advance)"
 WT="$REPO/$WT_REL"
 
@@ -184,6 +188,7 @@ else
 fi
 
 OUT_LOG="/tmp/wtpushedtip-incident.$$"
+REF_BEFORE=$(git -C "$REPO" rev-parse "feature/issue-401")
 run_worktree_sh "$REPO" 401 "$OUT_LOG"
 
 REF_AFTER=$(git -C "$REPO" rev-parse "feature/issue-401")
@@ -211,17 +216,17 @@ else
     fail "the pushed tip is no longer resolvable"
 fi
 
-if grep -qi "Stale worktree reset" "$OUT_LOG"; then
-    fail "worktree.sh reported resetting the stale worktree"
-    cat "$OUT_LOG"
+# Behavioral acceptance (issue #990) — either protective mechanism passes:
+# fast-forwarded exactly to the pushed tip (upstream stale_ref), or preserved
+# unchanged, still an ancestor of the tip (the original local fix). Both keep
+# every pushed commit reachable; a reset to the base ref satisfies neither.
+if [[ "$REF_AFTER" == "$PUSHED_TIP" ]]; then
+    pass "local feature/issue-401 was fast-forwarded to its pushed tip"
+elif [[ "$REF_AFTER" == "$REF_BEFORE" ]] && \
+     git -C "$REPO" merge-base --is-ancestor "$REF_AFTER" "$PUSHED_TIP"; then
+    pass "local feature/issue-401 was preserved in place, still an ancestor of its pushed tip"
 else
-    pass "worktree.sh did not report a stale-worktree reset"
-fi
-
-if grep -qi "preserving" "$OUT_LOG"; then
-    pass "worktree.sh reported preserving the worktree"
-else
-    fail "worktree.sh printed no preserve message"
+    fail "local feature/issue-401 is neither the pushed tip nor unchanged-and-behind it (ref=$REF_AFTER, tip=$PUSHED_TIP)"
     cat "$OUT_LOG"
 fi
 

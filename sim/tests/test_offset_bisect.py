@@ -641,7 +641,6 @@ class TestDelayAsymmetrySignCheck(unittest.TestCase):
         ]
         r = cd_offset_bisect.BisectCornerResult(
             corner="tt", temp_c=27.0, supply_v=cd_common.VDD,
-            evaluate_ns=cd_offset_bisect.BISECT_EVALUATE_NS, tol_mv=cd_offset_bisect.BISECT_TOL_MV,
             probes=probes,
         )
         r.neg_lo_mv, r.neg_hi_mv = offset_mv - 0.02, offset_mv + 0.02

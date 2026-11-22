@@ -300,15 +300,20 @@ and appends the `.control`/`let`/`print` block built from `measure`.
 asserts a measurement *must* move by at least some amount along a given PVT
 axis. That is what catches the failure mode a corner runner is most prone to —
 silently simulating typical everywhere while printing a plausible-looking
-table. `sim/selftest.sh` stage 4 exercises exactly this (see below).
+table. `sim/selftest.sh` stage 4 exercises exactly this (see below). The axis
+keys of `min_spread_pct_by_axis` / `max_spread_pct_by_axis` are validated at
+manifest load: an axis outside `process` / `temperature` / `supply` raises
+`ValueError` rather than silently grading as if the floor were not there.
 
 ### Corner-grid shape (one-at-a-time, not full factorial)
 
 `sim/run_corners.py` runs a baseline point plus, for each axis in turn, every
 other value on that axis with the remaining two axes held at baseline. This is
 precisely the set the per-axis sensitivity computation consumes, and a single
-ngspice invocation against sky130's combined model library costs ~15–20 s on
-the reference toolchain (library load dominates, not the simulation). A record
+ngspice invocation against sky130's combined model library is dominated by
+library load, not the simulation (~2.9 s per invocation measured on a
+GitHub-hosted `ubuntu-latest` runner with the pinned toolchain, 2026-11-15,
+`pdk-smoke` run 43718624521). A record
 therefore states 9 points where a full grid would state 45, at no loss of
 per-axis signal. A record whose claim genuinely needs corner *interactions*
 (e.g. worst-case ss/−40 °C/low-supply simultaneously) must say so and run
@@ -779,6 +784,20 @@ fix; it is out of scope for issue #405 and any future issue doing it should
 say so explicitly rather than mint a pointer that silences one of these two
 flows' rows by accident.
 
+**Docs prose citing a record must name the pointer in the same bullet.**
+Where `README.md` or `docs/ROADMAP.md` cites a
+`sim/<campaign>/records/<stamp>.md` record in a top-level bullet, that bullet
+must also name that campaign's `records/LATEST` pointer, and at least one
+stamp the bullet cites must be what the pointer resolves to — informational
+or superseded records may be cited additionally (this is
+`docs/citation-gate.md` check 3's shape), campaigns publishing no pointer are
+exempt, and `layout/<block>/reports/` citations are out of its scope. The
+gate is `sim/tests/test_doc_pointer_claims.py`: a bullet citing only a stamp
+id fails `npm run test:unit`, so "the newest record" prose cannot go stale
+silently. Issue #974 was filed on exactly that defect — `docs/ROADMAP.md`'s
+Conversion bullet named a record id and never the pointer — and PR #973's
+hand correction is the shape this convention now imposes mechanically.
+
 ## The aggregated characterization report (issue #30)
 
 `records/*.md` are the append-only evidence trail; `docs/characterization-
@@ -896,18 +915,25 @@ Both are labelled on the figure, so the two conventions cannot be read as one.
 
 ### What is plotted
 
-| Figure | Spec row | Source record | What it shows |
-| --- | --- | --- | --- |
-| `enob-distribution.svg` | ENOB | `sim/enob-estimate/records/20261008-233032-8bc3d1f.md` | per-draw achieved ENOB (N=40) against the DRAFT lower limit |
-| `cdac-inl-distribution.svg` | INL / DNL | `sim/cdac-array-transfer/records/20261001-124049-5207381.md` | per-draw worst-case \|INL\| and \|DNL\| (N=40, one panel each) against the DRAFT ±1 LSB target |
-| `cdac-transfer-spot-check.svg` | Sampling cap | `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` | measured differential level at each of 5 codes, all 9 corners, plus the per-corner monotonicity margin |
-| `bit-trial-settling-corners.svg` | Sample rate | `sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md` | worst-case `t_settle_99%` per corner against the DR-006 phase budget |
-| `coherent-sine-spectrum.svg` | ENOB | `sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md` | single-sided spectrum of the captured 32-code record, measured vs ideal quantizer |
+| Figure | Spec row | What it shows |
+| --- | --- | --- |
+| `enob-distribution.svg` | ENOB | per-draw achieved ENOB (N=40) against the DRAFT lower limit |
+| `cdac-inl-distribution.svg` | INL / DNL | per-draw worst-case \|INL\| and \|DNL\| (N=40, one panel each) against the DRAFT ±1 LSB target |
+| `cdac-transfer-spot-check.svg` | Sampling cap | measured differential level at each of 5 codes, all 9 corners, plus the per-corner monotonicity margin |
+| `bit-trial-settling-corners.svg` | Sample rate | worst-case `t_settle_99%` per corner against the DR-006 phase budget |
+| `coherent-sine-spectrum.svg` | ENOB | single-sided spectrum of the captured 32-code record, measured vs ideal quantizer |
+
+The exact inputs of each figure — its source record and every raw file it
+reads — are pinned per figure in the committed manifest
+[`docs/plots/manifest.json`](../docs/plots/manifest.json), which is the copy
+`--check` actually gates; `python3 sim/report/plots.py --list` prints the same
+from the rendering configuration. This table deliberately does not repeat the
+record IDs or draw-log paths: a hand-maintained second copy of them here went
+stale the moment a source record was superseded (#1010).
 
 Both CDAC Monte Carlo series are re-derived from that campaign's own 40
-committed raw draw logs
-(`sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/draw_*.log`) by its
-own `run_mc._parse_draw()` — the same pure parser `run_mc.reanalyze_from_logs()`
+committed raw draw logs (paths pinned in the manifest) by its own
+`run_mc._parse_draw()` — the same pure parser `run_mc.reanalyze_from_logs()`
 and `sim/enob-estimate/run_enob.py` use, and the same computation that minted
 the record's table. Those logs, that parser and `sim/harness/measure.py` are
 hashed inputs of the figure, so a change to any of them fails `--check`. The
@@ -966,11 +992,18 @@ version is a **warning**: xschem only turns a schematic into a netlist, and
 each record already pins the exact netlist it ran by SHA-256, so the drift is
 reported and recorded without blocking a PVT run.
 
-Runtime: the default run is 17 ngspice invocations, ~5 minutes measured on the
-reference toolchain and dominated by sky130 model-library load (~15–20 s per
-invocation, largely independent of the circuit). `--full` runs the complete
-corner grid and a larger Monte Carlo N and is meant as a deliberate periodic
-deeper pass. On a runner without ngspice or the PDK it costs seconds.
+Runtime: the default run is 17 ngspice invocations, dominated by sky130
+model-library load (largely independent of the circuit). Measured on a
+GitHub-hosted `ubuntu-latest` runner with the pinned toolchain
+(2026-11-15, `pdk-smoke` run 43718624521): the 17-invocation simulation
+stages took ~49 s (≈2.9 s per invocation) and the whole script 73.9 s,
+24.9 s of which is the stage-1 unit suite. This repo defines no
+"reference host" — the only formal reference is `sim/toolchain.json`'s
+version pins, which that run satisfies — so attribute any runtime figure
+to the hardware and date it was measured on. `--full` runs the complete
+corner grid and a larger Monte Carlo N and is meant as a deliberate
+periodic deeper pass. On a runner without ngspice or the PDK it costs
+seconds.
 
 ## Bootstrap smoke test
 

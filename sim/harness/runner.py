@@ -149,11 +149,21 @@ def run(
             for p in points
             if p.process_corner == baseline_process and p.temp_c == baseline_temp and name in p.measures
         ]
-        axis_spreads[name] = {
-            "process": _spread_pct(process_slice),
-            "temperature": _spread_pct(temp_slice),
-            "supply": _spread_pct(supply_slice),
-        }
+        # SPREAD_AXES order is (process, temperature, supply): the three
+        # slices below are built in that same order, and strict=True turns
+        # a constant/slice count mismatch into a loud error instead of a
+        # zip-truncated, silently-missing spread axis (issue #984).
+        axis_spreads[name] = dict(
+            zip(
+                testbench.SPREAD_AXES,
+                (
+                    _spread_pct(process_slice),
+                    _spread_pct(temp_slice),
+                    _spread_pct(supply_slice),
+                ),
+                strict=True,
+            )
+        )
 
     overall_ok = True
     for p in points:
@@ -196,9 +206,12 @@ def write_evidence(
     rid = result.record_id
 
     # Persist the logs already captured by run() -- no need to re-invoke
-    # ngspice a second time (each sky130-library invocation costs ~15-20s on
-    # this toolchain; doubling it here for a --record run would be wasteful
-    # and could theoretically diverge from what was just evaluated).
+    # ngspice a second time (each sky130-library invocation is dominated by
+    # model-library load, ~2.9 s each measured on a GitHub-hosted
+    # ubuntu-latest runner with the pinned toolchain, 2026-11-15,
+    # pdk-smoke run 43718624521; doubling it here for a --record run would
+    # be wasteful and could theoretically diverge from what was just
+    # evaluated).
     info = pdk.resolve()
     if store:
         stage = SIM_DIR / ".work" / experiment_dir.name / rid
