@@ -20,7 +20,9 @@ import json
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = SIM_DIR.parent
@@ -313,6 +315,92 @@ class TestCommittedPlots(unittest.TestCase):
         enob = REPO_ROOT / "docs/plots/enob-distribution.svg"
         self.assertTrue(enob.is_file(), f"{enob} must be committed")
 
+    def test_a_swapped_citation_fails_provenance_for_that_figure(self):
+        """A loader must read the record its own figure declares (issue #1035).
+
+        Pointing the settling figure at the ENOB record -- which states no
+        settling table and no DR-006 phase-period reference -- must surface a
+        provenance error naming that missing data, not pass silently because
+        the loader re-selected its old record on the side.
+        """
+        figures = {p.key: p for p in plots.PLOTS}
+        settling = figures["bit-trial-settling-corners"]
+        enob_record = figures["enob-distribution"].source_record
+        swapped = replace(settling, source_record=enob_record)
+
+        problems = plots.provenance_problems((swapped,))
+
+        self.assertTrue(
+            any(
+                settling.key in problem
+                and enob_record in problem
+                and ("DR-006" in problem or "settling rows" in problem)
+                for problem in problems
+            ),
+            f"a figure whose cited record lacks its data must fail provenance: "
+            f"{problems}",
+        )
+
+    def test_enob_rejects_a_record_without_its_per_draw_summary(self):
+        enob = next(spec for spec in plots.PLOTS if spec.key == "enob-distribution")
+        for other in plots.PLOTS:
+            if other == enob:
+                continue
+            with self.subTest(citation=other.key):
+                swapped = replace(enob, source_record=other.source_record)
+                problems = plots.provenance_problems((swapped,))
+                self.assertEqual(len(problems), 1, problems)
+                self.assertIn(enob.key, problems[0])
+                self.assertIn(other.source_record, problems[0])
+                self.assertIn("Per-draw ENOB", problems[0])
+
+    def test_enob_rejects_each_mismatched_summary_statistic(self):
+        enob = next(spec for spec in plots.PLOTS if spec.key == "enob-distribution")
+        data = plots.load_enob_distribution(enob.source_record)
+        stats = {"min": min(data["values"]), "mean": data["mean"], "max": max(data["values"])}
+        with tempfile.TemporaryDirectory() as tmp, patch.object(plots, "REPO_ROOT", Path(tmp)):
+            (Path(tmp) / "sim").symlink_to(SIM_DIR, target_is_directory=True)
+            record = Path(tmp) / "summary.md"
+            for label in stats:
+                with self.subTest(statistic=label):
+                    changed = {**stats, label: stats[label] + 0.001}
+                    record.write_text(
+                        f"Per-draw ENOB: min {changed['min']:.3f}, mean {changed['mean']:.3f}, "
+                        f"max {changed['max']:.3f} bit.\n"
+                    )
+                    with self.assertRaises(plots.ProvenanceError) as raised:
+                        plots.load_enob_distribution(record.name)
+                    self.assertIn(f"Per-draw ENOB {label}", str(raised.exception))
+                    self.assertIn(record.name, str(raised.exception))
+
+    def test_transfer_rejects_a_record_without_its_gap_table(self):
+        figures = {p.key: p for p in plots.PLOTS}
+        transfer = figures["cdac-transfer-spot-check"]
+        enob_record = figures["enob-distribution"].source_record
+        swapped = replace(transfer, source_record=enob_record)
+
+        problems = plots.provenance_problems((swapped,))
+
+        self.assertEqual(len(problems), 1, problems)
+        for detail in (transfer.key, enob_record, "min adjacent-code gap", *plots.TRANSFER_CORNERS):
+            with self.subTest(detail=detail):
+                self.assertIn(detail, problems[0])
+
+    def test_transfer_rejects_a_gap_table_missing_one_corner(self):
+        transfer = next(spec for spec in plots.PLOTS if spec.key == "cdac-transfer-spot-check")
+        record = (REPO_ROOT / transfer.source_record).read_text()
+        rows = plots._markdown_table(record, "min adjacent-code gap")
+        missing_corner = rows[0][0].strip("`")
+        with patch.object(plots, "_markdown_table", return_value=rows[1:]):
+            with self.assertRaises(plots.ProvenanceError) as raised:
+                plots.load_cdac_transfer(transfer.source_record)
+
+        message = str(raised.exception)
+        self.assertIn(transfer.source_record, message)
+        self.assertIn(missing_corner, message)
+        for row in rows[1:]:
+            self.assertNotIn(row[0].strip("`"), message)
+
 
 class TestCdacMonteCarloDistributions(unittest.TestCase):
     """Both Monte Carlo series come out of the campaign's own committed draw
@@ -320,8 +408,9 @@ class TestCdacMonteCarloDistributions(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.data = plots.load_cdac_inl_distribution()
-        record = REPO_ROOT / f"sim/cdac-array-transfer/records/{plots.CDAC_MC_RECORD_ID}.md"
+        rel_record = f"sim/cdac-array-transfer/records/{plots.CDAC_MC_RECORD_ID}.md"
+        cls.data = plots.load_cdac_inl_distribution(rel_record)
+        record = REPO_ROOT / rel_record
         cls.stated = plots._cdac_mc_stated_rows(record)
 
     def test_every_draw_log_the_figure_hashes_is_committed(self):

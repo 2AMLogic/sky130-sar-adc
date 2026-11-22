@@ -284,13 +284,14 @@ def _split_row(line: str) -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def load_enob_distribution() -> dict:
+def load_enob_distribution(rel_record: str) -> dict:
     """Per-draw achieved ENOB and the DRAFT limit it is graded against.
 
     Source: the persisted `klt yield` samples document, which carries the 40
     per-draw `enob_bit` values, plus the yield report minted from it (for the
-    distribution summary and the limits). Cross-check: the samples' own mean
-    must reproduce the yield report's stated `distribution.mean`.
+    distribution summary and the limits). The sample mean must reproduce the
+    yield report's `distribution.mean`. The sample minimum, mean and maximum
+    must also match the per-draw summary in `rel_record` at its printed precision.
 
     The sigma drawn is the yield report's own `distribution.stddev`, which is
     the sample (n-1) estimator; the source record states no sigma of its own,
@@ -303,20 +304,38 @@ def load_enob_distribution() -> dict:
     measurement = _one_measurement(samples_doc, "enob_bit", ENOB_SAMPLES)
     reported = _one_measurement(report, "enob_bit", ENOB_YIELD)
     values = [float(v) for v in measurement["samples"]]
+    mean = statistics.mean(values)
     _agree(
         "enob_bit mean",
-        statistics.mean(values),
+        mean,
         float(reported["distribution"]["mean"]),
         tolerance=5e-7,
         where=f"{ENOB_SAMPLES} vs {ENOB_YIELD}",
     )
+    number = r"-?\d+(?:\.\d+)?"
+    summary = re.search(
+        rf"^Per-draw ENOB: min (?P<min>{number}), mean (?P<mean>{number}), "
+        rf"max (?P<max>{number}) bit\.",
+        (REPO_ROOT / rel_record).read_text(),
+        re.MULTILINE,
+    )
+    if summary is None:
+        raise ProvenanceError(f"{rel_record}: missing Per-draw ENOB min/mean/max summary")
+    for label, derived in (("min", min(values)), ("mean", mean), ("max", max(values))):
+        _agree(
+            f"Per-draw ENOB {label}",
+            round(derived, 3),
+            float(summary[label]),
+            tolerance=1e-9,
+            where=f"{ENOB_SAMPLES} vs {rel_record}",
+        )
     limits = measurement.get("limits") or {}
     return {
         "values": values,
         "unit": measurement.get("unit", "bit"),
         "limit_min": limits.get("min"),
         "target_yield": limits.get("target_yield"),
-        "mean": statistics.mean(values),
+        "mean": mean,
         "stdev": float(reported["distribution"]["stddev"]),
         "empirical_yield": reported["yield"]["empirical"]["estimate"],
         "yield_ci": reported["yield"]["empirical"]["confidence_interval"],
@@ -362,7 +381,7 @@ def _cdac_mc_stated_rows(record_path: Path) -> dict[str, list[str]]:
     return stated
 
 
-def load_cdac_inl_distribution() -> dict:
+def load_cdac_inl_distribution(rel_record: str) -> dict:
     """Per-draw worst-case |INL| AND |DNL| from the CDAC mismatch Monte Carlo
     campaign's own committed raw draw logs.
 
@@ -375,6 +394,10 @@ def load_cdac_inl_distribution() -> dict:
     DRAFT limit, the empirical yields and their Clopper-Pearson intervals; its
     persisted `samples` path is a scratch file, but that costs this figure
     nothing, because the per-draw values do not come from it.
+
+    `rel_record` is the figure's declared citation, passed in by the loader
+    dispatch: the table this loader cross-checks against is read out of the
+    record the figure cites, never a second selection made on the side.
 
     Cross-check: for BOTH statistics, the mean / stdev / min / max this module
     derives from the raw logs must reproduce the four the record's own
@@ -402,7 +425,7 @@ def load_cdac_inl_distribution() -> dict:
 
     report = json.loads((REPO_ROOT / CDAC_MC_YIELD).read_text())
     by_name = {m["name"]: m for m in report["measurements"]}
-    record_path = REPO_ROOT / f"sim/cdac-array-transfer/records/{CDAC_MC_RECORD_ID}.md"
+    record_path = REPO_ROOT / rel_record
     stated = _cdac_mc_stated_rows(record_path)
 
     series = {}
@@ -460,7 +483,7 @@ def load_cdac_inl_distribution() -> dict:
     }
 
 
-def load_cdac_transfer() -> dict:
+def load_cdac_transfer(rel_record: str) -> dict:
     """Measured differential top-plate level per code, per corner.
 
     Source: the nine committed ngspice batch logs of the ratified-grid
@@ -468,15 +491,35 @@ def load_cdac_transfer() -> dict:
     results for the bench's 5 spot-check codes; the differential level is
     their difference.
 
+    `rel_record` is the figure's declared citation, passed in by the loader
+    dispatch: the per-corner table this loader cross-checks against is read
+    out of the record the figure cites, never a second selection made on the
+    side.
+
     Cross-check: the smallest adjacent-code gap this module computes per
     corner must reproduce the gap the record's own per-corner table states
     (5 decimals) -- the number that record's monotonicity verdict rests on.
     """
-    record_path = REPO_ROOT / "sim/cdac-array-transfer/records/20261001-120402-d24f700.md"
+    record_path = REPO_ROOT / rel_record
     stated = {}
     for cells in _markdown_table(record_path.read_text(), "min adjacent-code gap"):
         if len(cells) >= 4:
             stated[cells[0].strip("`")] = cells[3]
+
+    plotted = set(TRANSFER_CORNERS)
+    missing = sorted(plotted - stated.keys())
+    if missing:
+        raise ProvenanceError(
+            f"{rel_record}: missing min adjacent-code gap rows for plotted corners: "
+            f"{', '.join(missing)}"
+        )
+    extra = sorted(stated.keys() - plotted)
+    if extra:
+        raise ProvenanceError(
+            f"{rel_record} states corner(s) {extra} that this figure does not read -- "
+            "add their logs to the figure's inputs or the plot would show fewer "
+            "corners than the record grades"
+        )
 
     corners: dict[str, dict] = {}
     for corner in TRANSFER_CORNERS:
@@ -492,27 +535,19 @@ def load_cdac_transfer() -> dict:
             )
         vdiff = [measures[f"vtop_p_{code}"] - measures[f"vtop_n_{code}"] for code in codes]
         gaps = [later - earlier for earlier, later in zip(vdiff, vdiff[1:])]
-        if corner in stated:
-            _agree(
-                f"{corner} min adjacent-code gap",
-                round(min(gaps), 5),
-                float(stated[corner]),
-                tolerance=1e-9,
-                where=f"{log.relative_to(REPO_ROOT)} vs {record_path.relative_to(REPO_ROOT)}",
-            )
+        _agree(
+            f"{corner} min adjacent-code gap",
+            round(min(gaps), 5),
+            float(stated[corner]),
+            tolerance=1e-9,
+            where=f"{log.relative_to(REPO_ROOT)} vs {rel_record}",
+        )
         corners[corner] = {"codes": codes, "vdiff": vdiff, "min_gap": min(gaps)}
 
-    missing = sorted(set(stated) - set(corners))
-    if missing:
-        raise ProvenanceError(
-            f"{record_path.relative_to(REPO_ROOT)} states corner(s) {missing} that this "
-            "figure does not read -- add their logs to the figure's inputs or the plot "
-            "would show fewer corners than the record grades"
-        )
     return {"corners": corners, "n_codes": len(next(iter(corners.values()))["codes"])}
 
 
-def load_bit_trial_settling() -> dict:
+def load_bit_trial_settling(rel_record: str) -> dict:
     """Worst-case 99% settling time per corner, and the budget it is read
     against.
 
@@ -522,10 +557,15 @@ def load_bit_trial_settling() -> dict:
     measurement). The DR-006-derived worst-case phase budget is read out of
     the record's prose rather than hard-coded here.
 
+    `rel_record` is the figure's declared citation, passed in by the loader
+    dispatch: both the table and the budget line this loader reads come out
+    of the record the figure cites, never a second selection made on the
+    side.
+
     Cross-check: budget / t_settle must reproduce the margin the same table
     states, to that column's own 1-decimal precision.
     """
-    record_path = REPO_ROOT / "sim/cdac-bit-trial-settling/records/20261001-140017-7487784.md"
+    record_path = REPO_ROOT / rel_record
     text = record_path.read_text()
     budget_match = re.search(
         r"\*\*DR-006 phase-period reference points\*\*:\s*([\d.]+)\s*ns", text
@@ -569,7 +609,7 @@ def load_bit_trial_settling() -> dict:
     return {"points": points, "budget_ns": budget_ns}
 
 
-def load_coherent_sine_spectrum() -> dict:
+def load_coherent_sine_spectrum(rel_record: str) -> dict:
     """The captured code stream's single-sided spectrum, measured and ideal.
 
     Source: the dynamic-test record's own "Captured code stream" table (one
@@ -578,13 +618,18 @@ def load_coherent_sine_spectrum() -> dict:
     `sim/full-conversion-transient/dynamic_enob.py`, so the figure and the
     record's headline figures come out of one implementation.
 
+    `rel_record` is the figure's declared citation, passed in by the loader
+    dispatch: the code stream, metadata and stated values this loader reads
+    all come out of the record the figure cites, never a second selection
+    made on the side.
+
     Cross-check: the SNDR, ENOB, SFDR, spur bin and full-scale-normalised
     ENOB this module recomputes must reproduce the values the record states,
     to the record's own printed precision.
     """
     import dynamic_enob  # stdlib-only; path set at module import
 
-    record_path = REPO_ROOT / "sim/full-conversion-transient/records/20261106-193045-7bdf8c4.md"
+    record_path = REPO_ROOT / rel_record
     text = record_path.read_text()
     captured: list[int] = []
     ideal: list[int] = []
@@ -1128,7 +1173,7 @@ def render_all(output_dir: Path = PLOTS_DIR) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
     entries: dict[str, dict] = {}
     for spec in PLOTS:
-        data = LOADERS[spec.key]()
+        data = LOADERS[spec.key](spec.source_record)
         figure = RENDERERS[spec.key](plt, spec, data)
         target = output_dir / spec.filename
         figure.savefig(target, format="svg", metadata={"Date": None})
@@ -1351,7 +1396,7 @@ def provenance_problems(specs: tuple[PlotSpec, ...] = PLOTS) -> list[str]:
                 "record and re-render, so it cannot keep showing a replaced result."
             )
         try:
-            LOADERS[spec.key]()
+            LOADERS[spec.key](spec.source_record)
         except (ProvenanceError, KeyError, ValueError, OSError) as exc:
             problems.append(f"{spec.key}: {exc}")
     return problems
