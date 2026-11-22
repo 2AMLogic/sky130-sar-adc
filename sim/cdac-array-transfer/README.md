@@ -178,6 +178,12 @@ source sim/env.sh
 python3 sim/cdac-array-transfer/run_klt_graded.py --record
 ```
 
+A `--dry-run` first (no simulation, schema/corner-grid validation):
+
+```sh
+uvx --from "klayout-tools==0.9.0" klt sim sim/cdac-array-transfer/testbench/klt/request-graded.json --dry-run --format json   # expect unit_count: 9
+```
+
 The submit goes through `klt sim` (batch fleet via `$KLT_SIM_BACKEND`, with
 `--wait-for-capacity 600` per the shared harness's fleet-capacity policy);
 the runner refuses to mint a record whose worker PDK/ngspice stamps drift

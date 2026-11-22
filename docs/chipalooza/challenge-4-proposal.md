@@ -4355,6 +4355,11 @@ tracker already owns.
    > **DR-025**
    > (`spec/decision-records/DR-025-cdac-gain-error-closure-path.md`) is
    > **proposed**.
+   > **DR-026**
+   > (`spec/decision-records/DR-026-cdac-row-tolerance-decisions.md`) is
+   > **proposed** (added 2026-11-22 by issue #1021: the tolerance decisions
+   > the two `ratified-gap` CDAC rows name — LSB step deviation and the
+   > electrical unit cap — ranked options, nothing decided yet).
 
    **Two facts that readout surfaces, which this item had not stated.** First,
    `spec/decision-records/` carries **two DR-004s** and **two DR-007s** — the

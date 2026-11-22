@@ -200,6 +200,13 @@ fail proves nothing):
   so the evidence is recorded without being graded against an unratified
   number. Neither row is thereby closed: see each row's `note` in
   `sim/spec-coverage.json`.
+- A RATIFIED row whose named quantity is not yet graded — no ratified
+  tolerance exists for its measured deviation — is `ratified-gap` (issue
+  #1021): benches and records still exist, but the note must name the
+  decision record (`DR-NNN`) or issue (`#N`) that owns closing the gap, and
+  no record may read as the row's full PASS. `LSB (differential)` and
+  `Sampling cap (CDAC unit × array)` carry that class, naming
+  `spec/decision-records/DR-026-cdac-row-tolerance-decisions.md` (proposed).
 - Each bench's **cold-start invocation** appears verbatim in the file the index
   says documents it, passes only flags/subcommands its runner actually accepts,
   and names the same script the record's own `Written by` footer names — so the

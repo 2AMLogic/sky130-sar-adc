@@ -20,6 +20,7 @@ exactly what sim/report/generate.py would currently produce (the same check
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 import unittest
@@ -195,6 +196,29 @@ class TestManifestAgainstRealRepo(unittest.TestCase):
                     (REPO_ROOT / rel_path).is_file(),
                     f"[{row.id}] missing layout citation {rel_path}",
                 )
+
+    def test_gap_declared_rows_do_not_read_as_full_pass(self):
+        """Issue #1021's AC: a row the coverage index declares `ratified-gap`
+        (no ratified tolerance for its measured quantity) must not render a
+        verdict that reads as an unqualified PASS -- the manifest's verdict
+        has to carry the GAP statement so the aggregated report cannot
+        restate an ungraded measurement as coverage."""
+        index = json.loads((REPO_ROOT / "sim" / "spec-coverage.json").read_text())
+        gap_rows = {
+            row["parameter"]
+            for row in index.get("rows", [])
+            if row.get("claim_class") == "ratified-gap"
+        }
+        self.assertTrue(gap_rows, "no ratified-gap rows indexed -- stale test?")
+        for row in manifest.ROWS:
+            if row.spec_row not in gap_rows:
+                continue
+            self.assertIn(
+                "GAP",
+                row.verdict.upper(),
+                f"[{row.id}] spec-coverage.json declares this row a gap but "
+                f"manifest.py's verdict reads as a pass: {row.verdict!r}",
+            )
 
 
 if __name__ == "__main__":
