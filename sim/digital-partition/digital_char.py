@@ -597,38 +597,19 @@ def build_request(netlist_name: str, f_mhz: float, corner_ids: Sequence[str], *,
                   pdk: str = "sky130A", backend: str | None = None,
                   checks: Sequence[Check] | None = None,
                   batch: dict | None = None) -> dict:
-    """One `klt sim` request covering exactly `corner_ids` at `f_mhz`.
+    """One `klt sim` request covering exactly `corner_ids` at `f_mhz` -- the
+    shared OAT assembly on harness.klt_sim (issue #1052).
 
     The corner axes are the full product of the distinct process /
     temperature / supply values; points not wanted are removed with
     `exclude`, so any subset of the OAT grid is one request."""
-    pts = [corners_mod.parse_corner_id(c) for c in corner_ids]
-    procs = sorted({p for p, _, _ in pts})
-    temps = sorted({t for _, t, _ in pts})
-    vdds = sorted({v for _, _, v in pts})
-    want = set(pts)
-    exclude = []
-    for p in procs:
-        for t in temps:
-            for v in vdds:
-                if (p, t, v) not in want:
-                    exclude.append({"process": p, "temperature_c": t, "supply_v": {SUPPLY_KEY: v}})
-    req: dict = {
-        "netlist": netlist_name,
-        "engine": "ngspice",
-        "models": {"pdk": pdk, "lib": models_lib},
-        "corners": {"process": procs, "supply_v": {SUPPLY_KEY: vdds}, "temperature_c": temps},
-        "analysis": {"kind": "tran", "args": analysis_args(f_mhz)},
-        "measurements": measurement_cards(f_mhz, checks),
-        "options": {"timeout_s": timeout_s, "keep_artifacts": True},
-    }
-    if exclude:
-        req["exclude"] = exclude
-    if backend:
-        req["backend"] = backend
-    if batch:
-        req["batch"] = dict(batch)
-    return req
+    return klt_sim.build_oat_request(
+        netlist_name, corner_ids, SUPPLY_KEY,
+        analysis={"kind": "tran", "args": analysis_args(f_mhz)},
+        measurements=measurement_cards(f_mhz, checks),
+        timeout_s=timeout_s, pdk=pdk, models_lib=models_lib,
+        backend=backend, batch=batch,
+    )
 
 
 @dataclass
