@@ -1,0 +1,561 @@
+* extracted by klt extract --deck sky130
+* parasitic model (--parasitics):
+* - capacitance: net-to-ground for every net's own (non-coupled) area/perimeter, plus net-to-net for the vertical-overlap coupling `coupling` describes below -- a coupled net pair gets a direct capacitor between their two hub nodes, not just capacitors to the deck's ground/substrate net
+* - coupling: vertical overlap (crossover) unconditionally -- where one net's conductor on an adjacent metal level sits directly over another *distinct* net's conductor, that overlap area is charged between the two nets instead of to ground (issue #760) -- plus lateral (same-layer, sidewall) coupling, but only for a net pair naming one of the caller's declared `--critical-net` nets (issue #976): facing-edge length within that layer's own minimum-spacing lookback is charged between the two nets, *additively* (not deducted from either net's substrate fringe term, unlike the vertical case -- a known simplification). Any same-layer pair with neither side named `--critical-net`, and fringe shielding in general, are still not modelled
+* - resistance: single lumped series resistance per net, distributed as a star across that net's device terminals (issue #592) -- not a per-segment, distributed RC ladder, *unless* `--distributed-rc` names this net via `--critical-net` (issue #977, Epic #709 Phase 2b): then the net's terminals are ordered along their approximate physical spread and its total R/C is broken into a chain of per-segment resistors (segment length proportional to inter-terminal distance) with a ground capacitor at each terminal node (proportional to its adjacent segment length/2), instead of one star hub -- still an approximation (terminal position is a device-placement proxy, not true per-segment routing geometry), but a strictly finer-grained one than the single-hub star
+* - frequency: quasi-static -- one frequency-independent R and C per net; no skin effect, no distributed transmission-line behavior
+* - substrate tie: 1e+12 ohm to ground -- the substrate is capacitively floating in transient analysis (DC reference only); see --substrate-tie-ohms
+.GLOBAL vsubs
+
+* cell gen_compose_0
+* pin BOOST_N
+* pin BOOST_P
+* pin BPREF_N
+* pin BPREF_P
+* pin GND
+* pin SAMPLE
+* pin TOP_N
+* pin TOP_P
+* pin VCM
+* pin VDD
+* pin VINN
+* pin VINP
+.SUBCKT gen_compose_0 BOOST_N BOOST_P BPREF_N BPREF_P GND SAMPLE TOP_N TOP_P
++ VCM VDD VINN VINP
+* device instance $1 r0 *1 47.595,0.5 nfet
+X$1 \$8__t1 \$6__t0 GND__t0 GND__t5 sky130_fd_pr__nfet_01v8 L=0.15 W=1 AS=0.47
++ AD=0.47 PS=2.94 PD=2.94
+* device instance $2 r0 *1 49.885,0.5 nfet
+X$2 \$8__t2 SAMPLE__t5 VINP__t1 GND__t6 sky130_fd_pr__nfet_01v8 L=0.15 W=1
++ AS=0.47 AD=0.47 PS=2.94 PD=2.94
+* device instance $3 r0 *1 52.3,0.5 nfet
+X$3 \$5__t2 \$6__t1 GND__t1 GND__t10 sky130_fd_pr__nfet_01v8 L=0.5 W=1 AS=0.42
++ AD=0.42 PS=2.84 PD=2.84
+* device instance $4 r0 *1 59.42,0.5 nfet
+X$4 \$11__t1 \$6__t10 GND__t2 GND__t11 sky130_fd_pr__nfet_01v8 L=0.5 W=1
++ AS=0.42 AD=0.42 PS=2.84 PD=2.84
+* device instance $5 r0 *1 61.835,0.5 nfet
+X$5 \$10__t2 SAMPLE__t4 VINN__t1 GND__t7 sky130_fd_pr__nfet_01v8 L=0.15 W=1
++ AS=0.47 AD=0.47 PS=2.94 PD=2.94
+* device instance $6 r0 *1 64.125,0.5 nfet
+X$6 \$10__t1 \$6__t11 GND__t4 GND__t8 sky130_fd_pr__nfet_01v8 L=0.15 W=1
++ AS=0.47 AD=0.47 PS=2.94 PD=2.94
+* device instance $7 r0 *1 66.415,0.5 nfet
+X$7 \$6__t2 SAMPLE__t3 GND__t3 GND__t9 sky130_fd_pr__nfet_01v8 L=0.15 W=1
++ AS=0.47 AD=0.47 PS=2.94 PD=2.94
+* device instance $8 r0 *1 43.015,1 nfet
+X$8 VINP__t0 \$5__t3 TOP_P__t0 GND__t12 sky130_fd_pr__nfet_01v8 L=0.15 W=2
++ AS=0.94 AD=0.94 PS=4.94 PD=4.94
+* device instance $9 r0 *1 45.305,1 nfet
+X$9 VINN__t0 \$11__t0 TOP_N__t1 GND__t13 sky130_fd_pr__nfet_01v8 L=0.15 W=2
++ AS=0.94 AD=0.94 PS=4.94 PD=4.94
+* device instance $10 r0 *1 54.715,8 nfet
+X$10 BPREF_P__t0 SAMPLE__t1 VCM__t0 GND__t14 sky130_fd_pr__nfet_01v8 L=0.15
++ W=16 AS=7.52 AD=7.52 PS=32.94 PD=32.94
+* device instance $11 r0 *1 57.005,8 nfet
+X$11 BPREF_N__t2 SAMPLE__t2 VCM__t3 GND__t15 sky130_fd_pr__nfet_01v8 L=0.15
++ W=16 AS=7.52 AD=7.52 PS=32.94 PD=32.94
+* device instance $12 r0 *1 2.67,0.5 pfet
+X$12 BOOST_P__t1 \$5__t0 VDD__t0 BOOST_P__t2 sky130_fd_pr__pfet_01v8 L=0.5 W=1
++ AS=0.42 AD=0.42 PS=2.84 PD=2.84
+* device instance $13 r0 *1 5.745,0.5 pfet
+X$13 \$5__t1 \$6__t8 BOOST_P__t3 BOOST_P__t4 sky130_fd_pr__pfet_01v8 L=0.15 W=1
++ AS=0.47 AD=0.47 PS=2.94 PD=2.94
+* device instance $14 r0 *1 10.885,0.5 pfet
+X$14 \$8__t3 \$6__t6 VINP__t2 VDD__t6 sky130_fd_pr__pfet_01v8 L=0.15 W=1
++ AS=0.47 AD=0.47 PS=2.94 PD=2.94
+* device instance $15 r0 *1 23.685,0.5 pfet
+X$15 \$10__t3 \$6__t4 VINN__t2 VDD__t7 sky130_fd_pr__pfet_01v8 L=0.15 W=1
++ AS=0.47 AD=0.47 PS=2.94 PD=2.94
+* device instance $16 r0 *1 28.825,0.5 pfet
+X$16 \$11__t2 \$6__t7 BOOST_N__t1 BOOST_N__t0 sky130_fd_pr__pfet_01v8 L=0.15
++ W=1 AS=0.47 AD=0.47 PS=2.94 PD=2.94
+* device instance $17 r0 *1 32.15,0.5 pfet
+X$17 BOOST_N__t3 \$11__t3 VDD__t5 BOOST_N__t2 sky130_fd_pr__pfet_01v8 L=0.5 W=1
++ AS=0.42 AD=0.42 PS=2.84 PD=2.84
+* device instance $18 r0 *1 17.285,1 pfet
+X$18 \$6__t5 SAMPLE__t0 VDD__t1 VDD__t2 sky130_fd_pr__pfet_01v8 L=0.15 W=2
++ AS=0.94 AD=0.94 PS=4.94 PD=4.94
+* device instance $19 r0 *1 14.085,8 pfet
+X$19 BPREF_P__t1 \$6__t9 VCM__t1 VDD__t3 sky130_fd_pr__pfet_01v8 L=0.15 W=16
++ AS=7.52 AD=7.52 PS=32.94 PD=32.94
+* device instance $20 r0 *1 20.485,8 pfet
+X$20 BPREF_N__t1 \$6__t3 VCM__t2 VDD__t4 sky130_fd_pr__pfet_01v8 L=0.15 W=16
++ AS=7.52 AD=7.52 PS=32.94 PD=32.94
+* device instance $21 r0 *1 79.56,5.4 sky130_fd_pr__model__cap_mim
+X$21 \$8__t0 BOOST_P__t0 sky130_fd_pr__cap_mim_m3_1 l=9.8 w=9.8
+* device instance $22 r0 *1 90.86,5.4 sky130_fd_pr__model__cap_mim
+X$22 \$10__t0 BOOST_N__t4 sky130_fd_pr__cap_mim_m3_1 l=9.8 w=9.8
+* device instance $23 r0 *1 123.21,23.95 sky130_fd_pr__model__cap_mim
+X$23 BPREF_P__t2 TOP_P__t1 sky130_fd_pr__cap_mim_m3_1 l=46.9 w=46.9
+* device instance $24 r0 *1 171.61,23.95 sky130_fd_pr__model__cap_mim
+X$24 BPREF_N__t0 TOP_N__t0 sky130_fd_pr__cap_mim_m3_1 l=46.9 w=46.9
+* device instance _10_t0 r0 *1 0,0 
+R_10_t0 \$10__t0 \$10 87.556672031
+* device instance _10_t1 r0 *1 0,0 
+R_10_t1 \$10__t1 \$10 11.8302393793
+* device instance _10_t2 r0 *1 0,0 
+R_10_t2 \$10__t2 \$10 5.94735916773
+* device instance _10_t3 r0 *1 0,0 
+R_10_t3 \$10__t3 \$10 103.140529422
+* device instance _10 r0 *1 0,0 
+C_10 \$10 vsubs 2.8175331e-14
+* device instance _11_t0 r0 *1 0,0 
+R_11_t0 \$11__t0 \$11 33.937820362
+* device instance _11_t1 r0 *1 0,0 
+R_11_t1 \$11__t1 \$11 156.673507284
+* device instance _11_t2 r0 *1 0,0 
+R_11_t2 \$11__t2 \$11 109.704679391
+* device instance _11_t3 r0 *1 0,0 
+R_11_t3 \$11__t3 \$11 80.7581929632
+* device instance _11 r0 *1 0,0 
+C_11 \$11 vsubs 2.3227111e-14
+* device instance _5_t0 r0 *1 0,0 
+R_5_t0 \$5__t0 \$5 103.993776042
+* device instance _5_t1 r0 *1 0,0 
+R_5_t1 \$5__t1 \$5 90.2475782966
+* device instance _5_t2 r0 *1 0,0 
+R_5_t2 \$5__t2 \$5 117.874137154
+* device instance _5_t3 r0 *1 0,0 
+R_5_t3 \$5__t3 \$5 76.3837085068
+* device instance _5 r0 *1 0,0 
+C_5 \$5 vsubs 2.4682622e-14
+* device instance _6_t0 r0 *1 0,0 
+R_6_t0 \$6__t0 \$6 79.4868296534
+* device instance _6_t1 r0 *1 0,0 
+R_6_t1 \$6__t1 \$6 107.25916217
+* device instance _6_t2 r0 *1 0,0 
+R_6_t2 \$6__t2 \$6 190.743980477
+* device instance _6_t3 r0 *1 0,0 
+R_6_t3 \$6__t3 \$6 89.3729855469
+* device instance _6_t4 r0 *1 0,0 
+R_6_t4 \$6__t4 \$6 62.969986485
+* device instance _6_t5 r0 *1 0,0 
+R_6_t5 \$6__t5 \$6 100.520748134
+* device instance _6_t6 r0 *1 0,0 
+R_6_t6 \$6__t6 \$6 138.530570321
+* device instance _6_t7 r0 *1 0,0 
+R_6_t7 \$6__t7 \$6 32.9590249708
+* device instance _6_t8 r0 *1 0,0 
+R_6_t8 \$6__t8 \$6 168.937196916
+* device instance _6_t9 r0 *1 0,0 
+R_6_t9 \$6__t9 \$6 124.901082475
+* device instance _6_t10 r0 *1 0,0 
+R_6_t10 \$6__t10 \$6 149.354496536
+* device instance _6_t11 r0 *1 0,0 
+R_6_t11 \$6__t11 \$6 177.191836316
+* device instance _6 r0 *1 0,0 
+C_6 \$6 vsubs 5.8497768e-14
+* device instance _8_t0 r0 *1 0,0 
+R_8_t0 \$8__t0 \$8 92.9952045861
+* device instance _8_t1 r0 *1 0,0 
+R_8_t1 \$8__t1 \$8 3.88641267016
+* device instance _8_t2 r0 *1 0,0 
+R_8_t2 \$8__t2 \$8 8.93937813189
+* device instance _8_t3 r0 *1 0,0 
+R_8_t3 \$8__t3 \$8 102.445404612
+* device instance _8 r0 *1 0,0 
+C_8 \$8 vsubs 2.8110863e-14
+* device instance BOOST_N_t0 r0 *1 0,0 
+RBOOST_N_t0 BOOST_N__t0 BOOST_N 28.3895419958
+* device instance BOOST_N_t1 r0 *1 0,0 
+RBOOST_N_t1 BOOST_N__t1 BOOST_N 28.3895419958
+* device instance BOOST_N_t2 r0 *1 0,0 
+RBOOST_N_t2 BOOST_N__t2 BOOST_N 21.5582512459
+* device instance BOOST_N_t3 r0 *1 0,0 
+RBOOST_N_t3 BOOST_N__t3 BOOST_N 21.5582512459
+* device instance BOOST_N_t4 r0 *1 0,0 
+RBOOST_N_t4 BOOST_N__t4 BOOST_N 99.8893135165
+* device instance BOOST_N r0 *1 0,0 
+CBOOST_N BOOST_N vsubs 2.4689911e-14
+* device instance BOOST_P_t0 r0 *1 0,0 
+RBOOST_P_t0 BOOST_P__t0 BOOST_P 102.595468967
+* device instance BOOST_P_t1 r0 *1 0,0 
+RBOOST_P_t1 BOOST_P__t1 BOOST_P 28.2550672273
+* device instance BOOST_P_t2 r0 *1 0,0 
+RBOOST_P_t2 BOOST_P__t2 BOOST_P 28.2550672273
+* device instance BOOST_P_t3 r0 *1 0,0 
+RBOOST_P_t3 BOOST_P__t3 BOOST_P 23.0437982892
+* device instance BOOST_P_t4 r0 *1 0,0 
+RBOOST_P_t4 BOOST_P__t4 BOOST_P 23.0437982892
+* device instance BOOST_P r0 *1 0,0 
+CBOOST_P BOOST_P vsubs 2.573419e-14
+* device instance BPREF_N_t0 r0 *1 0,0 
+RBPREF_N_t0 BPREF_N__t0 BPREF_N 541.958860848
+* device instance BPREF_N_t1 r0 *1 0,0 
+RBPREF_N_t1 BPREF_N__t1 BPREF_N 381.345823912
+* device instance BPREF_N_t2 r0 *1 0,0 
+RBPREF_N_t2 BPREF_N__t2 BPREF_N 161.38481524
+* device instance BPREF_N r0 *1 0,0 
+CBPREF_N BPREF_N vsubs 6.1812073e-14
+* device instance BPREF_P_t0 r0 *1 0,0 
+RBPREF_P_t0 BPREF_P__t0 BPREF_P 94.2922785935
+* device instance BPREF_P_t1 r0 *1 0,0 
+RBPREF_P_t1 BPREF_P__t1 BPREF_P 442.289749583
+* device instance BPREF_P_t2 r0 *1 0,0 
+RBPREF_P_t2 BPREF_P__t2 BPREF_P 529.982471824
+* device instance BPREF_P r0 *1 0,0 
+CBPREF_P BPREF_P vsubs 5.8289487e-14
+* device instance GND_t0 r0 *1 0,0 
+RGND_t0 GND__t0 GND 22.2369093363
+* device instance GND_t1 r0 *1 0,0 
+RGND_t1 GND__t1 GND 9.67443349308
+* device instance GND_t2 r0 *1 0,0 
+RGND_t2 GND__t2 GND 10.4232599815
+* device instance GND_t3 r0 *1 0,0 
+RGND_t3 GND__t3 GND 29.1976369351
+* device instance GND_t4 r0 *1 0,0 
+RGND_t4 GND__t4 GND 23.0091270089
+* device instance GND_t5 r0 *1 0,0 
+RGND_t5 GND__t5 GND 22.2369093363
+* device instance GND_t6 r0 *1 0,0 
+RGND_t6 GND__t6 GND 16.0787310313
+* device instance GND_t7 r0 *1 0,0 
+RGND_t7 GND__t7 GND 16.8459058412
+* device instance GND_t8 r0 *1 0,0 
+RGND_t8 GND__t8 GND 23.0091270089
+* device instance GND_t9 r0 *1 0,0 
+RGND_t9 GND__t9 GND 29.1976369351
+* device instance GND_t10 r0 *1 0,0 
+RGND_t10 GND__t10 GND 9.67443349308
+* device instance GND_t11 r0 *1 0,0 
+RGND_t11 GND__t11 GND 10.4232599815
+* device instance GND_t12 r0 *1 0,0 
+RGND_t12 GND__t12 GND 34.5425995128
+* device instance GND_t13 r0 *1 0,0 
+RGND_t13 GND__t13 GND 28.3256640926
+* device instance GND_t14 r0 *1 0,0 
+RGND_t14 GND__t14 GND 17.8715764936
+* device instance GND_t15 r0 *1 0,0 
+RGND_t15 GND__t15 GND 18.0064895188
+* device instance GND r0 *1 0,0 
+CGND GND vsubs 3.1209243e-14
+* device instance SAMPLE_t0 r0 *1 0,0 
+RSAMPLE_t0 SAMPLE__t0 SAMPLE 341.815612147
+* device instance SAMPLE_t1 r0 *1 0,0 
+RSAMPLE_t1 SAMPLE__t1 SAMPLE 60.8759612313
+* device instance SAMPLE_t2 r0 *1 0,0 
+RSAMPLE_t2 SAMPLE__t2 SAMPLE 76.6263735905
+* device instance SAMPLE_t3 r0 *1 0,0 
+RSAMPLE_t3 SAMPLE__t3 SAMPLE 155.392679129
+* device instance SAMPLE_t4 r0 *1 0,0 
+RSAMPLE_t4 SAMPLE__t4 SAMPLE 110.225401493
+* device instance SAMPLE_t5 r0 *1 0,0 
+RSAMPLE_t5 SAMPLE__t5 SAMPLE 29.1235724084
+* device instance SAMPLE r0 *1 0,0 
+CSAMPLE SAMPLE vsubs 2.9526485e-14
+* device instance TOP_N_t0 r0 *1 0,0 
+RTOP_N_t0 TOP_N__t0 TOP_N 72.76295
+* device instance TOP_N_t1 r0 *1 0,0 
+RTOP_N_t1 TOP_N__t1 TOP_N 72.76295
+* device instance TOP_N r0 *1 0,0 
+CTOP_N TOP_N vsubs 1.8811512e-14
+* device instance TOP_P_t0 r0 *1 0,0 
+RTOP_P_t0 TOP_P__t0 TOP_P 62.9484
+* device instance TOP_P_t1 r0 *1 0,0 
+RTOP_P_t1 TOP_P__t1 TOP_P 62.9484
+* device instance TOP_P r0 *1 0,0 
+CTOP_P TOP_P vsubs 1.4996758e-14
+* device instance VCM_t0 r0 *1 0,0 
+RVCM_t0 VCM__t0 VCM 480.77157034
+* device instance VCM_t1 r0 *1 0,0 
+RVCM_t1 VCM__t1 VCM 595.912949595
+* device instance VCM_t2 r0 *1 0,0 
+RVCM_t2 VCM__t2 VCM 426.314600405
+* device instance VCM_t3 r0 *1 0,0 
+RVCM_t3 VCM__t3 VCM 541.45597966
+* device instance VCM r0 *1 0,0 
+CVCM VCM vsubs 2.6113557e-14
+* device instance VDD_t0 r0 *1 0,0 
+RVDD_t0 VDD__t0 VDD 62.0059267243
+* device instance VDD_t1 r0 *1 0,0 
+RVDD_t1 VDD__t1 VDD 6.29332859382
+* device instance VDD_t2 r0 *1 0,0 
+RVDD_t2 VDD__t2 VDD 6.29332859382
+* device instance VDD_t3 r0 *1 0,0 
+RVDD_t3 VDD__t3 VDD 26.7574041294
+* device instance VDD_t4 r0 *1 0,0 
+RVDD_t4 VDD__t4 VDD 26.6255641531
+* device instance VDD_t5 r0 *1 0,0 
+RVDD_t5 VDD__t5 VDD 62.785280437
+* device instance VDD_t6 r0 *1 0,0 
+RVDD_t6 VDD__t6 VDD 28.2511492507
+* device instance VDD_t7 r0 *1 0,0 
+RVDD_t7 VDD__t7 VDD 28.0009181178
+* device instance VDD r0 *1 0,0 
+CVDD VDD vsubs 2.1752076e-14
+* device instance VINN_t0 r0 *1 0,0 
+RVINN_t0 VINN__t0 VINN 8.95635093404
+* device instance VINN_t1 r0 *1 0,0 
+RVINN_t1 VINN__t1 VINN 94.4139673515
+* device instance VINN_t2 r0 *1 0,0 
+RVINN_t2 VINN__t2 VINN 103.201981714
+* device instance VINN r0 *1 0,0 
+CVINN VINN vsubs 1.8282323e-14
+* device instance VINP_t0 r0 *1 0,0 
+RVINP_t0 VINP__t0 VINP 36.6537910262
+* device instance VINP_t1 r0 *1 0,0 
+RVINP_t1 VINP__t1 VINP 66.5120049016
+* device instance VINP_t2 r0 *1 0,0 
+RVINP_t2 VINP__t2 VINP 103.135704072
+* device instance VINP r0 *1 0,0 
+CVINP VINP vsubs 1.8224627e-14
+* device instance cc__10__11 r0 *1 0,0 
+Ccc__10__11 \$10 \$11 4.819e-17
+* device instance cc__10__5 r0 *1 0,0 
+Ccc__10__5 \$10 \$5 2.4095e-17
+* device instance cc__10__6 r0 *1 0,0 
+Ccc__10__6 \$10 \$6 3.6142e-17
+* device instance cc__10__8 r0 *1 0,0 
+Ccc__10__8 \$10 \$8 3.6142e-17
+* device instance cc__10_BOOST_N r0 *1 0,0 
+Ccc__10_BOOST_N \$10 BOOST_N 5.3789e-17
+* device instance cc__10_BOOST_P r0 *1 0,0 
+Ccc__10_BOOST_P \$10 BOOST_P 3.6142e-17
+* device instance cc__10_BPREF_N r0 *1 0,0 
+Ccc__10_BPREF_N \$10 BPREF_N 1.2047e-17
+* device instance cc__10_BPREF_P r0 *1 0,0 
+Ccc__10_BPREF_P \$10 BPREF_P 1.2047e-17
+* device instance cc__10_GND r0 *1 0,0 
+Ccc__10_GND \$10 GND 2.4095e-17
+* device instance cc__10_SAMPLE r0 *1 0,0 
+Ccc__10_SAMPLE \$10 SAMPLE 3.6142e-17
+* device instance cc__10_TOP_N r0 *1 0,0 
+Ccc__10_TOP_N \$10 TOP_N 1.2047e-17
+* device instance cc__10_TOP_P r0 *1 0,0 
+Ccc__10_TOP_P \$10 TOP_P 1.2047e-17
+* device instance cc__10_VCM r0 *1 0,0 
+Ccc__10_VCM \$10 VCM 1.2047e-17
+* device instance cc__10_VDD r0 *1 0,0 
+Ccc__10_VDD \$10 VDD 1.2047e-17
+* device instance cc__10_VINN r0 *1 0,0 
+Ccc__10_VINN \$10 VINN 1.2047e-17
+* device instance cc__10_VINP r0 *1 0,0 
+Ccc__10_VINP \$10 VINP 1.2047e-17
+* device instance cc__11__5 r0 *1 0,0 
+Ccc__11__5 \$11 \$5 3.6142e-17
+* device instance cc__11__6 r0 *1 0,0 
+Ccc__11__6 \$11 \$6 4.819e-17
+* device instance cc__11__8 r0 *1 0,0 
+Ccc__11__8 \$11 \$8 4.819e-17
+* device instance cc__11_BOOST_N r0 *1 0,0 
+Ccc__11_BOOST_N \$11 BOOST_N 4.819e-17
+* device instance cc__11_BOOST_P r0 *1 0,0 
+Ccc__11_BOOST_P \$11 BOOST_P 4.819e-17
+* device instance cc__11_BPREF_N r0 *1 0,0 
+Ccc__11_BPREF_N \$11 BPREF_N 1.2047e-17
+* device instance cc__11_BPREF_P r0 *1 0,0 
+Ccc__11_BPREF_P \$11 BPREF_P 1.2047e-17
+* device instance cc__11_GND r0 *1 0,0 
+Ccc__11_GND \$11 GND 2.4095e-17
+* device instance cc__11_SAMPLE r0 *1 0,0 
+Ccc__11_SAMPLE \$11 SAMPLE 4.819e-17
+* device instance cc__11_TOP_N r0 *1 0,0 
+Ccc__11_TOP_N \$11 TOP_N 1.2047e-17
+* device instance cc__11_TOP_P r0 *1 0,0 
+Ccc__11_TOP_P \$11 TOP_P 1.2047e-17
+* device instance cc__11_VCM r0 *1 0,0 
+Ccc__11_VCM \$11 VCM 3.6142e-17
+* device instance cc__11_VDD r0 *1 0,0 
+Ccc__11_VDD \$11 VDD 1.2047e-17
+* device instance cc__11_VINN r0 *1 0,0 
+Ccc__11_VINN \$11 VINN 4.819e-17
+* device instance cc__11_VINP r0 *1 0,0 
+Ccc__11_VINP \$11 VINP 3.6142e-17
+* device instance cc__5__6 r0 *1 0,0 
+Ccc__5__6 \$5 \$6 3.6142e-17
+* device instance cc__5__8 r0 *1 0,0 
+Ccc__5__8 \$5 \$8 2.4095e-17
+* device instance cc__5_BOOST_N r0 *1 0,0 
+Ccc__5_BOOST_N \$5 BOOST_N 2.4095e-17
+* device instance cc__5_BOOST_P r0 *1 0,0 
+Ccc__5_BOOST_P \$5 BOOST_P 4.819e-17
+* device instance cc__5_BPREF_N r0 *1 0,0 
+Ccc__5_BPREF_N \$5 BPREF_N 1.2047e-17
+* device instance cc__5_BPREF_P r0 *1 0,0 
+Ccc__5_BPREF_P \$5 BPREF_P 1.2047e-17
+* device instance cc__5_GND r0 *1 0,0 
+Ccc__5_GND \$5 GND 2.4095e-17
+* device instance cc__5_SAMPLE r0 *1 0,0 
+Ccc__5_SAMPLE \$5 SAMPLE 2.4095e-17
+* device instance cc__5_TOP_N r0 *1 0,0 
+Ccc__5_TOP_N \$5 TOP_N 1.2047e-17
+* device instance cc__5_TOP_P r0 *1 0,0 
+Ccc__5_TOP_P \$5 TOP_P 1.2047e-17
+* device instance cc__5_VCM r0 *1 0,0 
+Ccc__5_VCM \$5 VCM 2.4095e-17
+* device instance cc__5_VDD r0 *1 0,0 
+Ccc__5_VDD \$5 VDD 2.4095e-17
+* device instance cc__5_VINN r0 *1 0,0 
+Ccc__5_VINN \$5 VINN 2.4095e-17
+* device instance cc__5_VINP r0 *1 0,0 
+Ccc__5_VINP \$5 VINP 1.2047e-17
+* device instance cc__6__8 r0 *1 0,0 
+Ccc__6__8 \$6 \$8 3.6142e-17
+* device instance cc__6_BOOST_N r0 *1 0,0 
+Ccc__6_BOOST_N \$6 BOOST_N 3.6142e-17
+* device instance cc__6_BPREF_N r0 *1 0,0 
+Ccc__6_BPREF_N \$6 BPREF_N 2.4095e-17
+* device instance cc__6_BPREF_P r0 *1 0,0 
+Ccc__6_BPREF_P \$6 BPREF_P 2.4095e-17
+* device instance cc__6_GND r0 *1 0,0 
+Ccc__6_GND \$6 GND 7.2284e-17
+* device instance cc__6_SAMPLE r0 *1 0,0 
+Ccc__6_SAMPLE \$6 SAMPLE 7.2284e-17
+* device instance cc__6_TOP_N r0 *1 0,0 
+Ccc__6_TOP_N \$6 TOP_N 1.2047e-17
+* device instance cc__6_TOP_P r0 *1 0,0 
+Ccc__6_TOP_P \$6 TOP_P 1.2047e-17
+* device instance cc__6_VCM r0 *1 0,0 
+Ccc__6_VCM \$6 VCM 4.819e-17
+* device instance cc__6_VDD r0 *1 0,0 
+Ccc__6_VDD \$6 VDD 3.6142e-17
+* device instance cc__6_VINN r0 *1 0,0 
+Ccc__6_VINN \$6 VINN 3.6142e-17
+* device instance cc__6_VINP r0 *1 0,0 
+Ccc__6_VINP \$6 VINP 3.6142e-17
+* device instance cc__8_BOOST_N r0 *1 0,0 
+Ccc__8_BOOST_N \$8 BOOST_N 3.6142e-17
+* device instance cc__8_BOOST_P r0 *1 0,0 
+Ccc__8_BOOST_P \$8 BOOST_P 6.5836e-17
+* device instance cc__8_BPREF_N r0 *1 0,0 
+Ccc__8_BPREF_N \$8 BPREF_N 2.4095e-17
+* device instance cc__8_BPREF_P r0 *1 0,0 
+Ccc__8_BPREF_P \$8 BPREF_P 2.4095e-17
+* device instance cc__8_GND r0 *1 0,0 
+Ccc__8_GND \$8 GND 2.4095e-17
+* device instance cc__8_SAMPLE r0 *1 0,0 
+Ccc__8_SAMPLE \$8 SAMPLE 2.4095e-17
+* device instance cc__8_TOP_N r0 *1 0,0 
+Ccc__8_TOP_N \$8 TOP_N 1.2047e-17
+* device instance cc__8_TOP_P r0 *1 0,0 
+Ccc__8_TOP_P \$8 TOP_P 1.2047e-17
+* device instance cc__8_VCM r0 *1 0,0 
+Ccc__8_VCM \$8 VCM 2.4095e-17
+* device instance cc__8_VDD r0 *1 0,0 
+Ccc__8_VDD \$8 VDD 1.2047e-17
+* device instance cc__8_VINN r0 *1 0,0 
+Ccc__8_VINN \$8 VINN 2.4095e-17
+* device instance cc__8_VINP r0 *1 0,0 
+Ccc__8_VINP \$8 VINP 2.4095e-17
+* device instance cc_BOOST_N_BOOST_P r0 *1 0,0 
+Ccc_BOOST_N_BOOST_P BOOST_N BOOST_P 3.6142e-17
+* device instance cc_BOOST_N_BPREF_N r0 *1 0,0 
+Ccc_BOOST_N_BPREF_N BOOST_N BPREF_N 1.2047e-17
+* device instance cc_BOOST_N_BPREF_P r0 *1 0,0 
+Ccc_BOOST_N_BPREF_P BOOST_N BPREF_P 1.2047e-17
+* device instance cc_BOOST_N_SAMPLE r0 *1 0,0 
+Ccc_BOOST_N_SAMPLE BOOST_N SAMPLE 3.6142e-17
+* device instance cc_BOOST_N_TOP_N r0 *1 0,0 
+Ccc_BOOST_N_TOP_N BOOST_N TOP_N 1.2047e-17
+* device instance cc_BOOST_N_TOP_P r0 *1 0,0 
+Ccc_BOOST_N_TOP_P BOOST_N TOP_P 1.2047e-17
+* device instance cc_BOOST_N_VCM r0 *1 0,0 
+Ccc_BOOST_N_VCM BOOST_N VCM 3.6142e-17
+* device instance cc_BOOST_N_VDD r0 *1 0,0 
+Ccc_BOOST_N_VDD BOOST_N VDD 2.4095e-17
+* device instance cc_BOOST_N_VINN r0 *1 0,0 
+Ccc_BOOST_N_VINN BOOST_N VINN 2.4095e-17
+* device instance cc_BOOST_N_VINP r0 *1 0,0 
+Ccc_BOOST_N_VINP BOOST_N VINP 2.4095e-17
+* device instance cc_BOOST_P_BPREF_N r0 *1 0,0 
+Ccc_BOOST_P_BPREF_N BOOST_P BPREF_N 2.4095e-17
+* device instance cc_BOOST_P_BPREF_P r0 *1 0,0 
+Ccc_BOOST_P_BPREF_P BOOST_P BPREF_P 2.4095e-17
+* device instance cc_BOOST_P_TOP_N r0 *1 0,0 
+Ccc_BOOST_P_TOP_N BOOST_P TOP_N 1.2047e-17
+* device instance cc_BOOST_P_TOP_P r0 *1 0,0 
+Ccc_BOOST_P_TOP_P BOOST_P TOP_P 1.2047e-17
+* device instance cc_BOOST_P_VDD r0 *1 0,0 
+Ccc_BOOST_P_VDD BOOST_P VDD 2.4095e-17
+* device instance cc_BOOST_P_VINN r0 *1 0,0 
+Ccc_BOOST_P_VINN BOOST_P VINN 3.6142e-17
+* device instance cc_BOOST_P_VINP r0 *1 0,0 
+Ccc_BOOST_P_VINP BOOST_P VINP 3.6142e-17
+* device instance cc_BPREF_N_BPREF_P r0 *1 0,0 
+Ccc_BPREF_N_BPREF_P BPREF_N BPREF_P 2.4095e-17
+* device instance cc_BPREF_N_GND r0 *1 0,0 
+Ccc_BPREF_N_GND BPREF_N GND 1.2047e-17
+* device instance cc_BPREF_N_SAMPLE r0 *1 0,0 
+Ccc_BPREF_N_SAMPLE BPREF_N SAMPLE 2.4095e-17
+* device instance cc_BPREF_N_TOP_N r0 *1 0,0 
+Ccc_BPREF_N_TOP_N BPREF_N TOP_N 2.9694e-17
+* device instance cc_BPREF_N_TOP_P r0 *1 0,0 
+Ccc_BPREF_N_TOP_P BPREF_N TOP_P 2.4095e-17
+* device instance cc_BPREF_N_VCM r0 *1 0,0 
+Ccc_BPREF_N_VCM BPREF_N VCM 1.2047e-17
+* device instance cc_BPREF_N_VDD r0 *1 0,0 
+Ccc_BPREF_N_VDD BPREF_N VDD 1.2047e-17
+* device instance cc_BPREF_N_VINN r0 *1 0,0 
+Ccc_BPREF_N_VINN BPREF_N VINN 1.2047e-17
+* device instance cc_BPREF_N_VINP r0 *1 0,0 
+Ccc_BPREF_N_VINP BPREF_N VINP 1.2047e-17
+* device instance cc_BPREF_P_GND r0 *1 0,0 
+Ccc_BPREF_P_GND BPREF_P GND 1.2047e-17
+* device instance cc_BPREF_P_SAMPLE r0 *1 0,0 
+Ccc_BPREF_P_SAMPLE BPREF_P SAMPLE 1.2047e-17
+* device instance cc_BPREF_P_TOP_N r0 *1 0,0 
+Ccc_BPREF_P_TOP_N BPREF_P TOP_N 1.2047e-17
+* device instance cc_BPREF_P_TOP_P r0 *1 0,0 
+Ccc_BPREF_P_TOP_P BPREF_P TOP_P 2.9694e-17
+* device instance cc_BPREF_P_VCM r0 *1 0,0 
+Ccc_BPREF_P_VCM BPREF_P VCM 2.4095e-17
+* device instance cc_BPREF_P_VDD r0 *1 0,0 
+Ccc_BPREF_P_VDD BPREF_P VDD 1.2047e-17
+* device instance cc_BPREF_P_VINN r0 *1 0,0 
+Ccc_BPREF_P_VINN BPREF_P VINN 1.2047e-17
+* device instance cc_BPREF_P_VINP r0 *1 0,0 
+Ccc_BPREF_P_VINP BPREF_P VINP 1.2047e-17
+* device instance cc_GND_SAMPLE r0 *1 0,0 
+Ccc_GND_SAMPLE GND SAMPLE 7.2284e-17
+* device instance cc_GND_TOP_N r0 *1 0,0 
+Ccc_GND_TOP_N GND TOP_N 1.2047e-17
+* device instance cc_GND_TOP_P r0 *1 0,0 
+Ccc_GND_TOP_P GND TOP_P 1.2047e-17
+* device instance cc_GND_VCM r0 *1 0,0 
+Ccc_GND_VCM GND VCM 2.4095e-17
+* device instance cc_GND_VINN r0 *1 0,0 
+Ccc_GND_VINN GND VINN 2.4095e-17
+* device instance cc_GND_VINP r0 *1 0,0 
+Ccc_GND_VINP GND VINP 2.4095e-17
+* device instance cc_SAMPLE_TOP_N r0 *1 0,0 
+Ccc_SAMPLE_TOP_N SAMPLE TOP_N 1.2047e-17
+* device instance cc_SAMPLE_TOP_P r0 *1 0,0 
+Ccc_SAMPLE_TOP_P SAMPLE TOP_P 1.2047e-17
+* device instance cc_SAMPLE_VCM r0 *1 0,0 
+Ccc_SAMPLE_VCM SAMPLE VCM 3.6142e-17
+* device instance cc_SAMPLE_VDD r0 *1 0,0 
+Ccc_SAMPLE_VDD SAMPLE VDD 1.2047e-17
+* device instance cc_SAMPLE_VINN r0 *1 0,0 
+Ccc_SAMPLE_VINN SAMPLE VINN 3.6142e-17
+* device instance cc_SAMPLE_VINP r0 *1 0,0 
+Ccc_SAMPLE_VINP SAMPLE VINP 2.4095e-17
+* device instance cc_TOP_N_TOP_P r0 *1 0,0 
+Ccc_TOP_N_TOP_P TOP_N TOP_P 1.2047e-17
+* device instance cc_TOP_N_VCM r0 *1 0,0 
+Ccc_TOP_N_VCM TOP_N VCM 1.2047e-17
+* device instance cc_TOP_N_VINN r0 *1 0,0 
+Ccc_TOP_N_VINN TOP_N VINN 1.2047e-17
+* device instance cc_TOP_N_VINP r0 *1 0,0 
+Ccc_TOP_N_VINP TOP_N VINP 1.2047e-17
+* device instance cc_TOP_P_VCM r0 *1 0,0 
+Ccc_TOP_P_VCM TOP_P VCM 1.2047e-17
+* device instance cc_TOP_P_VINN r0 *1 0,0 
+Ccc_TOP_P_VINN TOP_P VINN 1.2047e-17
+* device instance cc_TOP_P_VINP r0 *1 0,0 
+Ccc_TOP_P_VINP TOP_P VINP 1.2047e-17
+* device instance cc_VCM_VDD r0 *1 0,0 
+Ccc_VCM_VDD VCM VDD 2.4095e-17
+* device instance cc_VCM_VINN r0 *1 0,0 
+Ccc_VCM_VINN VCM VINN 2.4095e-17
+* device instance cc_VCM_VINP r0 *1 0,0 
+Ccc_VCM_VINP VCM VINP 2.4095e-17
+* device instance cc_VDD_VINN r0 *1 0,0 
+Ccc_VDD_VINN VDD VINN 1.2047e-17
+* device instance cc_VDD_VINP r0 *1 0,0 
+Ccc_VDD_VINP VDD VINP 1.2047e-17
+* device instance cc_VINN_VINP r0 *1 0,0 
+Ccc_VINN_VINP VINN VINP 2.4095e-17
+* device instance vsubs_dctie r0 *1 0,0 
+Rvsubs_dctie vsubs 0 1e+12
+.ENDS gen_compose_0
