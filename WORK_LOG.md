@@ -6,6 +6,11 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-23
+
+- **PR #1041**: sim: DR-027 candidate-plate settling/rate study and DRAFT sample-rate row verdict (3.3000 um)
+- **Issue #1033** (closed): Re-derive the settling / sample-rate budget at the DR-027 array size (C_tot ~12.4 pF/side) against DR-006
+
 ### 2026-11-22
 
 - **PR #1039**: fix(report): read plot data from the record each figure cites
