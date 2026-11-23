@@ -2,6 +2,18 @@
 
 Sections moved byte-for-byte from [WORK_LOG.md](../WORK_LOG.md) by `loom-daemon work-docs archive`.
 
+### 2026-09-23
+
+- **Issue #344** (closed): T1 item 11 (power delivery, structural): no klt erc supply spec or report in this repo
+- **Issue #347** (closed): 2am: reuse rule 9 — in-tree comparator duplicates sibling canary sky130-comparator — add reuse.lock.json in_tree entry (evaluate), then adopt or record
+- **PR #352**: layout: re-measure sar-adc-top on klayout-tools 0.6.0 -- LVS still not clean, real --abstract-cells mechanism located (#103)
+- **PR #353**: chore: record the in-tree comparator against sibling sky130-comparator
+- **PR #356**: feat(layout): commit klt erc supply spec and report for T1 item 11
+
+### 2026-09-22
+
+- **Issue #350** (closed): comparator noise: regeneration-inclusive measurement methodology (equivalent-source transient-noise MC) demonstrated on the sky130-comparator canary
+
 ### 2026-09-19
 
 - **Issue #333** (closed): layout/sar-sequencer + layout/seln-inverters: 145 place-and-route-generated metal shapes violate sky130A's m1.6/m2.6/m3.6/m5.4 minimum-area rules
