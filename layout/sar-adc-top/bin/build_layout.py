@@ -1647,8 +1647,10 @@ def _check_halflsb_rail_taps(rails: dict[str, tuple[float, float, float, float]]
                 )
 
 
-def halflsb_leg(c: Canvas, net: str) -> tuple[float, float]:
-    """Drop `halflsb_offset`'s own `net` pin to that net's met1 row below the
+def halflsb_leg(
+    c: Canvas, net: str, origin: tuple[float, float, tuple[int, int]]
+) -> tuple[float, float]:
+    """Drop the resolved pin `origin` to `net`'s met1 row below the
     block and run the row out to `HALFLSB_DEST_X[net]`, returning the landing
     point so the caller can continue (or, for the four nets that tee onto an
     existing met4 column, so it can assert the landing).
@@ -1658,7 +1660,7 @@ def halflsb_leg(c: Canvas, net: str) -> tuple[float, float]:
     going all the way up in one `riser()` call is what keeps each landing's
     pad stack identical regardless of which layer the leg arrived on.
     """
-    hx, hy, native = global_pin("halflsb_offset", net)
+    hx, hy, native = origin
     assert native == MET2
     row = HALFLSB_ROW_Y[net]
     column_layer = MET4 if net in HALFLSB_MET4_COLUMNS else MET3
@@ -2017,11 +2019,11 @@ def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]
     #     `cdac_array`'s own `VSS` tap does, rather than at a second place.
     member = ("halflsb_offset", "GND")
     members.append(member)
-    hl_x, hl_y, _hl_layer = global_pin(*member)
-    hl_row = HALFLSB_ROW_Y["GND"]
-    halflsb_leg(c, member[1])
+    origin = global_pin(*member)
+    hl_x, hl_y, _hl_layer = origin
+    hl_dest, hl_row = halflsb_leg(c, member[1], origin)
     segments["halflsb_column"] = (hl_x - half, hl_row - half, hl_x + half, hl_y + half)
-    segments["halflsb_row"] = (wx - half, hl_row - half, hl_x + half, hl_row + half)
+    segments["halflsb_row"] = (hl_dest - half, hl_row - half, hl_x + half, hl_row + half)
 
     # --- the top-level pad label, at DR-012's own coordinate.
     c.label(MET4_PIN, gx, GND_PAD_Y, "GND")
@@ -3050,7 +3052,7 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
     c.wire(MET4, wx, vrefp_y, wx, HALFLSB_ROW_Y["VREFP"], w=WIRE_W)
 
     for net in ("TOP_N", "TOP_P", "VDD", "VREFP", "VCM", "HALF_LSB_EN", "HALF_LSB_ENN"):
-        halflsb_leg(c, net)
+        halflsb_leg(c, net, global_pin("halflsb_offset", net))
     _check_halflsb_symmetry()
 
     # ------------------------------------------------------------------ #
@@ -3090,7 +3092,7 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
         c.wire(MET3, tap_x, tap_y, wx, tap_y, w=WIRE_W)
         c.riser(wx, tap_y, MET3, MET4)
         c.wire(MET4, wx, tap_y, wx, HALFLSB_ROW_Y[net], w=WIRE_W)
-        halflsb_leg(c, net)
+        halflsb_leg(c, net, global_pin("halflsb_offset", net))
     _check_halflsb_rail_taps(rails)
     rail_slice = (rail_lo, len(c.shapes))
 
