@@ -1,0 +1,635 @@
+{
+ "netlist": "tb.spice",
+ "engine": "ngspice",
+ "models": {
+  "pdk": "sky130A",
+  "lib": "libs.tech/combined/sky130.lib.spice"
+ },
+ "corners": {
+  "process": [
+   "ff",
+   "fs",
+   "sf",
+   "ss",
+   "tt"
+  ],
+  "temperature_c": [
+   -40,
+   27.0,
+   125
+  ],
+  "params": {
+   "vdd_val": [
+    1.62,
+    1.8,
+    1.98
+   ]
+  }
+ },
+ "analysis": {
+  "kind": "tran",
+  "args": "0.5n 2700n"
+ },
+ "measurements": [
+  {
+   "name": "phsample_c1",
+   "spice": ".meas tran phsample_c1 find v(ph_sample_hf) at=200.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb9_c1",
+   "spice": ".meas tran phb9_c1 find v(ph_b9_hf) at=300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb8_c1",
+   "spice": ".meas tran phb8_c1 find v(ph_b8_hf) at=400.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb7_c1",
+   "spice": ".meas tran phb7_c1 find v(ph_b7_hf) at=500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb6_c1",
+   "spice": ".meas tran phb6_c1 find v(ph_b6_hf) at=600.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb5_c1",
+   "spice": ".meas tran phb5_c1 find v(ph_b5_hf) at=700.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb4_c1",
+   "spice": ".meas tran phb4_c1 find v(ph_b4_hf) at=800.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb3_c1",
+   "spice": ".meas tran phb3_c1 find v(ph_b3_hf) at=900.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb2_c1",
+   "spice": ".meas tran phb2_c1 find v(ph_b2_hf) at=1000.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb1_c1",
+   "spice": ".meas tran phb1_c1 find v(ph_b1_hf) at=1100.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb0_c1",
+   "spice": ".meas tran phb0_c1 find v(ph_b0_hf) at=1200.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "pheoc_c1",
+   "spice": ".meas tran pheoc_c1 find v(ph_eoc_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout9_c1",
+   "spice": ".meas tran dout9_c1 find v(dout9_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout8_c1",
+   "spice": ".meas tran dout8_c1 find v(dout8_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout7_c1",
+   "spice": ".meas tran dout7_c1 find v(dout7_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  },
+  {
+   "name": "dout6_c1",
+   "spice": ".meas tran dout6_c1 find v(dout6_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  },
+  {
+   "name": "dout5_c1",
+   "spice": ".meas tran dout5_c1 find v(dout5_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout4_c1",
+   "spice": ".meas tran dout4_c1 find v(dout4_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  },
+  {
+   "name": "dout3_c1",
+   "spice": ".meas tran dout3_c1 find v(dout3_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout2_c1",
+   "spice": ".meas tran dout2_c1 find v(dout2_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  },
+  {
+   "name": "dout1_c1",
+   "spice": ".meas tran dout1_c1 find v(dout1_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout0_c1",
+   "spice": ".meas tran dout0_c1 find v(dout0_hf) at=1300.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout9_early_c1",
+   "spice": ".meas tran dout9_early_c1 find v(dout9_hf) at=400.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "phb9_c2",
+   "spice": ".meas tran phb9_c2 find v(ph_b9_hf) at=1500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "pheoc_c2",
+   "spice": ".meas tran pheoc_c2 find v(ph_eoc_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout9_c2",
+   "spice": ".meas tran dout9_c2 find v(dout9_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  },
+  {
+   "name": "dout8_c2",
+   "spice": ".meas tran dout8_c2 find v(dout8_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  },
+  {
+   "name": "dout7_c2",
+   "spice": ".meas tran dout7_c2 find v(dout7_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout6_c2",
+   "spice": ".meas tran dout6_c2 find v(dout6_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout5_c2",
+   "spice": ".meas tran dout5_c2 find v(dout5_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  },
+  {
+   "name": "dout4_c2",
+   "spice": ".meas tran dout4_c2 find v(dout4_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout3_c2",
+   "spice": ".meas tran dout3_c2 find v(dout3_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  },
+  {
+   "name": "dout2_c2",
+   "spice": ".meas tran dout2_c2 find v(dout2_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "min": 0.0
+   }
+  },
+  {
+   "name": "dout1_c2",
+   "spice": ".meas tran dout1_c2 find v(dout1_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  },
+  {
+   "name": "dout0_c2",
+   "spice": ".meas tran dout0_c2 find v(dout0_hf) at=2500.0n",
+   "unit": "V",
+   "spec_row": "resolution_n",
+   "limits": {
+    "max": 0.0
+   }
+  }
+ ],
+ "options": {
+  "timeout_s": 1800.0,
+  "keep_artifacts": true,
+  "save_vectors": [
+   "v(dout0_hf)",
+   "v(dout1_hf)",
+   "v(dout2_hf)",
+   "v(dout3_hf)",
+   "v(dout4_hf)",
+   "v(dout5_hf)",
+   "v(dout6_hf)",
+   "v(dout7_hf)",
+   "v(dout8_hf)",
+   "v(dout9_hf)",
+   "v(ph_b0_hf)",
+   "v(ph_b1_hf)",
+   "v(ph_b2_hf)",
+   "v(ph_b3_hf)",
+   "v(ph_b4_hf)",
+   "v(ph_b5_hf)",
+   "v(ph_b6_hf)",
+   "v(ph_b7_hf)",
+   "v(ph_b8_hf)",
+   "v(ph_b9_hf)",
+   "v(ph_eoc_hf)",
+   "v(ph_sample_hf)"
+  ],
+  "ngspice_init": [
+   "set numdgt=10"
+  ]
+ },
+ "exclude": [
+  {
+   "process": "ff",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40,
+   "params": {
+    "vdd_val": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125,
+   "params": {
+    "vdd_val": 1.98
+   }
+  }
+ ]
+}
