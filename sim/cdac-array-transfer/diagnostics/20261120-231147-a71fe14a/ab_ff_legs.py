@@ -16,7 +16,8 @@ sys.path.insert(0, str(SIM / "cdac-array-transfer"))
 from harness import corners as corners_mod, measure, pdk, toolchain  # noqa: E402
 import run_transfer  # noqa: E402
 
-OLD_ROOT, NEW_ROOT, OUTDIR = sys.argv[1], sys.argv[2], Path(sys.argv[3])
+OLD_ROOT, NEW_ROOT = sys.argv[1], sys.argv[2]
+OUTDIR = Path(sys.argv[3]).resolve()  # absolute: ngspice runs with the scratch dir as cwd
 EXPECT = {"old": "c6d73a35f524070e85faff4a6a9eef49553ebc2b",
           "new": "f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"}
 OUTDIR.mkdir(parents=True, exist_ok=True)
