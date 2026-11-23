@@ -1,0 +1,357 @@
+{
+ "netlist": "tb.spice",
+ "engine": "ngspice",
+ "models": {
+  "pdk": "sky130A",
+  "lib": "libs.tech/combined/sky130.lib.spice"
+ },
+ "corners": {
+  "process": [
+   "ff",
+   "fs",
+   "sf",
+   "ss",
+   "tt"
+  ],
+  "supply_v": {
+   "vsup": [
+    1.62,
+    1.8,
+    1.98
+   ]
+  },
+  "temperature_c": [
+   -40.0,
+   27.0,
+   125.0
+  ]
+ },
+ "analysis_steps": [
+  {
+   "name": "fast",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.2n 250n"
+   },
+   "measurements": [
+    {
+     "name": "acq_fast_p",
+     "spice": ".meas tran acq_fast_p find v(TOP_P) at=243.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "acq_fast_n",
+     "spice": ".meas tran acq_fast_n find v(TOP_N) at=243.433333n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "slow",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.2n 1040n"
+   },
+   "measurements": [
+    {
+     "name": "acq_slow_p",
+     "spice": ".meas tran acq_slow_p find v(TOP_P) at=993.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "acq_slow_n",
+     "spice": ".meas tran acq_slow_n find v(TOP_N) at=993.433333n",
+     "unit": "V"
+    },
+    {
+     "name": "acq_late_p",
+     "spice": ".meas tran acq_late_p find v(TOP_P) at=1015.000000n",
+     "unit": "V"
+    },
+    {
+     "name": "acq_late_n",
+     "spice": ".meas tran acq_late_n find v(TOP_N) at=1015.000000n",
+     "unit": "V"
+    }
+   ]
+  },
+  {
+   "name": "tset",
+   "reset": true,
+   "analysis": {
+    "kind": "tran",
+    "args": "0.2n 1015n"
+   },
+   "measurements": [
+    {
+     "name": "acq_tset",
+     "spice": ".meas tran acq_tset TRIG AT=160.1n TARG V(ACQERR) VAL=0.0017578 FALL=LAST",
+     "unit": "s"
+    }
+   ]
+  }
+ ],
+ "options": {
+  "timeout_s": 300.0,
+  "keep_artifacts": true
+ },
+ "exclude": [
+  {
+   "process": "ff",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ff",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "fs",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "sf",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 27.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.8
+   }
+  },
+  {
+   "process": "ss",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": -40.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.62
+   }
+  },
+  {
+   "process": "tt",
+   "temperature_c": 125.0,
+   "supply_v": {
+    "vsup": 1.98
+   }
+  }
+ ],
+ "remote": {
+  "hosts": 2
+ }
+}
