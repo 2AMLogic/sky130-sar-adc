@@ -28,6 +28,14 @@ sorted save set. The reference-drive budget and the input sweep had each
 carried a private copy of both, so a correction to card handling had to
 reach two campaigns at once.
 
+The request side of an OAT corners campaign is shared here for the same
+reason (issue #1052): `oat_corners()` expands a list of corner-id strings
+into the `corners` axis block plus the Cartesian-complement `exclude` list
+(`klt sim` has no one-at-a-time axis form), and `build_oat_request()`
+assembles the `klt sim` request dict around them. The four drivers that had
+each carried a private copy of that assembly are thin wrappers over it now,
+so a request-schema change is one edit, not four.
+
 Stdlib plus one pure harness sibling (`corners.corner_id` -- string
 formatting, still no PDK), and the subprocess runner is injectable
 (`runner=`), so these paths are unit-testable without `klt`, the PDK or
@@ -43,9 +51,10 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
-from .corners import corner_id
+from .corners import corner_id, parse_corner_id
 
 #: Seconds a non-`local` submit waits for fleet capacity instead of failing
 #: the step. CLAUDE.md's host rule ("pass `--wait-for-capacity 600` on every
@@ -512,3 +521,94 @@ def saved_vectors(meas_cards: list[str]) -> list[str]:
         for kind, node in _VECTOR_RE.findall(card):
             found.add(f"{kind.lower()}({node.strip().lower()})")
     return sorted(found)
+
+
+def oat_corners(
+    corner_ids: Sequence[str], supply_key: str
+) -> tuple[dict, list[dict]]:
+    """The `corners` axis block and `exclude` list for a one-at-a-time PVT
+    grid given as corner-id strings.
+
+    `klt sim` has no OAT axis form, so a campaign declares the full cross
+    product of its distinct process / temperature / supply values and lists
+    the points the grid omits under `exclude`. Four drivers carried
+    byte-identical private copies of this expansion (issue #1052); this is
+    the one copy. `exclude` is empty when the ids already cover the full
+    product (a single corner, or a complete grid).
+    """
+    pts = [parse_corner_id(c) for c in corner_ids]
+    procs = sorted({p for p, _, _ in pts})
+    temps = sorted({t for _, t, _ in pts})
+    vdds = sorted({v for _, _, v in pts})
+    want = set(pts)
+    exclude = [
+        {"process": p, "temperature_c": t, "supply_v": {supply_key: v}}
+        for p in procs
+        for t in temps
+        for v in vdds
+        if (p, t, v) not in want
+    ]
+    corners = {
+        "process": procs,
+        "supply_v": {supply_key: vdds},
+        "temperature_c": temps,
+    }
+    return corners, exclude
+
+
+def build_oat_request(
+    netlist_name: str,
+    corner_ids: Sequence[str],
+    supply_key: str,
+    *,
+    analysis_steps: list[dict] | None = None,
+    analysis: dict | None = None,
+    measurements: list[dict] | None = None,
+    timeout_s: float = 900.0,
+    keep_artifacts: bool = True,
+    pdk: str = "sky130A",
+    models_lib: str = "libs.tech/combined/sky130.lib.spice",
+    backend: str | None = None,
+    batch: dict | None = None,
+) -> dict:
+    """One `klt sim` request for an OAT corners campaign (issue #1052).
+
+    Two request shapes, one per campaign family, and never both or neither:
+    `analysis_steps=` (a step-per-point campaign) or the `analysis=` +
+    `measurements=` pair (a single-analysis campaign). The dict this
+    returns -- keys, values and insertion order -- is byte-for-byte what
+    the four consolidated drivers assembled privately, so no committed
+    request artifact changes shape.
+    """
+    has_steps = analysis_steps is not None
+    if has_steps and (analysis is not None or measurements is not None):
+        raise ValueError(
+            "build_oat_request() takes analysis_steps= or the analysis= + "
+            "measurements= pair, never both at once"
+        )
+    if not has_steps and not (analysis is not None and measurements is not None):
+        raise ValueError(
+            "build_oat_request() takes analysis_steps= or the analysis= + "
+            "measurements= pair -- one of the two is required, and the pair "
+            "is all-or-nothing"
+        )
+    corners, exclude = oat_corners(corner_ids, supply_key)
+    req: dict = {
+        "netlist": netlist_name,
+        "engine": "ngspice",
+        "models": {"pdk": pdk, "lib": models_lib},
+        "corners": corners,
+    }
+    if has_steps:
+        req["analysis_steps"] = analysis_steps
+    else:
+        req["analysis"] = analysis
+        req["measurements"] = measurements
+    req["options"] = {"timeout_s": timeout_s, "keep_artifacts": keep_artifacts}
+    if exclude:
+        req["exclude"] = exclude
+    if backend:
+        req["backend"] = backend
+    if batch:
+        req["batch"] = dict(batch)
+    return req

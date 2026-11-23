@@ -1317,41 +1317,17 @@ def build_corners_request(
     timeout_s: float = DEFAULT_TIMEOUT_S,
     backend: str | None = None,
 ) -> dict:
-    """The `klt sim` request for one `--corners` submission.
-
-    The corner axes are declared as the full cross product with the points
-    the one-at-a-time grid omits listed under `exclude` -- `klt sim` has no
-    OAT axis form, so this is how every `--corners` campaign in this repo
-    expresses the same 9-point grid."""
-    pts = [corners_mod.parse_corner_id(c) for c in cids]
-    procs = sorted({p for p, _, _ in pts})
-    temps = sorted({t for _, t, _ in pts})
-    vdds = sorted({v for _, _, v in pts})
-    want = set(pts)
-    exclude = [
-        {"process": p, "temperature_c": t, "supply_v": {SUPPLY_KEY: v}}
-        for p in procs
-        for t in temps
-        for v in vdds
-        if (p, t, v) not in want
-    ]
-    req: dict = {
-        "netlist": netlist_name,
-        "engine": "ngspice",
-        "models": {"pdk": "sky130A", "lib": "libs.tech/combined/sky130.lib.spice"},
-        "corners": {
-            "process": procs,
-            "supply_v": {SUPPLY_KEY: vdds},
-            "temperature_c": temps,
-        },
-        "analysis_steps": corners_analysis_steps(window, sweep),
-        "options": {"timeout_s": timeout_s, "keep_artifacts": True},
-    }
-    if exclude:
-        req["exclude"] = exclude
-    if backend:
-        req["backend"] = backend
-    return req
+    """The `klt sim` request for one `--corners` submission -- the shared
+    OAT assembly on harness.klt_sim (issue #1052). The corner axes are
+    declared as the full cross product with the points the one-at-a-time
+    grid omits listed under `exclude` -- `klt sim` has no OAT axis form, so
+    this is how every `--corners` campaign in this repo expresses the same
+    9-point grid."""
+    return klt_sim.build_oat_request(
+        netlist_name, cids, SUPPLY_KEY,
+        analysis_steps=corners_analysis_steps(window, sweep),
+        timeout_s=timeout_s, backend=backend,
+    )
 
 
 def read_corners_report(report: dict) -> tuple[dict[str, dict], dict]:
