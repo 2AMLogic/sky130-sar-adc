@@ -1350,37 +1350,11 @@ def build_candidate_request(
     omits listed under `exclude` -- `klt sim` has no OAT axis form, so this
     is how sim/top-plate-cpar/ and sim/input-drive-budget/ express the same
     grid."""
-    pts = [corners_mod.parse_corner_id(c) for c in cids]
-    procs = sorted({p for p, _, _ in pts})
-    temps = sorted({t for _, t, _ in pts})
-    vdds = sorted({v for _, _, v in pts})
-    want = set(pts)
-    exclude = [
-        {"process": p, "temperature_c": t, "supply_v": {CAND_SUPPLY_KEY: v}}
-        for p in procs
-        for t in temps
-        for v in vdds
-        if (p, t, v) not in want
-    ]
-    req: dict = {
-        "netlist": netlist_name,
-        "engine": "ngspice",
-        "models": {"pdk": "sky130A", "lib": "libs.tech/combined/sky130.lib.spice"},
-        "corners": {
-            "process": procs,
-            "supply_v": {CAND_SUPPLY_KEY: vdds},
-            "temperature_c": temps,
-        },
-        "analysis_steps": candidate_analysis_steps(),
-        "options": {"timeout_s": timeout_s, "keep_artifacts": True},
-    }
-    if exclude:
-        req["exclude"] = exclude
-    if backend:
-        req["backend"] = backend
-    if hosts and hosts > 1:
-        req["remote"] = {"hosts": hosts}
-    return req
+    return klt_sim.build_oat_request(
+        netlist_name, cids, CAND_SUPPLY_KEY,
+        analysis_steps=candidate_analysis_steps(),
+        timeout_s=timeout_s, backend=backend, hosts=hosts,
+    )
 
 
 SubmitError = klt_sim.SubmitError

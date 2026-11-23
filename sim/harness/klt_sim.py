@@ -29,12 +29,12 @@ carried a private copy of both, so a correction to card handling had to
 reach two campaigns at once.
 
 The request side of an OAT corners campaign is shared here for the same
-reason (issue #1052): `oat_corners()` expands a list of corner-id strings
-into the `corners` axis block plus the Cartesian-complement `exclude` list
-(`klt sim` has no one-at-a-time axis form), and `build_oat_request()`
-assembles the `klt sim` request dict around them. The four drivers that had
-each carried a private copy of that assembly are thin wrappers over it now,
-so a request-schema change is one edit, not four.
+reason (issues #1052, #1054): `oat_corners()` expands a list of corner-id
+strings into the `corners` axis block plus the Cartesian-complement
+`exclude` list (`klt sim` has no one-at-a-time axis form), and
+`build_oat_request()` assembles the `klt sim` request dict around them.
+The six drivers that had each carried a private copy of that assembly are
+thin wrappers over it now, so a request-schema change is one edit, not six.
 
 Stdlib plus one pure harness sibling (`corners.corner_id` -- string
 formatting, still no PDK), and the subprocess runner is injectable
@@ -531,10 +531,10 @@ def oat_corners(
 
     `klt sim` has no OAT axis form, so a campaign declares the full cross
     product of its distinct process / temperature / supply values and lists
-    the points the grid omits under `exclude`. Four drivers carried
-    byte-identical private copies of this expansion (issue #1052); this is
-    the one copy. `exclude` is empty when the ids already cover the full
-    product (a single corner, or a complete grid).
+    the points the grid omits under `exclude`. Six drivers carried
+    byte-identical private copies of this expansion (issues #1052, #1054);
+    this is the one copy. `exclude` is empty when the ids already cover the
+    full product (a single corner, or a complete grid).
     """
     pts = [parse_corner_id(c) for c in corner_ids]
     procs = sorted({p for p, _, _ in pts})
@@ -570,15 +570,18 @@ def build_oat_request(
     models_lib: str = "libs.tech/combined/sky130.lib.spice",
     backend: str | None = None,
     batch: dict | None = None,
+    hosts: int | None = None,
 ) -> dict:
-    """One `klt sim` request for an OAT corners campaign (issue #1052).
+    """One `klt sim` request for an OAT corners campaign (issues #1052,
+    #1054).
 
     Two request shapes, one per campaign family, and never both or neither:
     `analysis_steps=` (a step-per-point campaign) or the `analysis=` +
     `measurements=` pair (a single-analysis campaign). The dict this
     returns -- keys, values and insertion order -- is byte-for-byte what
-    the four consolidated drivers assembled privately, so no committed
-    request artifact changes shape.
+    the consolidated drivers assembled privately, so no committed request
+    artifact changes shape. `hosts` > 1 appends a `remote` block (the
+    shared-fleet sharding knob) after every other conditional key.
     """
     has_steps = analysis_steps is not None
     if has_steps and (analysis is not None or measurements is not None):
@@ -611,4 +614,6 @@ def build_oat_request(
         req["backend"] = backend
     if batch:
         req["batch"] = dict(batch)
+    if hosts and hosts > 1:
+        req["remote"] = {"hosts": hosts}
     return req
