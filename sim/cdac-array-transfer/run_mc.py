@@ -465,9 +465,11 @@ def _negative_control_measurements(negctrl_record: str) -> dict[str, list[float]
     ngspice run. The as-built 1.9000 um-plate campaign is the natural
     known-bad control for a candidate-resize study: its DNL/INL populations
     demonstrably fail the +-1 LSB limit (empirical yield 0.825/0.925,
-    records 20261001-124049-5207381 / 20261115-014818-7adcfe77), so a
-    control built from it shows the envelope's statistics detect the
-    degradation the resize is meant to remove. Returns None (and the
+    records 20261001-124049-5207381 / 20261115-014818-7adcfe77), so it is
+    DECLARED as the known-bad control. Whether the envelope's statistics
+    actually distinguish it from nominal at the campaign's N is the
+    envelope's own `negative_control.verdict`, not something this
+    declaration asserts. Returns None (and the
     envelope is minted without a control, exactly as before) if the record
     or its draws cannot be read."""
     try:
@@ -522,10 +524,10 @@ def write_evidence(
     yield_json_path = EXPERIMENT_DIR / "yield-reports" / f"{record_id}.json"
     negctrl_samples = _negative_control_measurements(negctrl_record) if negctrl_record else None
     negctrl_desc = (
-        f"as-built 1.9000 um unit plate (DR-019), committed draws of record "
-        f"{negctrl_record} -- known short of the +-1 LSB limit (empirical yield "
-        "0.825 DNL / 0.925 INL, issue #29/#912); shows this envelope's statistics "
-        "detect the degradation the candidate resize removes"
+        f"declared known-bad control: committed draws of record {negctrl_record} "
+        "(plate size and empirical yields are in that record). Declaration only -- "
+        "whether this envelope's statistics distinguish it from the nominal draw is "
+        "reported by negative_control.verdict, not asserted here"
     ) if negctrl_samples else ""
 
     def _measurement(name: str, samples: list[float]) -> dict:
@@ -602,11 +604,12 @@ def write_evidence(
             )
     if negctrl_samples:
         a(
-            "- **Declared negative control (klt yield)**: the as-built 1.9000 um-plate populations "
+            "- **Declared negative control (klt yield)**: the populations "
             f"of committed record `sim/cdac-array-transfer/records/{negctrl_record}.md` "
-            "(re-derived from its committed mc-draws, no new ngspice run) -- a known-bad variant "
-            "against the same limit, demonstrating the envelope detects the degradation the "
-            "candidate resize removes"
+            "(re-derived from its committed mc-draws, no new ngspice run), declared as a known-bad "
+            "variant against the same limit. This is a declaration, not a result: whether the "
+            "envelope's statistics detect the degradation is the envelope's own "
+            "`negative_control.verdict` (see the klt yield section below)"
         )
     a(
         f"- **Statistical convention**: mismatch corner `{result.mismatch_corner}`, N={n}, "

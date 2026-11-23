@@ -16,7 +16,7 @@
 - **Superseded by**: (none while this record stands)
 - **Related**: #1016 (this decision), #29 / PR #130 and #912 (the source
   Monte-Carlo campaign and its freshness-pinnable re-mint),
-  `sim/cdac-array-transfer/analysis/20261121-075813-75b91e85-dirty.md`
+  `sim/cdac-array-transfer/analysis/20261121-081033-75b91e85-dirty.md`
   (the attribution + closure study every number below comes from — the
   "design memo" this record cites, per TEMPLATE.md's decision-vs-derivation
   split),
@@ -24,6 +24,9 @@
   step-3 pilot: fresh MC of the candidate array, N=16, seed 101),
   `sim/cdac-array-transfer/records/20261121-075334-75b91e85.md` (the
   pilot's `klt yield` envelope, negative control declared),
+  `sim/cdac-array-transfer/records/20261123-153432-fe3e3dcf.md` (supersedes
+  the envelope record above: same draws and verdicts, the generated
+  negative-control sentence corrected to a declaration),
   [DR-003](DR-003-numeric-spec-derivation.md) Item 3 (the matching floor
   this record moves), [DR-005](DR-005-cdac-array-design.md),
   [DR-007](DR-007-revised-enob-inl-dnl-targets.md) (the target-value
