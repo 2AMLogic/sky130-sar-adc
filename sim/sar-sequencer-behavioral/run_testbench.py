@@ -449,8 +449,8 @@ def run_corner_campaign(
 # one semantic delta vs the Python rule is the boundary itself: a limit is
 # inclusive, the runner's comparison is strict, so a sample landing exactly
 # ON half rail would pass the limit while the runner reads it as 0. No
-# August sample came within 0.81 V of that boundary, and this run's are the
-# same nodes at the same corners.
+# sample of the August record came within 0.80 V of that boundary (its
+# binding margin is 0.8099 V), the same nodes at the same corners.
 # --------------------------------------------------------------------------- #
 
 #: The spec row this run grades -- the SAME id the manifest declares under
@@ -728,9 +728,10 @@ def decode_row_report(report: dict) -> tuple[list[dict], bool]:
     its `params` row -- the axis this request sweeps), and per-check rows
     `(name, expected_bit, margin_v, raw_v, ok)` with the runner's own bit
     rule (`margin > 0` -> 1, else 0) applied so the record's PASS/FAIL is
-    decided exactly as run_corner_campaign() decides it. A corner whose own
-    status is not `pass` yields no numbers (its checks are reported
-    missing, never zero)."""
+    decided exactly as run_corner_campaign() decides it. The supply must be
+    explicit in each corner's params (never assumed nominal). A corner whose
+    own status is a limit failure keeps its finite readings; a reading that
+    is absent or non-finite is reported missing, never zero."""
     if not isinstance(report, dict):
         raise ValueError("klt sim report is not a JSON object")
     if "error" in report and "corners" not in report:
@@ -739,34 +740,35 @@ def decode_row_report(report: dict) -> tuple[list[dict], bool]:
     overall_ok = True
     for corner in report.get("corners") or []:
         params = corner.get("params") or {}
-        supply_v = float(params.get(VDD_PARAM, NOMINAL_SUPPLY_V))
+        if VDD_PARAM not in params or not klt_sim.finite(params[VDD_PARAM]):
+            raise ValueError(
+                f"corner {corner.get('corner_id')!r} carries no explicit "
+                f"`{VDD_PARAM}` supply in its params -- refusing to assume nominal"
+            )
+        supply_v = float(params[VDD_PARAM])
         cid = corners_mod.corner_id(corner["process"], float(corner["temperature_c"]), supply_v)
         rows = []
-        all_pass = True
-        if corner.get("status") != "pass":
-            all_pass = False
-            rows = [
-                (name, EXPECTED_BITS[name], None, None, False)
-                for name in sorted(EXPECTED_BITS)
-            ]
-        else:
-            values = {
-                m["name"]: m.get("value")
-                for m in (corner.get("measurements") or [])
-                if isinstance(m, dict) and "name" in m
-            }
-            for name in sorted(EXPECTED_BITS):
-                expected_bit = EXPECTED_BITS[name]
-                margin_v = values.get(name)
-                if margin_v is None or not klt_sim.finite(margin_v):
-                    all_pass = False
-                    rows.append((name, expected_bit, None, None, False))
-                    continue
-                measured_bit = 1 if margin_v > 0.0 else 0
-                raw_v = margin_v + 0.5 * supply_v
-                ok = measured_bit == expected_bit
-                all_pass = all_pass and ok
-                rows.append((name, expected_bit, margin_v, raw_v, ok))
+        all_pass = corner.get("status") == "pass"
+        # Readings are kept for every corner that reported them, including a
+        # corner whose own status is a limit failure: the values are the
+        # diagnostic. Only a missing / non-finite reading is reported MISSING.
+        values = {
+            m["name"]: m.get("value")
+            for m in (corner.get("measurements") or [])
+            if isinstance(m, dict) and "name" in m
+        }
+        for name in sorted(EXPECTED_BITS):
+            expected_bit = EXPECTED_BITS[name]
+            margin_v = values.get(name)
+            if margin_v is None or not klt_sim.finite(margin_v):
+                all_pass = False
+                rows.append((name, expected_bit, None, None, False))
+                continue
+            measured_bit = 1 if margin_v > 0.0 else 0
+            raw_v = margin_v + 0.5 * supply_v
+            ok = measured_bit == expected_bit
+            all_pass = all_pass and ok
+            rows.append((name, expected_bit, margin_v, raw_v, ok))
         overall_ok = overall_ok and all_pass
         margins = [abs(m) for _, _, m, _, _ in rows if m is not None]
         points.append(
@@ -782,6 +784,67 @@ def decode_row_report(report: dict) -> tuple[list[dict], bool]:
             }
         )
     return points, overall_ok
+
+
+def check_corner_identities(points: list[dict], requested) -> str | None:
+    """None when `points` holds exactly one result per requested
+    (process, temperature_c, supply_v) tuple; otherwise a one-line reason.
+    Guards against a count-only check passing a report that duplicates one
+    corner and omits another."""
+    want = sorted(
+        corners_mod.corner_id(p, float(t), float(v)) for p, t, v in requested
+    )
+    got = sorted(p["corner_id"] for p in points)
+    if got == want:
+        return None
+    dupes = sorted({c for c in got if got.count(c) > 1})
+    missing = sorted(set(want) - set(got))
+    extra = sorted(set(got) - set(want))
+    return (
+        f"report corners do not match the request (duplicated: {dupes or 'none'}; "
+        f"missing: {missing or 'none'}; unrequested: {extra or 'none'})"
+    )
+
+
+def binding_point(points: list[dict]) -> dict | None:
+    """The point with the smallest finite worst margin, or None when no
+    point carries a finite margin."""
+    finite_pts = [p for p in points if p["worst_margin_v"] == p["worst_margin_v"]]
+    return min(finite_pts, key=lambda p: p["worst_margin_v"]) if finite_pts else None
+
+
+def failing_checks(points: list[dict]) -> list[str]:
+    """One `corner / check / value` line per failing check."""
+    out = []
+    for p in points:
+        for name, expected_bit, margin_v, raw_v, ok in p["rows"]:
+            if ok:
+                continue
+            val = f"margin {margin_v:.4f} V" if margin_v is not None else "no finite reading"
+            out.append(f"`{p['corner_id']}` / `{name}` (expected {expected_bit}): {val}")
+    return out
+
+
+def worker_environment(report: dict, prov) -> tuple[str, str, list[str]]:
+    """(pdk_line, ngspice_line, extra_lines): the canonical Environment
+    values come from the executing worker's own evidence; the submitting
+    host's values are kept separately labelled, and a fallback to the host
+    is stated."""
+    info = klt_sim.run_info(report)
+    pdk = info["worker_pdk"]
+    ng = info["worker_ngspice"]
+    notes = []
+    if not pdk:
+        notes.append(
+            f"PDK: no single executing-worker value reported (seen: {info['worker_pdks_seen'] or 'none'}); "
+            f"FALLBACK to the submitting host's {prov.pdk_line}"
+        )
+    if not ng:
+        notes.append(
+            f"ngspice: no single executing-worker value reported (seen: {info['worker_ngspice_seen'] or 'none'}); "
+            f"FALLBACK to the submitting host's {prov.ng_version}"
+        )
+    return pdk or prov.pdk_line, ng or prov.ng_version, notes
 
 
 def _copy_corner_logs(report: dict, corners_dir: Path) -> list[str]:
@@ -928,13 +991,14 @@ def run_row_evidence_campaign(
         logs = _copy_corner_logs(report, corners_dir)
 
     points, overall_ok = decode_row_report(report)
-    if len(points) != len(grid):
-        print(
-            f"FAIL: report carries {len(points)} corners, expected {len(grid)} "
-            "-- refusing to grade a partial grid."
-        )
+    mismatch = check_corner_identities(points, grid)
+    if mismatch is not None:
+        print(f"FAIL: {mismatch} -- refusing to grade a mismatched grid.")
         return 1
-    binding = min(points, key=lambda p: p["worst_margin_v"])
+    binding = binding_point(points)
+    if binding is None:
+        print("FAIL: no corner carries a finite margin -- nothing to grade.")
+        overall_ok = False
 
     for p in points:
         if not quiet:
@@ -960,9 +1024,13 @@ def run_row_evidence_campaign(
             "corner set, expressed as `klt sim` measurements tagged "
             f"`{SPEC_ROW_ID}` with limits, so `klt signoff` derives the row's "
             "coverage from the envelope instead of a manifest assertion. Same "
-            "DUT, same fragment, same 35 named checks and same nine PVT points "
-            "as the August corner record "
-            "(`records/20260827-211956-e13bc1e.md`); a SEPARATE claim from "
+            "DUT (the revised sequencer with `COMP_EFF` and per-conversion "
+            "gating), same fragment, same 35 named checks and same nine PVT "
+            "points as the September corner record "
+            "(`records/20260912-004028-9aaf1ca.md`); the August record "
+            "(`records/20260827-211956-e13bc1e.md`) graded an earlier DUT and "
+            "fragment and shares only the checks, expected codes and grid; a "
+            "SEPARATE claim from "
             "#811's baseline-agreement and supersession work -- this record "
             "supersedes nothing and states nothing about #811's agreement gate.",
             "- **Netlist provenance**: schematic (`design/sar_sequencer.sch`), "
@@ -990,12 +1058,23 @@ def run_row_evidence_campaign(
             "testbench-only helper source; see the divergence notes) and the "
             "request grades `margin > 0` (expected 1) / `margin < 0` "
             "(expected 0). The limit is inclusive at exactly zero and the "
-            "runner's comparison is strict; no sample in this run sat within "
-            f"{abs(binding['worst_margin_v']):.4f} V of that boundary.",
-            f"- **Binding corner**: `{binding['corner_id']}` (smallest digital "
-            f"margin to the decision threshold across all {len(EXPECTED_BITS)} "
-            f"checks: {binding['worst_margin_v']:.4f} V) -- recorded regardless "
-            "of pass/fail, per sim/README.md's per-row binding-corner convention.",
+            "runner's comparison is strict; "
+            + (
+                f"no sample in this run sat within {binding['worst_margin_v']:.4f} V "
+                "of that boundary."
+                if binding is not None and overall_ok
+                else "see the failing-check list for any sample that missed its limit."
+            ),
+            (
+                f"- **Binding corner**: `{binding['corner_id']}` (smallest finite "
+                f"digital margin to the decision threshold across all "
+                f"{len(EXPECTED_BITS)} checks: {binding['worst_margin_v']:.4f} V) -- "
+                "recorded regardless of pass/fail, per sim/README.md's per-row "
+                "binding-corner convention."
+                if binding is not None
+                else "- **Binding corner**: NONE -- no corner carried a finite "
+                "margin, so no binding point can be named."
+            ),
             f"- **Overall**: {'PASS' if overall_ok else 'FAIL'} "
             f"({sum(1 for p in points if p['all_pass'])}/{len(points)} corners "
             "fully correct)",
@@ -1010,20 +1089,25 @@ def run_row_evidence_campaign(
                 f"| `{p['corner_id']}` | {'PASS' if p['all_pass'] else 'FAIL'} "
                 f"| {p['worst_margin_v']:.4f} |"
             )
-        lines += [
-            "",
-            "## Per-check results at the binding corner (`" + binding["corner_id"] + "`)",
-            "",
-            "| check | expected (bit) | measured (V) | margin to half-rail (V) | pass/fail |",
-            "|---|---|---|---|---|",
-        ]
-        for name, expected_bit, margin_v, raw_v, status in binding["rows"]:
-            mv = f"{margin_v:.4f}" if margin_v is not None else "MISSING"
-            rv = f"{raw_v:.4f}" if raw_v is not None else "MISSING"
-            lines.append(
-                f"| `{name}` | {expected_bit} | {rv} | {mv} | "
-                f"{'PASS' if status else 'FAIL'} |"
-            )
+        if binding is not None:
+            lines += [
+                "",
+                "## Per-check results at the binding corner (`" + binding["corner_id"] + "`)",
+                "",
+                "| check | expected (bit) | measured (V) | margin to half-rail (V) | pass/fail |",
+                "|---|---|---|---|---|",
+            ]
+            for name, expected_bit, margin_v, raw_v, status in binding["rows"]:
+                mv = f"{margin_v:.4f}" if margin_v is not None else "MISSING"
+                rv = f"{raw_v:.4f}" if raw_v is not None else "MISSING"
+                lines.append(
+                    f"| `{name}` | {expected_bit} | {rv} | {mv} | "
+                    f"{'PASS' if status else 'FAIL'} |"
+                )
+        fails = failing_checks(points)
+        if fails:
+            lines += ["", "## Failing checks (corner / check / value)", ""]
+            lines += [f"- {f}" for f in fails]
         if logs:
             lines += [
                 "",
@@ -1056,10 +1140,11 @@ def run_row_evidence_campaign(
                 "testbench' / 'do not relax a spec line to make a result pass' rules.",
             ]
         lines.append("")
+        env_pdk, env_ng, env_notes = worker_environment(report, prov)
         lines.extend(
             evidence.environment_block(
-                pdk_line=prov.pdk_line,
-                ngspice_line=prov.ng_version,
+                pdk_line=f"{env_pdk} (executing worker)",
+                ngspice_line=f"{env_ng} (executing worker)",
                 netlist_sha256=net_sha,
                 extra={
                     "klt (client)": report.get("provenance", {}).get("klt_version", "unknown"),
@@ -1069,11 +1154,10 @@ def run_row_evidence_campaign(
                         )
                         or "unknown"
                     ),
-                    "PDK / ngspice above": (
-                        "as run by the executing worker when it reported them; "
-                        "the submitting host resolved "
+                    "Submitting host (not the executor)": (
                         f"{prov.pdk_line} / {prov.ng_version}"
                     ),
+                    **({"Environment fallback": "; ".join(env_notes)} if env_notes else {}),
                 },
             )
         )
@@ -1125,6 +1209,10 @@ def run_row_probe() -> int:
         )
 
     points, overall_ok = decode_row_report(report)
+    mismatch = check_corner_identities(points, [("tt", 27.0, NOMINAL_SUPPLY_V)])
+    if mismatch is not None:
+        print(f"FAIL: {mismatch}")
+        return 1
     for p in points:
         print(
             f"  {p['corner_id']} (klt `{p['klt_corner_id']}`): "

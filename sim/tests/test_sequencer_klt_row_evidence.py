@@ -323,6 +323,93 @@ class TestDecodeRowReport(unittest.TestCase):
         self.assertEqual(binding["corner_id"], "tt_27c_1.62v")
 
 
+class TestCornerIdentityAndFailureDiagnostics(unittest.TestCase):
+    def test_missing_supply_is_refused_not_assumed_nominal(self):
+        rep = _fake_report([("tt", 27.0, 1.62, _nominal_margins())])
+        del rep["corners"][0]["params"][m.VDD_PARAM]
+        with self.assertRaises(ValueError):
+            m.decode_row_report(rep)
+
+    def test_duplicate_corner_rejected_by_identity_check(self):
+        pts, _ = m.decode_row_report(_fake_report([
+            ("tt", 27.0, 1.8, _nominal_margins()),
+            ("tt", 27.0, 1.8, _nominal_margins()),
+        ]))
+        why = m.check_corner_identities(
+            pts, [("tt", 27.0, 1.8), ("tt", 27.0, 1.62)]
+        )
+        self.assertIsNotNone(why)
+        self.assertIn("tt_27c_1.80v", why)
+        self.assertIn("tt_27c_1.62v", why)
+
+    def test_exact_grid_accepted(self):
+        pts, _ = m.decode_row_report(_fake_report([
+            (p, t, v, _nominal_margins()) for p, t, v in oat_grid()
+        ]))
+        self.assertIsNone(m.check_corner_identities(pts, oat_grid()))
+
+    def test_empty_probe_report_is_refused(self):
+        pts, _ = m.decode_row_report(
+            {"status": "inconclusive", "corners": []}
+        )
+        self.assertIsNotNone(
+            m.check_corner_identities(pts, [("tt", 27.0, m.NOMINAL_SUPPLY_V)])
+        )
+
+    def test_limit_failing_corner_keeps_its_readings(self):
+        rep = _fake_report([("tt", 27.0, 1.8, _nominal_margins())])
+        rep["corners"][0]["status"] = "fail"
+        first = sorted(m.EXPECTED_BITS)[0]
+        for meas in rep["corners"][0]["measurements"]:
+            if meas["name"] == first:
+                meas["value"] = -0.1 if m.EXPECTED_BITS[first] == 1 else 0.1
+        pts, ok = m.decode_row_report(rep)
+        self.assertFalse(ok)
+        self.assertFalse(pts[0]["all_pass"])
+        finite_rows = [r for r in pts[0]["rows"] if r[2] is not None]
+        self.assertEqual(len(finite_rows), len(m.EXPECTED_BITS))
+        self.assertAlmostEqual(pts[0]["worst_margin_v"], 0.1)
+        self.assertEqual(len(m.failing_checks(pts)), 1)
+
+    def test_binding_is_order_independent_with_a_nan_corner(self):
+        failed = _fake_report([("ff", 27.0, 1.8, None)])["corners"]
+        good = _fake_report([("tt", 27.0, 1.62, _nominal_margins())])["corners"]
+        for order in (failed + good, good + failed):
+            pts, _ = m.decode_row_report({"corners": order})
+            self.assertEqual(m.binding_point(pts)["corner_id"], "tt_27c_1.62v")
+
+    def test_no_finite_margin_gives_no_binding(self):
+        pts, _ = m.decode_row_report(_fake_report([("ff", 27.0, 1.8, None)]))
+        self.assertIsNone(m.binding_point(pts))
+
+
+class TestWorkerEnvironment(unittest.TestCase):
+    class _Prov:
+        pdk_line = "sky130A @ hostpdk"
+        ng_version = "ngspice-47"
+
+    def _report(self, pdk, ng):
+        return {"environment": {"remote": {
+            "job_id": "j1",
+            "worker_environment": {
+                "pdk": {"variant": "sky130A", "stamp_text": f"x {pdk}"},
+                "simulator": {"version_banner": f"** {ng} : Circuit level"},
+            },
+        }}}
+
+    def test_worker_values_win_over_host(self):
+        pdk, ng, notes = m.worker_environment(
+            self._report("c6d73a3", "ngspice-46"), self._Prov
+        )
+        self.assertEqual((pdk, ng, notes), ("sky130A @ c6d73a3", "ngspice-46", []))
+
+    def test_fallback_is_labelled(self):
+        pdk, ng, notes = m.worker_environment({}, self._Prov)
+        self.assertEqual((pdk, ng), ("sky130A @ hostpdk", "ngspice-47"))
+        self.assertEqual(len(notes), 2)
+        self.assertTrue(all("FALLBACK" in n for n in notes))
+
+
 # --------------------------------------------------------------------------
 # The hash checker classifies the envelope this run mints
 # --------------------------------------------------------------------------
