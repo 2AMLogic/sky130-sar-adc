@@ -1363,7 +1363,8 @@ def build_candidate_body(code_name: str = CORNERS_CODE_STATE) -> str:
 CAND_MEAS_FAST = [f"acq_{stat}_{side}" for side in SIDES for stat in ("fast",)]
 CAND_MEAS_SLOW = [
     f"acq_{stat}_{side}" for side in SIDES for stat in ("slow", "late")
-] + ["acq_tset"]
+]
+CAND_MEAS_TSET = ["acq_tset"]
 
 
 def candidate_analysis_steps() -> list[dict]:
@@ -1403,14 +1404,17 @@ def candidate_analysis_steps() -> list[dict]:
     # provisional differential half-LSB band, i.e. the instant after which
     # the node entered the band and stayed in it for the rest of the window.
     # A missing crossing (never in band / never out of it) is DATA.
-    slow_meas.append({
+    # The window ENDS at the late read (CAND_LATE_AT_NS, ahead of the SAMPLE
+    # fall): in a longer window the switch turn-off itself re-crosses the
+    # band and FALL=LAST would time the turn-off, not the acquisition.
+    tset_meas = [{
         "name": "acq_tset",
         "spice": (
             f".meas tran acq_tset TRIG AT={TRIG_AT_NS:g}n "
             f"TARG V(ACQERR) VAL={HALF_LSB_MV * 1e-3:.9g} FALL=LAST"
         ),
         "unit": "s",
-    })
+    }]
     return [
         {
             "name": "fast",
@@ -1429,6 +1433,15 @@ def candidate_analysis_steps() -> list[dict]:
                 "args": f"{CAND_SLOW_TRAN_STEP_NS:g}n {CAND_TRAN_STOP_NS:g}n",
             },
             "measurements": slow_meas,
+        },
+        {
+            "name": "tset",
+            "reset": True,
+            "analysis": {
+                "kind": "tran",
+                "args": f"{TRAN_STEP_NS:g}n {CAND_LATE_AT_NS:g}n",
+            },
+            "measurements": tset_meas,
         },
     ]
 
@@ -1548,7 +1561,7 @@ def candidate_corner_row(values: dict[str, float | None], code_name: str) -> dic
         for side in SIDES
     )
     row["complete"] = complete
-    tset = values.get("slow.acq_tset")
+    tset = values.get("tset.acq_tset")
     row["tset_ns"] = tset * 1e9 if klt_sim.finite(tset) else None
     if complete:
         row["worst_node"] = max(
@@ -1582,6 +1595,13 @@ def read_candidate_report(report: dict) -> dict[str, dict]:
 #: report's corners belong to (the grid submit and the two control submits
 #: are separate requests with separate bodies).
 _CODE_OF: dict[str, str] = {}
+
+
+def _report_backend(rep: dict) -> str:
+    """The backend a report says it actually ran on (environment.backend.
+    resolved) -- the record states what happened, not what was requested."""
+    env = rep.get("environment") or {}
+    return str((env.get("backend") or {}).get("resolved"))
 
 
 def _fmt_mv(v: float | None, nd: int = 4) -> str:
@@ -1875,7 +1895,7 @@ def write_candidate_record(
         "last instant the differential error falls through the provisional "
         f"differential half-LSB ({HALF_LSB_MV:.4f} mV, DR-003 Item 2 "
         "pending #27) -- after which it stays inside the band for the rest "
-        f"of the {CAND_TRAN_STOP_NS:g} ns window. A corner with no "
+        f"of the measurement window, which ends at the {CAND_LATE_AT_NS:g} ns late read, ahead of SAMPLE pulse #2's fall (a longer window would time the switch turn-off, not the acquisition). A corner with no "
         "crossing is shown as `none` (never entered, or never left, the "
         "band) and is retained as data. Same 0.2 ns step ceiling as the "
         "fixed-time reads.",
@@ -2035,13 +2055,18 @@ def write_candidate_record(
         f"    --bit-trial-record <that run's record id>",
         "```",
         "",
-        "Three `klt sim` submits: the 9-corner grid goes to the batch fleet "
-        "with `--wait-for-capacity 600`; the two code-state controls are "
-        "single-corner submits that `klt sim` keeps on the local backend, "
-        "so they carry no capacity wait (the control reports record "
-        "`environment.backend.resolved=local`). No ngspice loop runs on "
-        "the submitting host. `--probe` runs one corner on the local backend and is the "
-        "only path that simulates locally. Requests and bodies are committed "
+        "Three `klt sim` submits, as recorded in each archived report's "
+        "`environment`: "
+        + "; ".join(
+            f"`{name}` backend `{_report_backend(rep)}`"
+            for name, rep in reports.items()
+        )
+        + ". The 9-corner grid is submitted with `--wait-for-capacity 600`; "
+        "the two single-corner code-state controls carry no capacity wait "
+        "(the client refuses that flag for a single unit). No ngspice loop "
+        "runs on the submitting host. `--probe` runs one corner on the local "
+        "backend and is the only path that simulates locally. Requests and "
+        "bodies are committed "
         f"under `corners/{prov.record_id}/request/`, the raw reports beside "
         f"this record under `corners/{prov.record_id}/`.",
         "",

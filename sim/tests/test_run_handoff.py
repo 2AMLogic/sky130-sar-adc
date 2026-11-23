@@ -450,7 +450,11 @@ class TestInputsFence(unittest.TestCase):
 class TestSettlingTime(unittest.TestCase):
     def test_tset_measurement_is_last_fall_through_half_lsb_from_second_edge(self):
         steps = {s["name"]: s for s in rh.candidate_analysis_steps()}
-        sp = " ".join(m["spice"] for m in steps["slow"]["measurements"])
+        sp = " ".join(m["spice"] for m in steps["tset"]["measurements"])
+        # window ends at the late read, ahead of the SAMPLE #2 fall
+        self.assertEqual(
+            steps["tset"]["analysis"]["args"].split()[1], f"{rh.CAND_LATE_AT_NS:g}n")
+        self.assertLess(rh.CAND_LATE_AT_NS, rh.CAND_T_SAMPLE2_FALL_NS)
         self.assertIn(f"TRIG AT={rh.TRIG_AT_NS:g}n", sp)
         self.assertIn("TARG V(ACQERR)", sp)
         self.assertIn("FALL=LAST", sp)
@@ -465,5 +469,5 @@ class TestSettlingTime(unittest.TestCase):
 
     def test_row_carries_tset_in_ns_and_none_when_missing(self):
         self.assertAlmostEqual(
-            rh.candidate_corner_row({"slow.acq_tset": 12.5e-9}, "zero")["tset_ns"], 12.5)
+            rh.candidate_corner_row({"tset.acq_tset": 12.5e-9}, "zero")["tset_ns"], 12.5)
         self.assertIsNone(rh.candidate_corner_row({}, "zero")["tset_ns"])
