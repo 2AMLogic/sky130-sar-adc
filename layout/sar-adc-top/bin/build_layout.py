@@ -1886,7 +1886,9 @@ GND_MESH_Y = 165.0
 #: a conductor that block's OWN layout draws and labels, never a position this
 #: module invented. `comparator.GND` is the pin DR-012 built its pad on;
 #: issue #377 added the next two inside `sampling_frontend` and `cdac_array`,
-#: and issue #401 added `halflsb_offset` as the fourth.
+#: and issue #401 added `halflsb_offset` as the fourth. Now asserted against
+#: the legs `analog_ground_mesh()` actually draws: the build fails unless its
+#: four drawn `(block, pin)` pairs equal this list.
 GND_MESH_MEMBERS = (
     ("comparator", "GND"),
     ("sampling_frontend", "GND"),
@@ -1970,22 +1972,26 @@ def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]
     open item, #378), so no number here is claimed as measured.
     """
     segments: dict[str, tuple[float, float, float, float]] = {}
+    members: list[tuple[str, str]] = []
     half = WIRE_W / 2.0
 
     # --- comparator: DR-012's own riser + southward stub, unchanged except
     #     that the stub now continues past the pad label to the trunk.
     gx, gy, native = global_pin("comparator", "GND")
+    members.append(("comparator", "GND"))
     assert native == MET1
     c.riser(gx, gy, MET1, MET4)
     segments["comparator_stub"] = (gx - half, GND_MESH_Y - half, gx + half, gy + half)
 
     # --- sampling_frontend: riser on its own drawn GND met2 track.
     fx, fy = _riser_and_highway(c, "sampling_frontend", "GND", MET4)
+    members.append(("sampling_frontend", "GND"))
     segments["sampling_frontend_dropper"] = (fx - half, fy - half, fx + half, GND_MESH_Y + half)
 
     # --- cdac_array: riser on its own drawn VSS tap, west out of the array's
     #     confirmed-clear switch-row band, onto this mesh's corridor track.
     vx, vy, vnative = global_pin("cdac_array", "VSS")
+    members.append(("cdac_array", "VSS"))
     assert vnative == MET1
     c.riser(vx, vy, MET1, MET3)
     wx = WEST_CORRIDOR_X["GND"]
@@ -2007,6 +2013,7 @@ def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]
     #     offset network's substrate taps join the mesh at the same conductor
     #     `cdac_array`'s own `VSS` tap does, rather than at a second place.
     hl_x, hl_y, _hl_layer = global_pin("halflsb_offset", "GND")
+    members.append(("halflsb_offset", "GND"))
     hl_row = HALFLSB_ROW_Y["GND"]
     halflsb_leg(c, "GND")
     segments["halflsb_column"] = (hl_x - half, hl_row - half, hl_x + half, hl_y + half)
@@ -2014,6 +2021,18 @@ def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]
 
     # --- the top-level pad label, at DR-012's own coordinate.
     c.label(MET4_PIN, gx, GND_PAD_Y, "GND")
+
+    # `GND_MESH_MEMBERS` and the legs above are the same list in two places;
+    # this makes them enforce each other (order aside -- the legs are drawn
+    # in routing order, the constant in provenance order).
+    if sorted(members) != sorted(GND_MESH_MEMBERS):
+        raise SystemExit(
+            f"build_layout.py: analog ground mesh members diverged from "
+            f"GND_MESH_MEMBERS: drawn {sorted(members)}, declared "
+            f"{sorted(GND_MESH_MEMBERS)}. The legs above and the constant "
+            "must name the same members -- add, drop or rename one on both "
+            "sides (the constant's comments record who added each member)."
+        )
     return segments
 
 
