@@ -8,6 +8,18 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-23
 
+- **PR #1062**: feat: assert GND_MESH_MEMBERS against the analog ground mesh's drawn legs
+- **PR #1061**: pex: finish comparator pex_flow delegation, drop #1017 leftovers
+- **PR #1060**: consolidate the last two private OAT request builders onto build_oat_request()
+- **PR #1037**: signoff: bind the digital item-5 Resolution row to a klt sim envelope
+- **PR #1057**: docs: reword stale census "now states" clauses as historical in challenge-4 proposal
+- **PR #1056**: sim: consolidate the four private OAT klt sim request builders into harness klt_sim
+- **Issue #917** (closed): Wire up or remove GND_MESH_MEMBERS: an inert declaration nothing reads
+- **Issue #1059** (closed): Remove #1017 PEX extraction leftovers and finish comparator pex_flow delegation
+- **Issue #1054** (closed): Consolidate the two remaining private OAT klt sim request builders (cdac-bit-trial-settling, sampling-cdac-handoff) onto klt_sim.build_oat_request()
+- **Issue #1023** (closed): T1 item 5: bind the Resolution N row (sar-sequencer behavioral bench) to the digital partition's item 5 row set
+- **Issue #1055** (closed): challenge-4 proposal: deck-census ledger double-counts issue #1023's two decks; "census above now states" clauses are stale
+- **Issue #1052** (closed): Consolidate four copy-pasted OAT klt sim request builders into sim/harness/klt_sim.py
 - **PR #1041**: sim: DR-027 candidate-plate settling/rate study and DRAFT sample-rate row verdict (3.3000 um)
 - **Issue #1033** (closed): Re-derive the settling / sample-rate budget at the DR-027 array size (C_tot ~12.4 pF/side) against DR-006
 
@@ -679,16 +691,4 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 - **PR #376**: feat(layout): draw a top-level analog GND pad, per DR-012
 - **PR #381**: docs(chipalooza): gate how much of Section 4 the freshness check reaches (issue #121)
 - **PR #382**: docs(layout): record the corrected klayout-tools#2139 reproducer re-run (issue #373)
-
-### 2026-09-23
-
-- **Issue #344** (closed): T1 item 11 (power delivery, structural): no klt erc supply spec or report in this repo
-- **Issue #347** (closed): 2am: reuse rule 9 — in-tree comparator duplicates sibling canary sky130-comparator — add reuse.lock.json in_tree entry (evaluate), then adopt or record
-- **PR #352**: layout: re-measure sar-adc-top on klayout-tools 0.6.0 -- LVS still not clean, real --abstract-cells mechanism located (#103)
-- **PR #353**: chore: record the in-tree comparator against sibling sky130-comparator
-- **PR #356**: feat(layout): commit klt erc supply spec and report for T1 item 11
-
-### 2026-09-22
-
-- **Issue #350** (closed): comparator noise: regeneration-inclusive measurement methodology (equivalent-source transient-noise MC) demonstrated on the sky130-comparator canary
 
