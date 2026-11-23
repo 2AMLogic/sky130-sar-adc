@@ -1,0 +1,17 @@
+
+Note: Compatibility modes selected: hs a
+
+
+Circuit: * unit-cap ramp probe (issue #1033) -- w=l=3.3000 um
+
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+option SCALE: Scale is set to 1e-06 for instance and model parameters
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using KLU as Direct Linear Solver
+ Reference value :  0.00000e+00
+No. of Data Rows : 67
+i7                  =  1.21882e-05
+Note: Simulation executed from .control section 

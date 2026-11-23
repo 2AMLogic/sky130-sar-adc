@@ -36,6 +36,7 @@ the fleet.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -157,6 +158,34 @@ def submit_argv(
     return argv
 
 
+def write_inputs(workdir: Path, files: dict[str, str]) -> bool:
+    """Write the named input files under `workdir` and fence the report cache.
+
+    `submit()` reuses a `report.json` found beside the request by path alone,
+    so a work directory re-used after the deck or request changed would
+    attach the OLD report to the NEW inputs. This records a fingerprint of
+    every input in `inputs.sha256`; when an existing fingerprint differs (or
+    a report exists with none), the stale `report.json` is renamed to
+    `report.stale-<fingerprint>.json` -- never deleted -- so the next
+    `submit()` re-simulates. Returns True when a stale report was set aside.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    h = hashlib.sha256()
+    for name in sorted(files):
+        h.update(name.encode() + b"\0" + files[name].encode() + b"\0")
+    fp = h.hexdigest()
+    stamp = workdir / "inputs.sha256"
+    report = workdir / "report.json"
+    previous = stamp.read_text().strip() if stamp.is_file() else None
+    stale = report.is_file() and previous != fp
+    if stale:
+        report.rename(workdir / f"report.stale-{(previous or 'unfingerprinted')[:12]}.json")
+    for name, text in files.items():
+        (workdir / name).write_text(text)
+    stamp.write_text(fp + "\n")
+    return stale
+
+
 def submit(
     request_path: Path | str,
     outdir: Path | str,
@@ -267,6 +296,13 @@ def run_info(report: dict) -> dict:
     jobs = []
     pdks, ngs, features = set(), set(), set()
     for entry in entries:
+        # A LOST shard reports as a null fleet entry (a real campaign hit
+        # this: 5 of 9 corners `lost_shard`, and reading the report crashed
+        # run_info before the campaign could report the loss). A missing
+        # shard contributes no environment facts; the corners it carried
+        # report their own `lost_shard` status either way.
+        if not isinstance(entry, dict):
+            continue
         worker = entry.get("worker_environment") or {}
         pdk_stamp = (worker.get("pdk") or {}).get("stamp_text")
         variant = (worker.get("pdk") or {}).get("variant")
@@ -327,7 +363,7 @@ def finite(x) -> bool:
 
 
 def measurements_by_corner(
-    report: dict, supply_key: str
+    report: dict, supply_key: str, *, null_error_corners: bool = True
 ) -> tuple[dict[str, dict[str, float | None]], dict]:
     """`({corner_id: {"<step>.<name>": value}}, run_info(report))`.
 
@@ -341,6 +377,18 @@ def measurements_by_corner(
     `supply_key` selects the corner's supply out of its `supply_v` map; the
     campaign's module constant (`SUPPLY_KEY` = "vsup" today) moves to this
     argument rather than being baked into yet another module.
+
+    `null_error_corners=False` keeps each MEASUREMENT's own value at a corner
+    whose status is `error`/`inconclusive`. A corner can carry that status
+    because ONE measurement produced no value while every other measurement
+    solved -- the crossing-search case, where a threshold that is never
+    crossed is itself evidence the campaign must RETAIN (a settling study's
+    small-swing row), not a reason to throw away the corner's other values.
+    `klt` already reports per-measurement values and statuses; the default
+    nulling stays the safe read for campaigns where "any error" means "the
+    solve is suspect". (Found by the DR-027 candidate campaign: two corners
+    lost their whole measured grid to one legitimately-missing bit-0
+    crossing.)
     """
     if not isinstance(report, dict):
         raise ValueError("klt sim report is not a JSON object")
@@ -355,7 +403,7 @@ def measurements_by_corner(
             for m in (c.get("measurements") or [])
             if isinstance(m, dict) and "name" in m
         }
-        if c.get("status") in ("error", "inconclusive"):
+        if null_error_corners and c.get("status") in ("error", "inconclusive"):
             vals = {k: None for k in vals}
         out[cid] = vals
     return out, run_info(report)
