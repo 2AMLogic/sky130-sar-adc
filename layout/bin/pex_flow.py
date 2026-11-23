@@ -456,7 +456,3 @@ def apply_capacity_wait(request: dict) -> dict:
         request = dict(request)
         request["batch"] = {**(request.get("batch") or {}), "capacity_wait_s": float(wait)}
     return request
-
-
-def fmt_volts(v: float | None) -> str:
-    return "n/a" if v is None else f"{v:.6g}"
