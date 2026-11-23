@@ -494,62 +494,32 @@ _MEAS_RE = re.compile(
 )
 
 
-def parse_meas_cards(fragment_text: str) -> list[tuple[str, str, str, str]]:
-    """The committed fragment's checks as `(name, node, at, card)` tuples.
-
-    Asserted, not assumed, to be exactly EXPECTED_BITS' key set: a fragment
-    that changed shape fails here instead of silently producing a request
-    that measures something else (the same posture
-    sim/reference-drive-budget/'s split_fragment takes)."""
+def parse_meas_cards(meas_cards: list[str]) -> list[tuple[str, str, str, str]]:
+    """The committed fragment's `.meas` cards (already separated, and already
+    checked against EXPECTED_BITS' key set, by `klt_sim.split_fragment`) as
+    `(name, node, at, card)` tuples. A card that is not the
+    `find v(<node>) at=<t>` form fails here instead of silently producing a
+    request that measures something else."""
     out = []
-    for line in fragment_text.splitlines():
-        stripped = line.strip()
-        if not stripped.lower().startswith(".meas"):
-            continue
-        match = _MEAS_RE.match(stripped)
+    for card in meas_cards:
+        match = _MEAS_RE.match(card.strip())
         if match is None:
             raise RuntimeError(
-                f"unparsed .meas card in the committed fragment: {stripped!r} -- "
+                f"unparsed .meas card in the committed fragment: {card!r} -- "
                 "the fragment changed shape; re-derive this campaign."
             )
-        out.append((match.group(1), match.group(2), match.group(3), stripped))
-    names = sorted(name for name, _, _, _ in out)
-    expected = sorted(EXPECTED_BITS)
-    if names != expected:
-        raise RuntimeError(
-            f"committed fragment declares {len(names)} .meas cards but "
-            f"EXPECTED_BITS names {len(expected)}, and the two sets differ -- "
-            "the fragment changed shape; re-derive this campaign."
-        )
+        out.append((match.group(1), match.group(2), match.group(3), card.strip()))
     return out
 
 
 def split_row_fragment(fragment_text: str) -> tuple[str, list[tuple[str, str, str, str]], str]:
     """Split the committed fragment into the circuit BODY (sources only --
     `klt sim` owns the `.control`/`.end` wrapper), the parsed `.meas`
-    checks, and the `.tran` card's arguments (`analysis.args`)."""
-    body: list[str] = []
-    tran_args: str | None = None
-    for line in fragment_text.splitlines():
-        stripped = line.strip()
-        low = stripped.lower()
-        if low.startswith(".meas"):
-            continue
-        if low.startswith(".tran"):
-            if tran_args is not None:
-                raise RuntimeError(
-                    "expected exactly one .tran card in the committed fragment, "
-                    "found more -- the fragment changed shape; re-derive this campaign."
-                )
-            tran_args = stripped.split(None, 1)[1].strip()
-            continue
-        body.append(line)
-    if tran_args is None:
-        raise RuntimeError(
-            "no .tran card found in the committed fragment -- the fragment "
-            "changed shape; re-derive this campaign."
-        )
-    return "\n".join(body) + "\n", parse_meas_cards(fragment_text), tran_args
+    checks, and the `.tran` card's arguments (`analysis.args`). The split and
+    its shape assertions are the shared harness helper's; only the `.meas`
+    card parsing is this campaign's."""
+    body, meas_cards, tran_args = klt_sim.split_fragment(fragment_text, list(EXPECTED_BITS))
+    return body, parse_meas_cards(meas_cards), tran_args
 
 
 def margin_helper_lines(meas: list[tuple[str, str, str, str]]) -> list[str]:

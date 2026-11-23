@@ -119,7 +119,7 @@ class TestBuildRowBody(unittest.TestCase):
         self.assertIn("VRSTB RST_B 0 PWL(", self.body)
 
     def test_one_margin_helper_per_measured_node(self):
-        nodes = {node for _, node, _, _ in m.parse_meas_cards(FRAGMENT)}
+        nodes = {node for _, node, _, _ in m.split_row_fragment(FRAGMENT)[1]}
         self.assertEqual(len(nodes), 22)
         for node in nodes:
             self.assertIn(
