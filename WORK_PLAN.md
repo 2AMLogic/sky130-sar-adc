@@ -56,7 +56,7 @@ Issues currently being built (`loom:building`).
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#1041**: sim: DR-027 candidate-plate settling/rate study and DRAFT sample-rate row verdict (3.3000 um)
 
 ## Approved (Awaiting Merge)
 
@@ -65,6 +65,7 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 - **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer — implements #790 on the branch for PR #788
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal — closes #834
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep — closes #965
+- **#1049**: feat: grade the V_REF relation per corner and declare the LSB/sampling-cap tolerance gaps
 
 ## Proposed
 
@@ -113,8 +114,8 @@ Issues carrying `loom:curated`.
 | Important | 11 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
 | In Progress (`loom:building`) | 10 |
-| PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 3 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 4 |
 | Curated | 18 |
 | Architect / Hermit proposals | 8 |
 | Active epics | 1 |
