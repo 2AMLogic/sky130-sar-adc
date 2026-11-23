@@ -80,6 +80,8 @@ Usage (from the repo root, after `source sim/env.sh`):
 from __future__ import annotations
 
 import argparse
+import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -89,7 +91,28 @@ REPO_ROOT = SIM_DIR.parent
 EXPERIMENT_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(SIM_DIR))
-from harness import corners as corners_mod, pdk, toolchain, evidence, measure, testbench  # noqa: E402
+from harness import corners as corners_mod  # noqa: E402
+from harness import evidence, klt_sim, measure, pdk, testbench, toolchain  # noqa: E402
+from harness.acquisition import (  # noqa: E402
+    BUDGET_PROBE_AT_NS,
+    CONFIRM_AT_NS,
+    EDGE_TR_NS,
+    SIDES,
+    T_INPUT_TOGGLE_NS,
+    T_PHASE_SLOW_NS,
+    T_PHASE_WORST_NS,
+    T_SAMPLE1_FALL_NS,
+    T_SAMPLE1_RISE_NS,
+    T_SAMPLE1_WIDTH_NS,
+    T_SAMPLE2_RISE_NS,
+    TRAN_STOP_NS,
+    TRIG_AT_NS,
+    V_FINAL_N,
+    V_FINAL_P,
+    V_INITIAL_N,
+    V_INITIAL_P,
+    acquisition_sources,
+)
 
 FE_FRAG = EXPERIMENT_DIR / "testbench" / "sampling_frontend_dut.spice"
 CDAC_FRAG = EXPERIMENT_DIR / "testbench" / "cdac_array_dut.spice"
@@ -145,29 +168,8 @@ SUPPLY_TOLERANCE = corners_mod.RATIFIED_SUPPLY_TOLERANCE
 TEMPS_C = corners_mod.RATIFIED_TEMPS_C
 PROCESS_CORNERS = corners_mod.RATIFIED_PROCESS_CORNERS
 
-# --- issue #469: mechanism (d)'s stimulus, replayed at the combined load ----
-# Every constant below is lifted unchanged from
-# sim/sampling-acquisition-settling/run_acquisition_settling.py, deliberately:
-# the ONLY intended difference between that campaign's PVT-complete record and
-# this one is the capacitive load on TOP_P/TOP_N (front end alone there; front
-# end + real CDAC array here, tied exactly as design/sar_adc_top.sch wires
-# them). See that script's own module docstring for the full rationale of each
-# interval, of the two-pulse shape, and of why the budget-relevant read is a
-# fixed-time `find ... at=` probe rather than a TRIG/TARG crossing search.
-EDGE_TR_NS = 0.2
-T_SAMPLE1_RISE_NS = 10.0
-T_SAMPLE1_WIDTH_NS = 100.0
-T_SAMPLE1_FALL_NS = T_SAMPLE1_RISE_NS + T_SAMPLE1_WIDTH_NS  # 110.0
-T_INPUT_TOGGLE_NS = T_SAMPLE1_FALL_NS + 20.0  # 130.0 -- input steps while Msw is off
-T_SAMPLE2_RISE_NS = T_INPUT_TOGGLE_NS + 30.0  # 160.0 -- the acquiring edge
-T_SAMPLE2_WIDTH_NS = 150.0
-T_SAMPLE2_FALL_NS = T_SAMPLE2_RISE_NS + T_SAMPLE2_WIDTH_NS  # 310.0
-TRAN_STOP_NS = T_SAMPLE2_FALL_NS + 20.0  # 330.0
-
-# The ONE stimulus constant that is deliberately NOT the front-end-only
-# campaign's own value (0.02 ns), and why. `tran <step> <stop>`'s first
-# argument is a step CEILING, not a fixed step: ngspice still reduces the step
-# adaptively through the fast edges either way, so the ceiling only bounds how
+# The first argument of `tran <step> <stop>` sets the step ceiling. ngspice
+# reduces the step adaptively through fast edges, so this ceiling bounds how
 # coarsely it may march through the slow intervals. The front-end-only campaign
 # needs 0.02 ns because it ALSO measures sub-ns `TRIG/TARG` 50%/90% crossings;
 # this mode measures only the two fixed-time `find ... at=` reads deep in the
@@ -179,24 +181,6 @@ TRAN_STOP_NS = T_SAMPLE2_FALL_NS + 20.0  # 330.0
 # ceiling so the choice is checkable rather than asserted; the record reports
 # the ceiling it was produced at.
 TRAN_STEP_NS = 0.2
-
-# DR-006-derived per-phase clock budgets (one CLK period per phase, uniform
-# allocation) -- quoted for comparison only, never as a pass/fail gate: the
-# sample-rate spec row they descend from is entirely DRAFT (#1/#27).
-T_PHASE_WORST_NS = 1.0e3 / 12.0  # 83.333... ns @ f_clk_max = 12 MHz
-T_PHASE_SLOW_NS = 1.0e3 / 1.2  # 833.33... ns @ f_clk_min = 1.2 MHz
-
-TRIG_AT_NS = T_SAMPLE2_RISE_NS + EDGE_TR_NS / 2.0  # 160.1 -- 50% of the edge
-BUDGET_PROBE_AT_NS = TRIG_AT_NS + T_PHASE_WORST_NS  # 243.433...
-CONFIRM_AT_NS = T_SAMPLE2_FALL_NS - 5.0  # 305.0
-
-V_INITIAL_P, V_FINAL_P = 0.2, 1.6
-V_INITIAL_N, V_FINAL_N = 1.6, 0.2
-
-SIDES = {
-    "p": ("TOP_P", V_INITIAL_P, V_FINAL_P),
-    "n": ("TOP_N", V_INITIAL_N, V_FINAL_N),
-}
 
 # The `.meas tran ... find ... at=` names build_acquisition_netlist() emits.
 BUDGET_MEASURE_NAMES = [f"{stat}_{side}" for side in SIDES for stat in ("budget", "confirm")]
@@ -346,31 +330,6 @@ def build_acquisition_netlist(
     fe_frag = FE_FRAG.read_text()
     cdac_frag = CDAC_FRAG.read_text()
 
-    sample_points = [
-        (0.0, 0.0),
-        (T_SAMPLE1_RISE_NS, 0.0),
-        (T_SAMPLE1_RISE_NS + EDGE_TR_NS, vdd),
-        (T_SAMPLE1_FALL_NS, vdd),
-        (T_SAMPLE1_FALL_NS + EDGE_TR_NS, 0.0),
-        (T_SAMPLE2_RISE_NS, 0.0),
-        (T_SAMPLE2_RISE_NS + EDGE_TR_NS, vdd),
-        (T_SAMPLE2_FALL_NS, vdd),
-        (T_SAMPLE2_FALL_NS + EDGE_TR_NS, 0.0),
-        (TRAN_STOP_NS, 0.0),
-    ]
-    vinp_points = [
-        (0.0, V_INITIAL_P),
-        (T_INPUT_TOGGLE_NS, V_INITIAL_P),
-        (T_INPUT_TOGGLE_NS + EDGE_TR_NS, V_FINAL_P),
-        (TRAN_STOP_NS, V_FINAL_P),
-    ]
-    vinn_points = [
-        (0.0, V_INITIAL_N),
-        (T_INPUT_TOGGLE_NS, V_INITIAL_N),
-        (T_INPUT_TOGGLE_NS + EDGE_TR_NS, V_FINAL_N),
-        (TRAN_STOP_NS, V_FINAL_N),
-    ]
-
     lines = toolchain.deck_preamble(
         corner,
         temp_c,
@@ -383,9 +342,7 @@ def build_acquisition_netlist(
         f"Vrefp VREFP 0 dc {vdd}",
         "Vrefn VREFN 0 dc 0",
         f"Vvcm VCM 0 dc {VCM}",
-        f"Vinp VINP 0 {testbench.pwl(vinp_points)}",
-        f"Vinn VINN 0 {testbench.pwl(vinn_points)}",
-        f"Vsample SAMPLE 0 {testbench.pwl(sample_points)}",
+        *acquisition_sources(vdd),
         "",
         "* SELp<i>/SELn<i>: ideal DC sources standing in for the SAR",
         "* sequencer's DOUT<i> register held at a fixed previous-conversion",
@@ -548,6 +505,53 @@ def main() -> int:
         "(issue #469), instead of the end-of-SAMPLE handoff check above",
     )
     ap.add_argument(
+        "--dr027-candidate", action="store_true",
+        help="issue #1033 candidate-geometry study: mechanism (d) at the "
+        "DR-027 proposed 3.3000 um unit plate (front end unchanged), at "
+        "BOTH DR-006 phase deadlines, over the 9-point OAT grid via three "
+        "klt sim submits (grid + two code-state controls). Combine with "
+        "--dry-run, --probe or --record, and --bit-trial-record to link "
+        "the companion bit-trial campaign.",
+    )
+    ap.add_argument(
+        "--dry-run", action="store_true",
+        help="--dr027-candidate only: write the deck + request to --workdir "
+        "and stop (no simulation)",
+    )
+    ap.add_argument(
+        "--probe", action="store_true",
+        help="--dr027-candidate only: one corner (tt_27c_1.80v) on the "
+        "local backend -- the single-unit debug path",
+    )
+    ap.add_argument(
+        "--bit-trial-record", default=None,
+        help="--dr027-candidate --record only: the companion "
+        "sim/cdac-bit-trial-settling candidate record id whose committed "
+        "report supplies the bit-trial half of the settling-versus-rate "
+        "table and verdict",
+    )
+    ap.add_argument(
+        "--backend", default=None,
+        help="klt sim backend for --dr027-candidate (default: klt's own / "
+        "KLT_SIM_BACKEND; the grid goes to the batch fleet)",
+    )
+    ap.add_argument(
+        "--workdir", type=Path, default=None,
+        help="scratch dir for --dr027-candidate submits (default: a fresh tmpdir)",
+    )
+    ap.add_argument(
+        "--timeout-s", type=float, default=CAND_TIMEOUT_S,
+        help="per-unit options.timeout_s for --dr027-candidate (default: "
+        "%(default)s). The fleet refuses a job whose timeout_s * units + "
+        "120 exceeds its whole-job ceiling -- see CAND_TIMEOUT_S's comment "
+        "before raising this",
+    )
+    ap.add_argument(
+        "--hosts", type=int, default=CAND_HOSTS,
+        help="remote.hosts shard count for --dr027-candidate's grid submit "
+        "(default: %(default)s)",
+    )
+    ap.add_argument(
         "--tran-step-ns", type=float, default=TRAN_STEP_NS,
         help="transient step CEILING for --corners, in ns (default "
         f"{TRAN_STEP_NS}; see TRAN_STEP_NS's own comment for why this mode's "
@@ -569,6 +573,9 @@ def main() -> int:
     gate = toolchain.preflight()
     if gate is not None:
         return gate
+
+    if args.dr027_candidate:
+        return candidate_main(args)
 
     if args.corners:
         with tempfile.TemporaryDirectory(prefix="sampling-cdac-handoff-corners-") as tmp:
@@ -1143,6 +1150,1063 @@ def write_corners_record(
     evidence.close_record(run, lines, "Record")
     evidence.write_latest_pointer(EXPERIMENT_DIR, record_id)
     return record_path
+
+
+# ---------------------------------------------------------------------------
+# issue #1033: DR-027 candidate-geometry study (--dr027-candidate)
+# ---------------------------------------------------------------------------
+#: The DR-027 proposed unit-plate side (um) -- issue #1033's statement of the
+#: #1016 proposal: 512 unit positions/side at a 3.3000 um plate, C_tot ~ 12.4
+#: pF/side nominal. EXPERIMENTAL study value: design/cdac/ still draws the
+#: DR-019 1.9000 um plate, and the front end's own Csamp_p/Csamp_n stay on
+#: the shared top plates exactly as design/sar_adc_top.sch wires them.
+CANDIDATE_UNIT_CAP_WL_UM = 3.3000
+PRODUCTION_UNIT_CAP_WL_UM = 1.9000  # what cdac_array_dut.spice draws today
+
+#: The extended two-pulse stimulus. The baseline acquisition stimulus ends
+#: SAMPLE pulse #2 at 310 ns -- long enough for its 243.4 ns budget probe but
+#: NOT for the DR-006 slow-end deadline (160.1 + 833.333 = 993.433 ns), which
+#: issue #1033 requires INSIDE the active phase and ahead of switch turn-off.
+#: Pulse #2 is widened to 860 ns (fall at 1020 ns), everything else about the
+#: two-pulse shape is unchanged.
+CAND_T_SAMPLE2_WIDTH_NS = 860.0
+CAND_T_SAMPLE2_FALL_NS = T_SAMPLE2_RISE_NS + CAND_T_SAMPLE2_WIDTH_NS  # 1020.0
+CAND_TRAN_STOP_NS = CAND_T_SAMPLE2_FALL_NS + 20.0                     # 1040.0
+
+#: The two DR-006 phase deadlines, measured from the acquiring edge's own
+#: 50 % crossing (TRIG_AT_NS), exactly the baseline budget probe's
+#: convention. CAND_FAST_AT_NS is BUDGET_PROBE_AT_NS by construction --
+#: asserted at import so a future edit to either constant surfaces here
+#: rather than as a silent incomparability with the 1.9000 um records.
+CAND_FAST_AT_NS = TRIG_AT_NS + T_PHASE_WORST_NS    # 243.4333... ns
+CAND_SLOW_AT_NS = TRIG_AT_NS + T_PHASE_SLOW_NS     # 993.4333... ns
+CAND_LATE_AT_NS = CAND_T_SAMPLE2_FALL_NS - 5.0     # 1015 ns (CONFIRM_AT_NS's own convention)
+assert abs(CAND_FAST_AT_NS - BUDGET_PROBE_AT_NS) < 1e-9
+
+#: The slow step's coarse ceiling: it reads only fixed-time `find` values
+#: deep in the settled tail (the same argument TRAN_STEP_NS's own comment
+#: makes for the 0.2 ns ceiling), so a 1 ns ceiling over the 1040 ns window
+#: costs far less than 0.2 ns would while changing nothing measurable.
+#: PR #1041 finding 3: the slow step now uses the SAME ceiling as the fast
+#: step (TRAN_STEP_NS), so fixed-time reads at both deadlines and the
+#: settling-time crossing below all come from trajectories of one resolution.
+CAND_SLOW_TRAN_STEP_NS = 0.2
+CAND_FAST_TRAN_STOP_NS = 250.0  # covers the fast deadline with margin
+
+#: Supply-source name = the `corners.supply_v` axis key (sim/input-drive-
+#: budget/'s convention). One body serves all nine corners, so every
+#: corner-dependent LEVEL (SAMPLE swing, SEL logic levels, VREFP) is a
+#: normalised source scaled by v(VDD) through behavioural sources; the input
+#: extremes and VCM stay fixed at the baseline campaign's values (its own
+#: documented convention).
+CAND_SUPPLY_KEY = "vsup"
+
+#: Fleet policy: the grid is one request (9 corners x 2 analysis steps = 18
+#: units, hosts=2 keeps the whole-job bound at 300*9+120 = 2820 s inside the
+#: ceiling the input-drive-budget runner documents), the two code-state
+#: control submits are one corner each (2 units, unsharded).
+CAND_TIMEOUT_S = 300.0
+CAND_HOSTS = 2
+
+#: The committed 1.9000 um assembled-load grid this study is the companion
+#: of -- its binding corner/figure is what the candidate's fast-deadline
+#: column is read against (0.9280 mV worst-node acquisition residual at
+#: 83.333 ns, `tt_27c_1.62v`, at commit 75b91e85).
+CAND_BASELINE_RECORD = "20261001-135431-7487784"
+
+#: The differential half-LSB reference scale (DR-003 Item 2, provisional
+#: pending #27) -- the stated criterion the DRAFT-row verdict is read
+#: against, a reference scale, never a ratified gate.
+HALF_LSB_MV = LSB_DIFF_MV_PROVISIONAL / 2  # 1.7578 mV
+
+#: The other two mechanisms' PVT-complete binding figures, quoted from the
+#: sample-rate entry of sim/report/manifest.py, for the time-left arithmetic.
+COMPARATOR_DECISION_NS = 4.3575    # binding tt_27c_1.62v
+SEQUENCER_LOGIC_NS = 0.4237        # binding ss_27c_1.80v
+V_TARGET_DIFF = V_FINAL_P - V_FINAL_N  # 1.4 V differential ideal
+
+
+def candidate_cdac_fragment() -> tuple[str, int]:
+    """The candidate CDAC array fragment: the committed production fragment
+    with ONLY the 20 unit-cap plates rewritten 1.9000 -> 3.3000 um (9 P-side
+    bit caps + 9 N-side + 2 termination units). Every switch device line is
+    byte-identical to the committed fragment -- the resize-the-plate-only
+    rule issue #1033 states. Returns (text, n_swapped) and refuses (raises)
+    if the production fragment carries anything but exactly 20 unit caps at
+    the production plate."""
+    lines = []
+    n = 0
+    for ln in CDAC_FRAG.read_text().splitlines():
+        if (
+            ln.startswith("XC")
+            and "cap_mim_m3_1" in ln
+            and f"W={PRODUCTION_UNIT_CAP_WL_UM:.4f}" in ln
+        ):
+            ln = ln.replace(
+                f"W={PRODUCTION_UNIT_CAP_WL_UM:.4f} L={PRODUCTION_UNIT_CAP_WL_UM:.4f}",
+                f"W={CANDIDATE_UNIT_CAP_WL_UM:.4f} L={CANDIDATE_UNIT_CAP_WL_UM:.4f}",
+            )
+            n += 1
+        lines.append(ln)
+    if n != 20:
+        raise RuntimeError(
+            f"expected exactly 20 unit-cap plates at W=L="
+            f"{PRODUCTION_UNIT_CAP_WL_UM:.4f} in {CDAC_FRAG.name} "
+            f"(9 per side + 2 termination units); found {n} -- the "
+            "production fragment changed shape; re-derive the candidate "
+            "study before recording."
+        )
+    header = (
+        "* !!! EXPERIMENTAL DR-027 CANDIDATE STUDY FRAGMENT (issue #1033) !!!\n"
+        "* Generated from testbench/cdac_array_dut.spice by run_handoff.py's\n"
+        "* --dr027-candidate mode: ONLY the 20 cap_mim_m3_1 plate sides are\n"
+        f"* rewritten {PRODUCTION_UNIT_CAP_WL_UM:.4f} -> {CANDIDATE_UNIT_CAP_WL_UM:.4f} um\n"
+        "* (C_tot ~ 12.4 pF/side nominal). Every switch device line is\n"
+        "* byte-identical to the committed fragment. This is NOT a netlist of\n"
+        "* the shipping design -- design/cdac/ still draws the DR-019 1.9000\n"
+        "* um plate -- and it is never committed as a testbench/ fragment."
+    )
+    return header + "\n" + "\n".join(lines), n
+
+
+def _candidate_pwl_points() -> tuple[list[tuple[float, float]], list[tuple[float, float]], list[tuple[float, float]]]:
+    """(sample-control, vinp, vinn) PWL point lists, the baseline
+    acquisition stimulus with SAMPLE pulse #2 widened (see
+    CAND_T_SAMPLE2_WIDTH_NS). The SAMPLE control is NORMALISED 0..1 (scaled
+    by v(VDD) in the body); the input extremes keep the baseline campaign's
+    own fixed levels."""
+    sample = [
+        (0.0, 0.0),
+        (T_SAMPLE1_RISE_NS, 0.0),
+        (T_SAMPLE1_RISE_NS + EDGE_TR_NS, 1.0),
+        (T_SAMPLE1_FALL_NS, 1.0),
+        (T_SAMPLE1_FALL_NS + EDGE_TR_NS, 0.0),
+        (T_SAMPLE2_RISE_NS, 0.0),
+        (T_SAMPLE2_RISE_NS + EDGE_TR_NS, 1.0),
+        (CAND_T_SAMPLE2_FALL_NS, 1.0),
+        (CAND_T_SAMPLE2_FALL_NS + EDGE_TR_NS, 0.0),
+        (CAND_TRAN_STOP_NS, 0.0),
+    ]
+    vinp = [
+        (0.0, V_INITIAL_P), (T_INPUT_TOGGLE_NS, V_INITIAL_P),
+        (T_INPUT_TOGGLE_NS + EDGE_TR_NS, V_FINAL_P), (CAND_TRAN_STOP_NS, V_FINAL_P),
+    ]
+    vinn = [
+        (0.0, V_INITIAL_N), (T_INPUT_TOGGLE_NS, V_INITIAL_N),
+        (T_INPUT_TOGGLE_NS + EDGE_TR_NS, V_FINAL_N), (CAND_TRAN_STOP_NS, V_FINAL_N),
+    ]
+    return sample, vinp, vinn
+
+
+def build_candidate_body(code_name: str = CORNERS_CODE_STATE) -> str:
+    """Circuit BODY for the candidate study's `klt sim` requests: no `.lib`,
+    `.temp`, `.control`, `.meas` or `.end` (klt emits those). The front-end
+    fragment is inserted VERBATIM (Csamp_p/Csamp_n stay on TOP_P/TOP_N, per
+    issue #1033: "Keep the front end's own sampling capacitor on each shared
+    top plate"); the CDAC fragment is candidate_cdac_fragment()'s
+    plate-only rewrite; the SEL ideal previous-code drivers and the SAMPLE
+    control are normalised sources scaled by the corner supply (the
+    input-drive-budget campaign's own re-expression); VCM and the input
+    extremes stay fixed at the baseline campaign's values."""
+    sample, vinp, vinn = _candidate_pwl_points()
+    code_bits = CODE_STATES[code_name]
+    L: list[str] = [
+        "* sim/sampling-cdac-handoff -- DR-027 candidate-geometry study",
+        "* (issue #1033): mechanism (d) -- the sampling front end acquiring a",
+        "* new worst-case differential input once SAMPLE re-asserts -- at the",
+        f"* assembled load with the candidate {CANDIDATE_UNIT_CAP_WL_UM:.4f} um"
+        " unit plate",
+        "* (array C_tot ~ 12.4 pF/side nominal; front end Csamp unchanged),",
+        "* at BOTH DR-006 phase deadlines. EXPERIMENTAL study deck: the",
+        "* production fragment still draws the 1.9000 um plate. Circuit body",
+        "* only -- klt sim supplies the corner section, temperature card,",
+        "* measurement cards and tran analysis steps.",
+        ".options num_threads=1",
+        "",
+        FE_FRAG.read_text().rstrip("\n"),
+        "",
+        candidate_cdac_fragment()[0],
+        "",
+        f"* --- testbench sources (the supply source is named `{CAND_SUPPLY_KEY}`,",
+        "* which is also the corners.supply_v axis key) ---",
+        f"{CAND_SUPPLY_KEY} VDD 0 DC {VDD}",
+        "Bvrefp VREFP 0 V=v(VDD)",
+        "Vrefn VREFN 0 DC 0",
+        "Vvss VSS 0 dc 0",
+        f"Vvcm VCM 0 DC {VCM}",
+        f"Vinp VINP 0 {testbench.pwl(vinp)}",
+        f"Vinn VINN 0 {testbench.pwl(vinn)}",
+        f"Vsmpn SMPN 0 {testbench.pwl(sample)}",
+        "Bsample SAMPLE 0 V=v(SMPN)*v(VDD)",
+        "* ACQERR: |(TOP_P - TOP_N) - 1.4 V|, the differential acquisition",
+        "* error the settling-time measurement (acq_tset) crosses the",
+        "* half-LSB reference band on (PR #1041 finding 4).",
+        f"Bacqerr ACQERR 0 V=abs(v(TOP_P)-v(TOP_N)-{V_TARGET_DIFF:g})",
+        "",
+        "* SELp<i>/SELn<i>: ideal previous-code drivers (`" + code_name + "`),",
+        "* normalised and scaled by the corner supply -- the same ideal-DC",
+        "* stand-in the per-corner baseline decks make.",
+    ]
+    for i, bit in enumerate(code_bits):
+        L.append(
+            f"Bselp{i} SELp{i} 0 V=v(VDD)" if bit else f"Vselp{i} SELp{i} 0 DC 0"
+        )
+        L.append(
+            f"Vseln{i} SELn{i} 0 DC 0" if bit else f"Bseln{i} SELn{i} 0 V=v(VDD)"
+        )
+    return "\n".join(L) + "\n"
+
+
+#: Measurement names the two candidate analysis steps emit (prefixed, never
+#: a bare node name -- the ngspice measurement-name/node collision,
+#: 2AMLogic/klayout-tools#5446).
+CAND_MEAS_FAST = [f"acq_{stat}_{side}" for side in SIDES for stat in ("fast",)]
+CAND_MEAS_SLOW = [
+    f"acq_{stat}_{side}" for side in SIDES for stat in ("slow", "late")
+]
+CAND_MEAS_TSET = ["acq_tset"]
+
+
+def candidate_analysis_steps() -> list[dict]:
+    """Two `tran` steps per corner. `fast` (0.2 ns ceiling, the baseline
+    grid's own documented ceiling) covers the 12 MHz deadline read at
+    243.433 ns -- the SAME instant as the baseline records' budget probe, so
+    the candidate's fast column is corner-for-corner comparable with them.
+    `slow` (coarse 1 ns ceiling) extends past the 1.2 MHz deadline read at
+    993.433 ns plus a late read at 1015 ns, both inside SAMPLE pulse #2 and
+    ahead of its fall (issue #1033's window rule)."""
+    fast_meas = [
+        {
+            "name": f"acq_fast_{side}",
+            "spice": (
+                f".meas tran acq_fast_{side} find v({node}) "
+                f"at={CAND_FAST_AT_NS:.6f}n"
+            ),
+            "unit": "V",
+        }
+        for side, (node, _i, _f) in SIDES.items()
+    ]
+    slow_meas = []
+    for stat, at_ns in (("slow", CAND_SLOW_AT_NS), ("late", CAND_LATE_AT_NS)):
+        slow_meas += [
+            {
+                "name": f"acq_{stat}_{side}",
+                "spice": (
+                    f".meas tran acq_{stat}_{side} find v({node}) "
+                    f"at={at_ns:.6f}n"
+                ),
+                "unit": "V",
+            }
+            for side, (node, _i, _f) in SIDES.items()
+        ]
+    # Settling time (PR #1041 finding 4): from the acquiring SAMPLE edge's
+    # 50 % crossing to the LAST fall of |differential error| through the
+    # provisional differential half-LSB band, i.e. the instant after which
+    # the node entered the band and stayed in it for the rest of the window.
+    # A missing crossing (never in band / never out of it) is DATA.
+    # The window ENDS at the late read (CAND_LATE_AT_NS, ahead of the SAMPLE
+    # fall): in a longer window the switch turn-off itself re-crosses the
+    # band and FALL=LAST would time the turn-off, not the acquisition.
+    tset_meas = [{
+        "name": "acq_tset",
+        "spice": (
+            f".meas tran acq_tset TRIG AT={TRIG_AT_NS:g}n "
+            f"TARG V(ACQERR) VAL={HALF_LSB_MV * 1e-3:.9g} FALL=LAST"
+        ),
+        "unit": "s",
+    }]
+    return [
+        {
+            "name": "fast",
+            "reset": True,
+            "analysis": {
+                "kind": "tran",
+                "args": f"{TRAN_STEP_NS:g}n {CAND_FAST_TRAN_STOP_NS:g}n",
+            },
+            "measurements": fast_meas,
+        },
+        {
+            "name": "slow",
+            "reset": True,
+            "analysis": {
+                "kind": "tran",
+                "args": f"{CAND_SLOW_TRAN_STEP_NS:g}n {CAND_TRAN_STOP_NS:g}n",
+            },
+            "measurements": slow_meas,
+        },
+        {
+            "name": "tset",
+            "reset": True,
+            "analysis": {
+                "kind": "tran",
+                "args": f"{TRAN_STEP_NS:g}n {CAND_LATE_AT_NS:g}n",
+            },
+            "measurements": tset_meas,
+        },
+    ]
+
+
+def candidate_corner_ids() -> list[str]:
+    """The ratified 9-point one-at-a-time PVT grid, in grid order."""
+    return corners_mod.ratified_corner_ids(
+        VDD, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
+    )
+
+
+def build_candidate_request(
+    netlist_name: str,
+    cids: list[str],
+    *,
+    timeout_s: float = CAND_TIMEOUT_S,
+    backend: str | None = None,
+    hosts: int | None = None,
+) -> dict:
+    """ONE `klt sim` request for a candidate submit (OAT grid via `exclude`,
+    the input-drive-budget/top-plate-cpar convention)."""
+    return klt_sim.build_oat_request(
+        netlist_name, cids, CAND_SUPPLY_KEY,
+        analysis_steps=candidate_analysis_steps(),
+        timeout_s=timeout_s, backend=backend, hosts=hosts,
+    )
+
+
+SubmitError = klt_sim.SubmitError
+
+
+def submit_candidate(
+    workdir: Path,
+    code_name: str,
+    cids: list[str],
+    backend: str | None,
+    timeout_s: float = CAND_TIMEOUT_S,
+    hosts: int | None = None,
+) -> tuple[dict, dict]:
+    """Write body+request under `workdir` for one CDAC previous-code state,
+    run `klt sim`, return (report, info). The report is cached beside the
+    request (harness.klt_sim.submit's own resume behavior)."""
+    body = build_candidate_body(code_name)
+    req = build_candidate_request(
+        "tb.spice", cids, timeout_s=timeout_s, backend=backend, hosts=hosts,
+    )
+    # A cached report beside different inputs is set aside, not reused.
+    klt_sim.write_inputs(
+        workdir, {"tb.spice": body, "request.json": json.dumps(req, indent=1) + "\n"}
+    )
+    # A single-corner submit is one fleet unit, which `klt sim` resolves to
+    # the LOCAL backend on its own -- and `--wait-for-capacity` is a
+    # batch-only flag (the client refuses the pairing). The two code-state
+    # controls are exactly that shape, so the capacity wait is dropped
+    # whenever the submit is explicitly local or single-corner.
+    capacity_wait_s = (
+        None if backend == "local" or len(cids) == 1
+        else klt_sim.DEFAULT_CAPACITY_WAIT_S
+    )
+    report = klt_sim.submit(
+        workdir / "request.json", workdir / "out", backend=backend,
+        capacity_wait_s=capacity_wait_s,
+    )
+    _vals, info = klt_sim.measurements_by_corner(report, CAND_SUPPLY_KEY)
+    return report, dict(info, backend=backend or "(klt default / KLT_SIM_BACKEND)")
+
+
+def candidate_corner_row(values: dict[str, float | None], code_name: str) -> dict:
+    """One corner's acquisition row: per-side residuals at both deadlines
+    plus the differential error the DRAFT-row verdict is read against."""
+    row: dict = {"code": code_name}
+    for stat, step in (("fast", "fast"), ("slow", "slow"), ("late", "slow")):
+        vs = {}
+        for side, (node, v_initial, v_final) in SIDES.items():
+            v = values.get(f"{step}.acq_{stat}_{side}")
+            ok = klt_sim.finite(v)
+            vs[side] = v if ok else None
+            row[f"{stat}_{side}_v"] = v if ok else None
+            row[f"{stat}_{side}_err_mv"] = (
+                (v - v_final) * 1e3 if ok else None
+            )
+        if all(vs[s] is not None for s in SIDES):
+            row[f"{stat}_diff_err_mv"] = (
+                (vs["p"] - vs["n"]) - V_TARGET_DIFF
+            ) * 1e3
+        else:
+            row[f"{stat}_diff_err_mv"] = None
+    complete = all(
+        row.get(f"{stat}_{side}_err_mv") is not None
+        for stat in ("fast", "slow", "late")
+        for side in SIDES
+    )
+    row["complete"] = complete
+    tset = values.get("tset.acq_tset")
+    row["tset_ns"] = tset * 1e9 if klt_sim.finite(tset) else None
+    if complete:
+        row["worst_node"] = max(
+            SIDES, key=lambda s: abs(row[f"fast_{s}_err_mv"])
+        )
+        row["worst_fast_err_mv"] = row[f"fast_{row['worst_node']}_err_mv"]
+        # Per-endpoint worst node: each deadline's table names its OWN worst.
+        for stat in ("fast", "slow"):
+            row[f"worst_node_{stat}"] = max(
+                SIDES, key=lambda s, st=stat: abs(row[f"{st}_{s}_err_mv"])
+            )
+    return row
+
+
+def read_candidate_report(report: dict) -> dict[str, dict]:
+    """`{corner_id: row}` over the report's corners (error envelope refused
+    by the shared reader, never read as numbers)."""
+    # null_error_corners=False: same choice as the companion bit-trial
+    # reader -- a single failed measurement must not void the corner's
+    # solved reads (the fixed-time probes this campaign grades on).
+    results, _info = klt_sim.measurements_by_corner(
+        report, CAND_SUPPLY_KEY, null_error_corners=False
+    )
+    return {
+        cid: candidate_corner_row(vals or {}, _CODE_OF[cid] if cid in _CODE_OF else CORNERS_CODE_STATE)
+        for cid, vals in results.items()
+    }
+
+
+#: Filled by candidate_main(): which previous-code state each submitted
+#: report's corners belong to (the grid submit and the two control submits
+#: are separate requests with separate bodies).
+_CODE_OF: dict[str, str] = {}
+
+
+def _report_backend(rep: dict) -> str:
+    """The backend a report says it actually ran on (environment.backend.
+    resolved) -- the record states what happened, not what was requested."""
+    env = rep.get("environment") or {}
+    return str((env.get("backend") or {}).get("resolved"))
+
+
+def _fmt_mv(v: float | None, nd: int = 4) -> str:
+    return "N/A" if v is None else f"{v:+.{nd}f}"
+
+
+def read_bit_trial_companion(
+    record_id: str,
+) -> tuple[str, dict[str, list[dict]], list[str]]:
+    """The bit-trial candidate campaign's committed raw report, re-read from
+    its `corners/<record-id>/report.json` -- the machine-readable half of
+    the settling-versus-rate table (never re-parsed from the record's own
+    Markdown). Returns (record_id, {corner_id: rows}, complete corner ids)
+    using the companion runner's own reader."""
+    sys.path.insert(0, str(SIM_DIR / "cdac-bit-trial-settling"))
+    import run_bit_trial_settling as companion  # noqa: E402
+    report_path = (
+        SIM_DIR / "cdac-bit-trial-settling" / "corners" / record_id / "report.json"
+    )
+    report = json.loads(report_path.read_text())
+    by_corner, complete = companion.read_candidate_report(report)
+    return record_id, by_corner, complete
+
+
+def verdict_lines(
+    grid: dict[str, dict],
+    cids: list[str],
+    bt_record: str | None,
+    bt_by_corner: dict[str, list[dict]] | None,
+    bt_complete: list[str] | None,
+) -> list[str]:
+    """The DRAFT sample-rate row verdict, one bullet per endpoint, plus the
+    combined settling-versus-rate table rows. Criterion stated up front (a
+    reference scale, not a ratified gate): the endpoint holds iff the
+    worst-grid-corner DIFFERENTIAL acquisition error at that deadline is
+    within the provisional differential half-LSB AND the bit-trial phase
+    budget still leaves room for the comparator + sequencer delays."""
+    out = [
+        "**Verdict criterion (a reference scale, not a ratified gate).** An "
+        "endpoint of the DRAFT `100 kS/s--1 MS/s` row is reported as HOLDING "
+        f"iff (a) the worst grid corner's DIFFERENTIAL acquisition error at "
+        f"that deadline stays within the provisional differential half-LSB "
+        f"({HALF_LSB_MV:.4f} mV, DR-003 Item 2 pending #27), and (b) the "
+        "bit-trial settling at that deadline leaves the phase with more time "
+        f"than the comparator decision ({COMPARATOR_DECISION_NS} ns) plus "
+        f"sequencer logic ({SEQUENCER_LOGIC_NS} ns) delays need (their own "
+        "PVT-complete binding figures, cited in the sample-rate entry of "
+        "`sim/report/manifest.py`). Both mechanisms' numbers are measured at "
+        "the candidate plate with UNCHANGED switches and weights.",
+    ]
+    complete = [c for c in cids if grid.get(c, {}).get("complete")]
+    for label, rate, stat in (
+        ("1 MS/s (fast end, f_clk = 12 MHz)", "1 MS/s", "fast"),
+        ("100 kS/s (slow end, f_clk = 1.2 MHz)", "100 kS/s", "slow"),
+    ):
+        errs = [
+            (c, grid[c][f"{stat}_diff_err_mv"])
+            for c in complete
+            if grid[c].get(f"{stat}_diff_err_mv") is not None
+        ]
+        if not errs:
+            out.append(
+                f"- **{rate}: NO VERDICT** -- no completed corner produced a "
+                "differential read at this deadline."
+            )
+            continue
+        bind_cid, bind_err = max(errs, key=lambda ce: abs(ce[1]))
+        worst_node_cid, worst_node_name, worst_node_err = max(
+            (
+                (c, SIDES[node][0], grid[c][f"{stat}_{node}_err_mv"])
+                for c in complete
+                for node in SIDES
+                if grid[c].get(f"{stat}_{node}_err_mv") is not None
+            ),
+            key=lambda ce: abs(ce[2]),
+        )
+        acq_ok = abs(bind_err) <= HALF_LSB_MV
+        # Bit-trial side, from the companion record's own reader.
+        bt_ok = None
+        bt_txt = "no companion bit-trial record supplied (--bit-trial-record)"
+        if bt_by_corner is not None:
+            tkey = "t99_ns"
+            ekey = "pend_fast_err_mv" if stat == "fast" else "pend_slow_err_mv"
+            valid = [
+                (cid, r) for cid, rows in bt_by_corner.items() for r in rows
+                if r.get(tkey) is not None
+            ]
+            if valid:
+                bt_cid, bt_row = max(valid, key=lambda cr: cr[1][tkey])
+                deadline = (
+                    T_PHASE_WORST_NS if stat == "fast" else T_PHASE_SLOW_NS
+                )
+                left = deadline - bt_row[tkey]
+                need = COMPARATOR_DECISION_NS + SEQUENCER_LOGIC_NS
+                bt_ok = left > need
+                bt_txt = (
+                    f"bit-trial worst t_settle_99% = {bt_row[tkey]:.4f} ns "
+                    f"(bit {bt_row['test_bit']}/{bt_row['direction']} at "
+                    f"`{bt_cid}`, companion record "
+                    f"[`{bt_record}`](../../cdac-bit-trial-settling/records/"
+                    f"{bt_record}.md)), leaving {left:.3f} ns of the "
+                    f"{deadline:.3f} ns phase vs the {need:.4f} ns the "
+                    "comparator + sequencer delays need"
+                )
+        # A positive verdict needs the FULL requested corner set on both
+        # sides; a demonstrated failure on the corners present still stands.
+        missing_acq = [c for c in cids if c not in complete]
+        missing_bt = (
+            [c for c in cids if c not in (bt_complete or [])]
+            if bt_by_corner is not None else []
+        )
+        if bt_ok is None:
+            verdict = "NO VERDICT (companion evidence missing)"
+        elif not acq_ok or not bt_ok:
+            verdict = "DOES NOT HOLD"
+        elif missing_acq or missing_bt:
+            verdict = "NO VERDICT (incomplete evidence)"
+            bt_txt += (
+                f"; INCOMPLETE: acquisition missing {missing_acq or 'none'}, "
+                f"bit-trial missing {missing_bt or 'none'}"
+            )
+        else:
+            verdict = "HOLDS"
+        reason = (
+            f"differential acquisition error {bind_err:+.4f} mV at `{bind_cid}` "
+            f"({abs(bind_err) / HALF_LSB_MV:.2f}x the {HALF_LSB_MV:.4f} mV "
+            "half-LSB reference; worst single-ended node residual "
+            f"{worst_node_err:+.4f} mV on `{worst_node_name}` at "
+            f"`{worst_node_cid}`)"
+        )
+        out.append(
+            f"- **{label}: {verdict}.** At this deadline the binding "
+            f"acquisition corner: {reason}. {bt_txt}." if bt_txt
+            else f"- **{label}: {verdict}.** {reason}."
+            + (
+                ""
+                if (acq_ok and bt_ok is not False) or bt_ok is None
+                else " A measured settling failure is a valid outcome (#1033); "
+                "closing it by resizing the sampling switch is a separate "
+                "design change needing its own DR-011/DR-014 evidence, and "
+                "any row change goes through a decision record, never an "
+                "edit of the DRAFT row."
+            )
+        )
+    return out
+
+
+def write_candidate_record(
+    grid: dict[str, dict],
+    control: dict[str, dict],
+    cids: list[str],
+    info: dict,
+    reports: dict[str, dict],
+    workdirs: dict[str, Path],
+    bt_record: str | None,
+    bt_by_corner: dict[str, list[dict]] | None,
+    bt_complete: list[str] | None,
+    regen_note: str,
+    note: str = "",
+    supersedes: str = "",
+) -> Path:
+    """The candidate-geometry acquisition record: the combined
+    settling-versus-rate table (this campaign's acquisition rows plus the
+    companion bit-trial record's own numbers), the DRAFT-row verdict, and
+    the same `corners/<record-id>/` + `request/` artifact layout the
+    input-drive-budget batch records use."""
+    body = build_candidate_body(CORNERS_CODE_STATE)
+    prov, lines = evidence.open_record(
+        EXPERIMENT_DIR, body, "corners",
+        {f"{name}.json": json.dumps(rep, indent=1) + "\n"
+         for name, rep in reports.items()},
+    )
+    req_root = EXPERIMENT_DIR / "corners" / prov.record_id / "request"
+    for name, wd in workdirs.items():
+        d = req_root / name
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "request.json").write_text((wd / "request.json").read_text())
+        (d / "tb.spice").write_text((wd / "tb.spice").read_text())
+
+    worker_pdk = info.get("worker_pdk")
+    worker_ng = info.get("worker_ngspice")
+    exec_known = bool(worker_pdk and worker_ng)
+    klt_version = subprocess.run(
+        ["klt", "--version"], capture_output=True, text=True, check=False
+    ).stdout.strip()
+    complete = [c for c in cids if grid.get(c, {}).get("complete")]
+
+    lines[0] = (
+        "# sampling-cdac-handoff -- mechanism (d) at the DR-027 candidate "
+        f"plate ({CANDIDATE_UNIT_CAP_WL_UM:.4f} um) -- full PVT grid -- "
+        f"{prov.record_id}"
+    )
+    lines += [
+        "- **Claim**: re-derives the sampling front end's acquisition of a "
+        "new worst-case (rail-to-rail) differential input once SAMPLE "
+        "re-asserts (mechanism (d)) at the assembled front-end + CDAC "
+        "top-plate load with the DR-027 CANDIDATE unit plate "
+        f"({CANDIDATE_UNIT_CAP_WL_UM:.4f} um side, ~12.4 pF/side nominal "
+        "array contribution; the front end's own Csamp_p/Csamp_n stay on "
+        "the shared top plates, per issue #1033), over the full ratified "
+        "9-point OAT PVT grid, against BOTH DR-006 phase deadlines -- the "
+        "12 MHz (1 MS/s) worst case and the 1.2 MHz (100 kS/s) slow end of "
+        "the DRAFT sample-rate row -- and states a written verdict on that "
+        "DRAFT row at each endpoint. EXPERIMENTAL study deck: "
+        "`design/cdac/` still draws the DR-019 1.9000 um plate, and no "
+        "claim here is graded against a ratified row (the sample-rate row "
+        "is entirely DRAFT, #1/#27).",
+        "- **Issue**: #1033 (the required settling/rate companion of the "
+        "#1016 / DR-027 resize study)",
+        "- **Netlist provenance**: the committed production fragments this "
+        "campaign always assembles, with the CDAC fragment's 20 unit-cap "
+        "plates rewritten to the candidate side and EVERYTHING else "
+        "byte-identical (switch devices included) -- see "
+        "candidate_cdac_fragment(), which refuses to run if the production "
+        "fragment is not exactly 20 caps at the production plate. "
+        f"{regen_note[0].upper()}{regen_note[1:]} -- so the candidate is "
+        "generated from a VERIFIED baseline, per #1033.",
+        corners_mod.corner_matrix_summary_line(
+            sorted({corners_mod.parse_corner_id(c)[0] for c in cids}),
+            sorted({corners_mod.parse_corner_id(c)[1] for c in cids}),
+            sorted({corners_mod.parse_corner_id(c)[2] for c in cids}),
+            len(cids),
+        ),
+        "- **Stimulus**: the baseline two-pulse acquisition stimulus with "
+        f"SAMPLE pulse #2 widened to {CAND_T_SAMPLE2_WIDTH_NS:g} ns (fall at "
+        f"{CAND_T_SAMPLE2_FALL_NS:g} ns) so the DR-006 slow-end deadline "
+        f"({CAND_SLOW_AT_NS:.3f} ns, the acquiring edge's 50 % crossing at "
+        f"{TRIG_AT_NS:g} ns + {T_PHASE_SLOW_NS:.3f} ns) falls inside the "
+        "active phase and ahead of switch turn-off (#1033's window rule); "
+        "the fast deadline's read is at the SAME "
+        f"{CAND_FAST_AT_NS:.3f} ns instant the 1.9000 um records' budget "
+        "probe uses, so their columns are directly comparable. One body "
+        "serves all nine corners: SAMPLE swing, SEL logic levels and VREFP "
+        "are normalised sources scaled by the corner supply, while the "
+        "input extremes and VCM keep the baseline campaign's fixed values "
+        "(its own documented convention).",
+        f"- **CDAC previous-code state**: `{CORNERS_CODE_STATE}` at every "
+        "grid point; the other two states re-run at the baseline corner as "
+        "an independence control (the baseline grid's own convention -- the "
+        "array's bottom plates are continuously driven, so the code sets "
+        "their charge but not the capacitance TOP_x sees).",
+        f"- **Overall**: {'COMPLETE' if len(complete) == len(cids) else 'INCOMPLETE'} "
+        f"({len(complete)}/{len(cids)} corners produced every fixed-time "
+        "read at both deadlines)",
+    ]
+    if note:
+        lines.append(f"- **Note**: {note}")
+    lines.append("")
+
+    for stat, desc in (
+        ("fast", f"12 MHz deadline ({CAND_FAST_AT_NS:.3f} ns)"),
+        ("slow", f"1.2 MHz deadline ({CAND_SLOW_AT_NS:.3f} ns)"),
+    ):
+        lines += [
+            f"## Acquisition residual per corner -- {desc}",
+            "",
+            "Single-ended residuals are each side's read minus its own "
+            "target (negative = short of the target); the differential error is "
+            "(TOP_P - TOP_N) - 1.4 V, the quantity the half-LSB reference "
+            f"scale ({HALF_LSB_MV:.4f} mV) is stated against. `late` is a "
+            f"read at {CAND_LATE_AT_NS:g} ns, inside pulse #2 and ahead of "
+            "its fall, separating a still-settling node from a settled "
+            "offset.",
+            "",
+            "| Corner | Worst node | P resid (mV) | N resid (mV) | "
+            "differential err (mV) | x half-LSB | late diff err (mV) |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for cid in cids:
+            row = grid.get(cid, {})
+            if not row.get("complete"):
+                lines.append(f"| `{cid}` | -- | INCOMPLETE | INCOMPLETE | -- | -- | -- |")
+                continue
+            d = row[f"{stat}_diff_err_mv"]
+            lines.append(
+                f"| `{cid}` | `{row[f'worst_node_{stat}']}` | "
+                f"{_fmt_mv(row[f'{stat}_p_err_mv'])} | "
+                f"{_fmt_mv(row[f'{stat}_n_err_mv'])} | "
+                f"{_fmt_mv(d)} | {abs(d) / HALF_LSB_MV:.2f}x | "
+                f"{_fmt_mv(row['late_diff_err_mv'])} |"
+            )
+        lines.append("")
+
+    lines += [
+        "## Acquisition settling time (time of entry into the half-LSB band)",
+        "",
+        "Measured, not read at a fixed instant: `.meas ... TRIG AT="
+        f"{TRIG_AT_NS:g}n TARG V(ACQERR) VAL={HALF_LSB_MV * 1e-3:.9g} "
+        "FALL=LAST` on ACQERR = |(TOP_P - TOP_N) - 1.4 V|, i.e. the time "
+        "from the acquiring (second) SAMPLE edge's 50 % crossing to the "
+        "last instant the differential error falls through the provisional "
+        f"differential half-LSB ({HALF_LSB_MV:.4f} mV, DR-003 Item 2 "
+        "pending #27) -- after which it stays inside the band for the rest "
+        f"of the measurement window, which ends at the {CAND_LATE_AT_NS:g} ns late read, ahead of SAMPLE pulse #2's fall (a longer window would time the switch turn-off, not the acquisition). A corner with no "
+        "crossing is shown as `none` (never entered, or never left, the "
+        "band) and is retained as data. Same 0.2 ns step ceiling as the "
+        "fixed-time reads.",
+        "",
+        "| Corner | t_settle (half-LSB band) (ns) | within 12 MHz deadline "
+        f"({T_PHASE_WORST_NS:.3f} ns) | within 1.2 MHz deadline "
+        f"({T_PHASE_SLOW_NS:.3f} ns) |",
+        "|---|---|---|---|",
+    ]
+    for cid in cids:
+        t = grid.get(cid, {}).get("tset_ns")
+        if t is None:
+            lines.append(f"| `{cid}` | none | -- | -- |")
+        else:
+            lines.append(
+                f"| `{cid}` | {t:.3f} | "
+                f"{'yes' if t <= T_PHASE_WORST_NS else 'NO'} | "
+                f"{'yes' if t <= T_PHASE_SLOW_NS else 'NO'} |"
+            )
+    tvals = [
+        (c, grid[c]["tset_ns"]) for c in cids
+        if grid.get(c, {}).get("tset_ns") is not None
+    ]
+    if tvals:
+        tb_cid, tb = max(tvals, key=lambda ct: ct[1])
+        lines += [
+            "",
+            f"Binding corner: `{tb_cid}`, t_settle = {tb:.3f} ns after the "
+            f"acquiring SAMPLE edge ({tb / T_PHASE_WORST_NS:.2f}x the "
+            f"12 MHz deadline, {tb / T_PHASE_SLOW_NS:.2f}x the 1.2 MHz "
+            f"deadline); {len(tvals)}/{len(cids)} corners produced a "
+            "crossing.",
+        ]
+    lines.append("")
+
+    lines += [
+        "## Code-state independence control (baseline corner)",
+        "",
+        "| Code state | P resid @ fast (mV) | N resid @ fast (mV) | "
+        "diff err @ fast (mV) | diff err @ slow (mV) |",
+        "|---|---|---|---|---|",
+    ]
+    baseline_id = corners_mod.corner_id("tt", 27.0, VDD)
+    for code_name, row in control.items():
+        lines.append(
+            f"| `{code_name}` | {_fmt_mv(row.get('fast_p_err_mv'))} | "
+            f"{_fmt_mv(row.get('fast_n_err_mv'))} | "
+            f"{_fmt_mv(row.get('fast_diff_err_mv'))} | "
+            f"{_fmt_mv(row.get('slow_diff_err_mv'))} |"
+        )
+    lines.append("")
+
+    # --- the combined settling-versus-rate table ---
+    lines += [
+        "## Settling versus rate at the candidate plate -- both mechanisms",
+        "",
+        "The DR-027-required table linking the two measurements of this "
+        "study: the acquisition half is this record's own grid above; the "
+        "bit-trial half is re-read from the companion candidate record's "
+        "committed raw report (its own runner's reader, never re-parsed "
+        "from prose).",
+        "",
+        "| Endpoint | Mechanism | Binding corner | Binding row/node | "
+        "Measured quantity | Value | Budget / reference | Margin |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for label, stat, deadline_ns in (
+        ("1 MS/s (12 MHz)", "fast", T_PHASE_WORST_NS),
+        ("100 kS/s (1.2 MHz)", "slow", T_PHASE_SLOW_NS),
+    ):
+        errs = [
+            (c, grid[c][f"{stat}_diff_err_mv"]) for c in complete
+            if grid[c].get(f"{stat}_diff_err_mv") is not None
+        ]
+        if errs:
+            bind_cid, bind_err = max(errs, key=lambda ce: abs(ce[1]))
+            lines.append(
+                f"| {label} | front-end acquisition (differential) | "
+                f"`{bind_cid}` | (TOP_P-TOP_N)-1.4V | residual @ deadline | "
+                f"{bind_err:+.4f} mV | {HALF_LSB_MV:.4f} mV half-LSB | "
+                f"{abs(bind_err) / HALF_LSB_MV:.2f}x |"
+            )
+        else:
+            lines.append(
+                f"| {label} | front-end acquisition (differential) | -- | -- | "
+                "residual @ deadline | INCOMPLETE | -- | -- |"
+            )
+        if bt_by_corner is not None:
+            valid = [
+                (cid, r) for cid, rows in bt_by_corner.items() for r in rows
+                if r.get("t99_ns") is not None
+            ]
+            if valid:
+                bt_cid, bt_row = max(valid, key=lambda cr: cr[1]["t99_ns"])
+                lines.append(
+                    f"| {label} | CDAC bit-trial settling | `{bt_cid}` | "
+                    f"bit {bt_row['test_bit']}/{bt_row['direction']} | "
+                    f"t_settle_99% | {bt_row['t99_ns']:.4f} ns | "
+                    f"{deadline_ns:.3f} ns phase "
+                    f"(- {COMPARATOR_DECISION_NS + SEQUENCER_LOGIC_NS:.4f} ns "
+                    "comparator+sequencer) | "
+                    f"{(deadline_ns - COMPARATOR_DECISION_NS - SEQUENCER_LOGIC_NS) / bt_row['t99_ns']:.2f}x |"
+                )
+            else:
+                lines.append(
+                    f"| {label} | CDAC bit-trial settling | -- | -- | "
+                    "t_settle_99% | INCOMPLETE | -- | -- |"
+                )
+        else:
+            lines.append(
+                f"| {label} | CDAC bit-trial settling | (companion record "
+                "not supplied) | -- | -- | -- | -- | -- |"
+            )
+    lines += [
+        "",
+        "Margins are (deadline - comparator - sequencer) / settling for the "
+        "bit-trial rows -- i.e. how many times over the settled array still "
+        "fits the phase once the other two mechanisms' binding delays are "
+        "subtracted.",
+        "",
+        "## Result -- verdict on the DRAFT sample-rate row at the candidate plate",
+        "",
+    ]
+    lines += verdict_lines(grid, cids, bt_record, bt_by_corner, bt_complete)
+    lines += [
+        "",
+        "## What this record does not establish",
+        "",
+        "- Both benches are sub-block settling measurements at an "
+        "EXPERIMENTAL plate size: passing or failing them does not by "
+        "itself set the sample rate, and whole-ADC code correctness "
+        "(the #263/#259 line of work) remains open independently.",
+        "- The front end here is the shipping front end driving ~2.8x the "
+        "array capacitance with UNCHANGED sampling switches, exactly the "
+        "configuration whose shortfall #1033 asks quantified. The study "
+        "does not resize anything; a resize needs its own DR-011/DR-014 "
+        "charge-injection/kickback evidence, and any target-table change "
+        "goes through a decision record (DR-027's ratification path), "
+        "never an edit.",
+        "- As in the baseline grid: one step direction of the worst-case "
+        "differential stimulus, the previous-code state fixed at every "
+        "grid point (with the control table above), and the held-bit "
+        "parasitic omission inherited from the companion bench's own "
+        "documented reduction.",
+        "",
+        "## Reproduction",
+        "",
+        "```bash",
+        "# One-time machine bootstrap: docs/environment-setup.md sections 1-3.",
+        "source sim/env.sh",
+        "# the companion bit-trial candidate record first:",
+        "# `--wait-for-capacity` is batch-only, so the backend must be batch:",
+        "export KLT_SIM_BACKEND=batch",
+        "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --dr027-candidate --record --backend batch",
+        "# then this campaign, linking it:",
+        "python3 sim/sampling-cdac-handoff/run_handoff.py --dr027-candidate --record --backend batch \\",
+        f"    --bit-trial-record <that run's record id>",
+        "```",
+        "",
+        "Three `klt sim` submits, as recorded in each archived report's "
+        "`environment`: "
+        + "; ".join(
+            f"`{name}` backend `{_report_backend(rep)}`"
+            for name, rep in reports.items()
+        )
+        + ". The 9-corner grid is submitted with `--wait-for-capacity 600`; "
+        "the two single-corner code-state controls carry no capacity wait "
+        "(the client refuses that flag for a single unit). No ngspice loop "
+        "runs on the submitting host. `--probe` runs one corner on the local "
+        "backend and is the only path that simulates locally. Requests and "
+        "bodies are committed "
+        f"under `corners/{prov.record_id}/request/`, the raw reports beside "
+        f"this record under `corners/{prov.record_id}/`.",
+        "",
+        "## `klt sim` runs",
+        "",
+        f"- grid job `{info.get('job_id')}`, status `{info.get('status')}`, "
+        f"backend `{info.get('backend')}`, executing PDK "
+        f"`{info.get('worker_pdk')}`, executing simulator "
+        f"`{info.get('worker_ngspice')}`"
+        + (", sharded" if info.get("sharded") else "")
+        + ".",
+        "",
+        "**Uncontrolled difference -- against the 1.9000 um baseline "
+        f"grid.** [`records/{CAND_BASELINE_RECORD}.md`]"
+        f"({CAND_BASELINE_RECORD}.md) was minted on "
+        "`sky130A @ c6d73a35f524070e85faff4a6a9eef49553ebc2b` / `ngspice-46` "
+        "by an in-process ngspice loop; this record was produced by the "
+        "executing worker named above. Where those differ, a change between "
+        "the two records is as readily a PDK or simulator-version difference "
+        "as a geometry one; the controlled comparison is structural (same "
+        "stimulus shape, same probe instants, same fragments modulo the "
+        "plate side), and the fast-deadline column is directly comparable "
+        "corner-for-corner.",
+        "",
+    ]
+    lines += evidence.environment_block(
+        f"sky130A @ {worker_pdk.split()[-1]}" if exec_known else prov.pdk_line,
+        worker_ng.split()[0] if exec_known else prov.ng_version,
+        prov.netlist_sha,
+        {
+            "klt": klt_version,
+            "candidate plate": f"{CANDIDATE_UNIT_CAP_WL_UM:.4f} um "
+            "(EXPERIMENTAL; production draws 1.9000 um)",
+            "assembled top-plate load": "front end Csamp (~4.43 pF/side, "
+            "DR-004) + candidate array (~12.2 pF/side model-evaluated, "
+            "512 x 23.805 fF -- see the companion record's unit-cap probe)",
+            "tran steps": (
+                f"fast {TRAN_STEP_NS:g} ns ceiling x {CAND_FAST_TRAN_STOP_NS:g} ns; "
+                f"slow {CAND_SLOW_TRAN_STEP_NS:g} ns ceiling x "
+                f"{CAND_TRAN_STOP_NS:g} ns"
+            ),
+            "PDK / ngspice above": "as run by the executing worker"
+            if exec_known else "submitting host (executing worker did not report)",
+            "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
+        },
+    )
+    lines += [""]
+    lines += evidence.footer_lines(
+        "sim/sampling-cdac-handoff/run_handoff.py", supersedes
+    )
+    evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)
+    return evidence.close_record(prov, lines, "Record")
+
+
+def candidate_main(args: argparse.Namespace) -> int:
+    """The --dr027-candidate CLI path (issue #1033)."""
+    pdk.resolve_or_raise()
+    workroot = args.workdir or Path(tempfile.mkdtemp(prefix="handoff-dr027-"))
+    cids = candidate_corner_ids()
+    baseline_cid = corners_mod.corner_id("tt", 27.0, VDD)
+
+    if args.dry_run:
+        workroot.mkdir(parents=True, exist_ok=True)
+        body = build_candidate_body(CORNERS_CODE_STATE)
+        (workroot / "tb.spice").write_text(body)
+        req = build_candidate_request(
+            "tb.spice", cids, timeout_s=args.timeout_s,
+            backend=args.backend, hosts=args.hosts,
+        )
+        (workroot / "request.json").write_text(json.dumps(req, indent=1) + "\n")
+        print(f"wrote deck + request under {workroot}")
+        print(f"corners: {len(cids)}  steps/corner: {len(req['analysis_steps'])}")
+        return 0
+
+    with tempfile.TemporaryDirectory(prefix="handoff-dr027-frag-") as tmp:
+        regen_note = assert_fragments_current(Path(tmp))
+
+    if args.probe:
+        report, info = submit_candidate(
+            workroot / "probe", CORNERS_CODE_STATE, [baseline_cid], "local",
+            args.timeout_s,
+        )
+        row = candidate_corner_row(
+            klt_sim.measurements_by_corner(report, CAND_SUPPLY_KEY)[0].get(baseline_cid) or {},
+            CORNERS_CODE_STATE,
+        )
+        print(f"{baseline_cid} (local backend):")
+        for stat in ("fast", "slow", "late"):
+            print(
+                f"  {stat}: P {_fmt_mv(row.get(f'{stat}_p_err_mv'))} mV  "
+                f"N {_fmt_mv(row.get(f'{stat}_n_err_mv'))} mV  "
+                f"diff {_fmt_mv(row.get(f'{stat}_diff_err_mv'))} mV"
+            )
+        print(
+            "  compare: 1.9000 um assembled grid's tt_27c_1.80v fast-deadline "
+            "row: TOP_P +0.0000 mV / TOP_N +0.0120 mV (record "
+            f"{CAND_BASELINE_RECORD})"
+        )
+        print(f"  klt sim: backend {info.get('backend')}, status {info.get('status')}")
+        return 0
+
+    reports: dict[str, dict] = {}
+    workdirs: dict[str, Path] = {}
+    grid_info: dict = {}
+    grid: dict[str, dict] = {}
+    control: dict[str, dict] = {}
+    _CODE_OF.clear()
+    for name, code_name, sub_cids in [
+        ("grid", CORNERS_CODE_STATE, cids),
+        ("code_zero", "prev_code_zero", [baseline_cid]),
+        ("code_alt", "prev_code_alt", [baseline_cid]),
+    ]:
+        report, info = submit_candidate(
+            workroot / name, code_name, sub_cids, args.backend,
+            args.timeout_s, hosts=(args.hosts if name == "grid" else None),
+        )
+        results, _ = klt_sim.measurements_by_corner(
+            report, CAND_SUPPLY_KEY, null_error_corners=False
+        )
+        for cid in results:
+            _CODE_OF[cid] = code_name
+            row = candidate_corner_row(results[cid] or {}, code_name)
+            if name == "grid":
+                grid[cid] = row
+            else:
+                control[code_name] = row
+        # the grid's own baseline-corner row doubles as the control table's
+        # prev_code_one entry
+        if name == "grid":
+            control[CORNERS_CODE_STATE] = grid.get(baseline_cid, {})
+            grid_info = info
+            reports["report"] = report
+            workdirs["grid"] = workroot / name
+        else:
+            reports[f"report_{name}"] = report
+            workdirs[name] = workroot / name
+        for cid in sub_cids:
+            r = grid.get(cid) or control.get(code_name, {})
+            if r.get("complete"):
+                print(
+                    f"{cid} [{code_name}]: worst node {r['worst_node']} "
+                    f"fast {r['worst_fast_err_mv']:+.4f} mV, "
+                    f"diff {r['fast_diff_err_mv']:+.4f} mV "
+                    f"({abs(r['fast_diff_err_mv']) / HALF_LSB_MV:.2f}x half-LSB)"
+                )
+            else:
+                print(f"{cid} [{code_name}]: INCOMPLETE")
+
+    bt_by_corner = bt_complete = None
+    bt_record = None
+    if args.bit_trial_record:
+        bt_record, bt_by_corner, bt_complete = read_bit_trial_companion(
+            args.bit_trial_record
+        )
+
+    if args.record:
+        write_candidate_record(
+            grid, control, cids, grid_info, reports, workdirs,
+            bt_record, bt_by_corner, bt_complete, regen_note,
+            note=args.note, supersedes=args.supersedes,
+        )
+    n_incomplete = sum(1 for c in cids if not grid.get(c, {}).get("complete"))
+    if n_incomplete:
+        print(f"\nFAIL: {n_incomplete}/{len(cids)} grid corners incomplete.")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

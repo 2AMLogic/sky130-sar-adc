@@ -297,6 +297,13 @@
       },
       {
         "file": "sim/digital-functional/runs/20261017-193811-9522693/top-glue.json"
+      },
+      {
+        "file": "sim/sar-sequencer-behavioral/corners/20261121-073156-75b91e85/report.json",
+        "content_hash": "sha256:e90301c42d597088d364f482531a8d2bb5bbe8bb7c2e98b5db6c8839a5580ae7",
+        "rows": [
+          "resolution_n"
+        ]
       }
     ],
     "7.digital": {
@@ -333,6 +340,12 @@
     ]
   },
   "spec_rows": {
+    "5.digital": [
+      {
+        "id": "resolution_n",
+        "ratified": true
+      }
+    ],
     "6.analog": [
       {
         "id": "enob",

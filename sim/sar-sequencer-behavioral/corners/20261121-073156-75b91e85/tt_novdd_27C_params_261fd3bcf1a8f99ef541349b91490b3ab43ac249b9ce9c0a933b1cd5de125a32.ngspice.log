@@ -1,0 +1,173 @@
+
+Note: No compatibility mode selected!
+
+
+Circuit: * klt sim -- generated corner deck, do not edit
+
+Reset re-loads circuit * klt sim -- generated corner deck, do not edit
+
+Circuit: * klt sim -- generated corner deck, do not edit
+
+Doing analysis at TEMP = 27.000000 and TNOM = 27.000000
+
+Using SPARSE 1.3 as Direct Linear Solver
+
+Initial Transient Solution
+--------------------------
+
+Node                                   Voltage
+----                                   -------
+vpwr                                      1.98
+vgnd                                         0
+ph_sample                                 1.98
+ph_b9                              8.44913e-09
+rst_b                                        0
+clk                                          0
+ph_b8                              8.44913e-09
+ph_b7                              8.44913e-09
+ph_b6                              8.44913e-09
+ph_b5                              8.44913e-09
+ph_b4                              8.44913e-09
+ph_b3                              8.44913e-09
+ph_b2                              8.44913e-09
+ph_b1                              8.44913e-09
+ph_b0                              8.44913e-09
+ph_eoc                             8.44913e-09
+org1                               8.44912e-09
+org2                               8.44912e-09
+org3                               8.44912e-09
+busy                               8.44912e-09
+org4                               8.44912e-09
+busy_bits                          8.44912e-09
+dout9                              8.44913e-09
+comp_out                                     0
+muxout9                            8.44912e-09
+dout8                              8.44913e-09
+comp_eff                                  1.98
+muxout8                            8.44912e-09
+dfeed8                             8.44913e-09
+dout7                              8.44913e-09
+muxout7                            8.44912e-09
+dfeed7                             8.44913e-09
+dout6                              8.44913e-09
+muxout6                            8.44912e-09
+dfeed6                             8.44913e-09
+dout5                              8.44913e-09
+muxout5                            8.44912e-09
+dfeed5                             8.44913e-09
+dout4                              8.44913e-09
+muxout4                            8.44912e-09
+dfeed4                             8.44913e-09
+dout3                              8.44913e-09
+muxout3                            8.44912e-09
+dfeed3                             8.44913e-09
+dout2                              8.44913e-09
+muxout2                            8.44912e-09
+dfeed2                             8.44913e-09
+dout1                              8.44913e-09
+muxout1                            8.44912e-09
+dfeed1                             8.44913e-09
+dout0                              8.44913e-09
+muxout0                            8.44912e-09
+dfeed0                             8.44913e-09
+preset8                            8.44912e-09
+preset7                            8.44912e-09
+preset6                            8.44912e-09
+preset5                            8.44912e-09
+preset4                            8.44912e-09
+preset3                            8.44912e-09
+preset2                            8.44912e-09
+preset1                            8.44912e-09
+preset0                            8.44912e-09
+dout0_hf                                 -0.99
+dout1_hf                                 -0.99
+dout2_hf                                 -0.99
+dout3_hf                                 -0.99
+dout4_hf                                 -0.99
+dout5_hf                                 -0.99
+dout6_hf                                 -0.99
+dout7_hf                                 -0.99
+dout8_hf                                 -0.99
+dout9_hf                                 -0.99
+ph_b0_hf                                 -0.99
+ph_b1_hf                                 -0.99
+ph_b2_hf                                 -0.99
+ph_b3_hf                                 -0.99
+ph_b4_hf                                 -0.99
+ph_b5_hf                                 -0.99
+ph_b6_hf                                 -0.99
+ph_b7_hf                                 -0.99
+ph_b8_hf                                 -0.99
+ph_b9_hf                                 -0.99
+ph_eoc_hf                                -0.99
+ph_sample_hf                              0.99
+bm_ph_sample#branch                          0
+bm_ph_eoc#branch                             0
+bm_ph_b9#branch                              0
+bm_ph_b8#branch                              0
+bm_ph_b7#branch                              0
+bm_ph_b6#branch                              0
+bm_ph_b5#branch                              0
+bm_ph_b4#branch                              0
+bm_ph_b3#branch                              0
+bm_ph_b2#branch                              0
+bm_ph_b1#branch                              0
+bm_ph_b0#branch                              0
+bm_dout9#branch                              0
+bm_dout8#branch                              0
+bm_dout7#branch                              0
+bm_dout6#branch                              0
+bm_dout5#branch                              0
+bm_dout4#branch                              0
+bm_dout3#branch                              0
+bm_dout2#branch                              0
+bm_dout1#branch                              0
+bm_dout0#branch                              0
+vcomp#branch                                 0
+vrstb#branch                                 0
+vclk#branch                                  0
+vvgnd#branch                       1.54429e-09
+vvpwr#branch                      -1.54428e-09
+
+
+No. of Data Rows : 5952
+
+  Measurements for Transient Analysis
+
+phsample_c1         =  9.90004e-01
+phb9_c1             =  9.90021e-01
+phb8_c1             =  9.90000e-01
+phb7_c1             =  9.90003e-01
+phb6_c1             =  9.90000e-01
+phb5_c1             =  9.90188e-01
+phb4_c1             =  9.90005e-01
+phb3_c1             =  9.90153e-01
+phb2_c1             =  9.90007e-01
+phb1_c1             =  9.90120e-01
+phb0_c1             =  9.90000e-01
+pheoc_c1            =  9.90010e-01
+dout9_c1            =  9.89999e-01
+dout8_c1            =  9.89994e-01
+dout7_c1            =  -9.89999e-01
+dout6_c1            =  -9.89999e-01
+dout5_c1            =  9.89994e-01
+dout4_c1            =  -9.89999e-01
+dout3_c1            =  9.89994e-01
+dout2_c1            =  -9.89999e-01
+dout1_c1            =  9.89994e-01
+dout0_c1            =  9.89991e-01
+dout9_early_c1      =  9.90000e-01
+phb9_c2             =  9.89989e-01
+pheoc_c2            =  9.90010e-01
+dout9_c2            =  -9.90000e-01
+dout8_c2            =  -9.90000e-01
+dout7_c2            =  9.89994e-01
+dout6_c2            =  9.89994e-01
+dout5_c2            =  -9.90000e-01
+dout4_c2            =  9.89994e-01
+dout3_c2            =  -9.90000e-01
+dout2_c2            =  9.89994e-01
+dout1_c2            =  -9.89999e-01
+dout0_c2            =  -9.90055e-01
+
+ngspice-47 done

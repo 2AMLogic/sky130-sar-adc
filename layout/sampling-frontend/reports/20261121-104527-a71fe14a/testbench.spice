@@ -1,0 +1,57 @@
+* testbench.spice -- `klt pex` testbench body for the sampling front end
+* sub-block (issue #1017): the acquisition-window settling experiment of
+* sim/sampling-acquisition-settling/run_acquisition_settling.py (issues
+* #121/#236), re-cast around the layout's own extracted subckt interface so
+* `klt pex` can swap the single `.include` below for its freshly
+* `--parasitics`-extracted netlist and diff the schematic leg against the
+* extracted leg, per corner.
+*
+* METHOD (same as the acquisition campaign, constants identical): SAMPLE
+* pulse #1 (rise 10n, width 100n) acquires the OLD input value (VINP=0.2V,
+* VINN=1.6V -- the worst-case rail-adjacent differential extremes the
+* campaign uses); during the following HOLD the inputs step to the opposite
+* extremes (130n, while Msw is off); SAMPLE pulse #2 re-asserts at 160n and
+* the bootstrapped switches must pull TOP_P/TOP_N to the NEW value against
+* the real Csamp load. The campaign's two measurement families, expressed
+* as fixed `.meas` lines in the request run_pex.py builds (the crossing
+* thresholds are constants because the stimulus amplitudes are constants
+* held fixed across the PVT grid -- the campaign's own ratified-grid
+* convention):
+*   - t_settle_{p,n}_{50,90}: TRIG AT=160.1n (50% of SAMPLE#2's rising
+*     edge) TARG V(top_x) VAL=<50%/90% of the old->new step> TD=160.1n
+*     CROSS=1 -- the TD= qualifier is the campaign's own workaround for
+*     ngspice counting CROSS=1 crossings from t=0 of the whole waveform;
+*   - budget_{p,n}: v(top_x) at 160.1n + 83.3333n (one DR-006 worst-case
+*     12 MHz phase period after the trigger) -- the residual the campaign
+*     grades, a fixed-time read, not a crossing search;
+*   - confirm_{p,n}: v(top_x) at 305n (well inside SAMPLE#2's width);
+*   - boost_{p,n}_{budget,confirm}: the same fixed reads on BOOST_x, the
+*     bootstrap rails the campaign instruments directly (issue #236's
+*     precharge-leak finding) -- the extracted leg's BOOST rail carries
+*     the bootstrap cap's real parasitic load, so the sch-vs-ext delta
+*     there reads the booster's own routing parasitics.
+*
+* CORNER AXES: only `vdd` is keyed by corners.supply_v (a literal DC
+* source, the alter gotcha -- layout/comparator/pex/README.md). Vcm and
+* the VIN amplitudes stay at their fixed 0.9/0.2/1.6 V values at every
+* corner, the campaign's own ratified-grid convention (its corners mode
+* moves rail/process/temp only); a VCM or input amplitude that tracked the
+* rail would change the stimulus definition the committed campaign record
+* already measures with. SAMPLE's PWL amplitude stays 1.8 V for the same
+* reason.
+Vdd    vdd     0 DC 1.8
+Vvcm   vcm     0 DC 0.9
+Vinp   vinp    0 pwl(0 0.2 130n 0.2 130.2n 1.6 330n 1.6)
+Vinn   vinn    0 pwl(0 1.6 130n 1.6 130.2n 0.2 330n 0.2)
+Vsample sample 0 pwl(0 0 10n 0 10.2n 1.8 110n 1.8 110.2n 0 160n 0 160.2n 1.8 310n 1.8 310.2n 0 330n 0)
+
+.include "sampling_frontend_pex_reference.spice"
+
+* Pin order is the EXTRACTED netlist's own (alphabetical):
+*   .SUBCKT gen_compose_0 BOOST_N BOOST_P BPREF_N BPREF_P GND SAMPLE
+*   + TOP_N TOP_P VCM VDD VINN VINP
+* run_pex.py asserts every run's extraction still declares exactly this
+* list before anything simulates. BPREF_x are left on their own dead-end
+* nets -- the *_NC wiring design/sar_adc_top.spice gives them, per
+* sim/sampling-cdac-handoff's own documented interface contract.
+Xdut boost_n boost_p bpref_n bpref_p 0 sample top_n top_p vcm vdd vinn vinp gen_compose_0

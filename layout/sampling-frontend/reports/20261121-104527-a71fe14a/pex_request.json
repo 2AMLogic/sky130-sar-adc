@@ -1,0 +1,356 @@
+{
+  "netlist": "testbench.spice",
+  "engine": "ngspice",
+  "models": {
+    "pdk": "sky130A",
+    "lib": "libs.tech/combined/sky130.lib.spice"
+  },
+  "corners": {
+    "process": [
+      "ff",
+      "fs",
+      "sf",
+      "ss",
+      "tt"
+    ],
+    "supply_v": {
+      "vdd": [
+        1.62,
+        1.8,
+        1.98
+      ]
+    },
+    "temperature_c": [
+      -40,
+      27.0,
+      125
+    ]
+  },
+  "exclude": [
+    {
+      "process": "ff",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "ff",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.8
+      }
+    },
+    {
+      "process": "ff",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "ff",
+      "temperature_c": 27.0,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "ff",
+      "temperature_c": 27.0,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "ff",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "ff",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.8
+      }
+    },
+    {
+      "process": "ff",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.8
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": 27.0,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": 27.0,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.8
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.8
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": 27.0,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": 27.0,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.8
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.8
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": 27.0,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": 27.0,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.8
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "tt",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "tt",
+      "temperature_c": -40,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    },
+    {
+      "process": "tt",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.62
+      }
+    },
+    {
+      "process": "tt",
+      "temperature_c": 125,
+      "supply_v": {
+        "vdd": 1.98
+      }
+    }
+  ],
+  "analysis": {
+    "kind": "tran",
+    "args": "0.02n 330.0n"
+  },
+  "measurements": [
+    {
+      "name": "t_settle_p_50",
+      "spice": ".meas tran t_settle_p_50 TRIG AT=160.1n TARG V(top_p) VAL=0.9 TD=160.1n CROSS=1",
+      "unit": "s"
+    },
+    {
+      "name": "t_settle_p_90",
+      "spice": ".meas tran t_settle_p_90 TRIG AT=160.1n TARG V(top_p) VAL=1.46 TD=160.1n CROSS=1",
+      "unit": "s"
+    },
+    {
+      "name": "budget_p",
+      "spice": ".meas tran budget_p find v(top_p) at=243.43333333333334n",
+      "unit": "V"
+    },
+    {
+      "name": "confirm_p",
+      "spice": ".meas tran confirm_p find v(top_p) at=305.0n",
+      "unit": "V"
+    },
+    {
+      "name": "t_settle_n_50",
+      "spice": ".meas tran t_settle_n_50 TRIG AT=160.1n TARG V(top_n) VAL=0.9 TD=160.1n CROSS=1",
+      "unit": "s"
+    },
+    {
+      "name": "t_settle_n_90",
+      "spice": ".meas tran t_settle_n_90 TRIG AT=160.1n TARG V(top_n) VAL=0.34 TD=160.1n CROSS=1",
+      "unit": "s"
+    },
+    {
+      "name": "budget_n",
+      "spice": ".meas tran budget_n find v(top_n) at=243.43333333333334n",
+      "unit": "V"
+    },
+    {
+      "name": "confirm_n",
+      "spice": ".meas tran confirm_n find v(top_n) at=305.0n",
+      "unit": "V"
+    },
+    {
+      "name": "boost_p_budget",
+      "spice": ".meas tran boost_p_budget find v(boost_p) at=243.43333333333334n",
+      "unit": "V"
+    },
+    {
+      "name": "boost_p_confirm",
+      "spice": ".meas tran boost_p_confirm find v(boost_p) at=305.0n",
+      "unit": "V"
+    },
+    {
+      "name": "boost_n_budget",
+      "spice": ".meas tran boost_n_budget find v(boost_n) at=243.43333333333334n",
+      "unit": "V"
+    },
+    {
+      "name": "boost_n_confirm",
+      "spice": ".meas tran boost_n_confirm find v(boost_n) at=305.0n",
+      "unit": "V"
+    }
+  ],
+  "options": {
+    "timeout_s": 900,
+    "keep_artifacts": false
+  },
+  "batch": {
+    "capacity_wait_s": 550.0
+  }
+}

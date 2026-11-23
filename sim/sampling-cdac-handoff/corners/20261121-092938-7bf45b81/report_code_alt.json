@@ -1,0 +1,340 @@
+{
+ "schema_version": 3,
+ "netlist": {
+  "path": null,
+  "scope": "external"
+ },
+ "status": "pass",
+ "corner_count": 1,
+ "passed": 1,
+ "failed": 0,
+ "errored": 0,
+ "inconclusive": 0,
+ "diagnostic_counts": {
+  "by_code": {},
+  "by_severity": {},
+  "corners_with_diagnostics": 0
+ },
+ "metrics": {
+  "sim__corner__count": 1,
+  "sim__corner__passed_count": 1,
+  "sim__corner__failed_count": 0,
+  "sim__corner__errored_count": 0,
+  "sim__corner__inconclusive_count": 0
+ },
+ "environment": {
+  "engine": "ngspice",
+  "engine_version": "47",
+  "ngspice_binary": "/home/ubuntu/.local/bin/ngspice",
+  "engine_build": {
+   "version_banner": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Fri Nov 13 23:19:32 UTC 2026\n******",
+   "binary_sha256": "39ca1adb826660324c3626f72bd946ec40704f0f3fc8e243c623f76e24b3eee2",
+   "probe": "ok",
+   "reason": null
+  },
+  "ngspice_init": {
+   "source": "none",
+   "lines": null,
+   "sha256": null
+  },
+  "models_lib": {
+   "path": null,
+   "scope": "external"
+  },
+  "models_lib_sha256": "48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+  "models_lib_sha256_scope": "local",
+  "netlist_sha256": "90a25b1fff4f6574f382d6041fb82e4440f18a148fca098e168f6094dfd66b3a",
+  "netlist_sha256_scope": "staged",
+  "netlist_closure": [
+   {
+    "path": null,
+    "scope": "external",
+    "sha256": "90a25b1fff4f6574f382d6041fb82e4440f18a148fca098e168f6094dfd66b3a"
+   }
+  ],
+  "netlist_identity": "sha256:91829167f2528737380228b81b5f6254fa6c19b0c23ccc2887dcd8dcb811f77b",
+  "device_multiplier": {
+   "findings": [],
+   "note": "16 instance(s) pass m=/mult= to a subcircuit whose text is not in the scanned include closure (models supplied outside it): XCp1 (sky130_fd_pr__cap_mim_m3_1), XCp2 (sky130_fd_pr__cap_mim_m3_1), XCp3 (sky130_fd_pr__cap_mim_m3_1), XCp4 (sky130_fd_pr__cap_mim_m3_1), XCp5 (sky130_fd_pr__cap_mim_m3_1), +11 more. Their vendor-mult/m= pair was not cross-checked."
+  },
+  "engine_host": "local",
+  "backend": {
+   "resolved": "local",
+   "source": "env",
+   "requested": "batch"
+  }
+ },
+ "coverage": {
+  "corners_simulated": 1,
+  "measurements_declared": 6,
+  "measurements_with_limits": 0,
+  "unrecognized_limit_keys": [],
+  "schema_version": 1,
+  "known": true,
+  "checked": [
+   "measurement:[0,\"tt/1.800V/27C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[0,\"tt/1.800V/27C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[0,\"tt/1.800V/27C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[0,\"tt/1.800V/27C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[0,\"tt/1.800V/27C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[0,\"tt/1.800V/27C\",\"slow.acq_slow_p\"]/observation"
+  ],
+  "skipped": [],
+  "inapplicable": [
+   {
+    "id": "measurement:[0,\"tt/1.800V/27C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"tt/1.800V/27C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"tt/1.800V/27C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"tt/1.800V/27C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"tt/1.800V/27C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"tt/1.800V/27C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   }
+  ],
+  "unknown": [],
+  "nothing_checked": false,
+  "nothing_checked_reasons": []
+ },
+ "provenance": {
+  "klt_version": "0.9.3.dev2575+g6bd18bbc8637",
+  "klt_git_commit": "6bd18bbc8637f6d767b3c24e77bd5db7a39e4bbe",
+  "klt_reinstall_spec": "klayout-tools @ git+https://github.com/2AMLogic/klayout-tools@6bd18bbc8637f6d767b3c24e77bd5db7a39e4bbe",
+  "klayout_version": "0.30.12",
+  "pdk": {
+   "name": "sky130A",
+   "source": "PDK_ROOT environment variable",
+   "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+  },
+  "deck": {
+   "name": "sky130.lib.spice",
+   "content_hash": "sha256:48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+   "released": false
+  },
+  "input": {
+   "content_hash": "sha256:90a25b1fff4f6574f382d6041fb82e4440f18a148fca098e168f6094dfd66b3a",
+   "role": "netlist"
+  }
+ },
+ "measurements": [
+  {
+   "name": "fast.acq_fast_p",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 1.594985,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 1.594985
+   },
+   "max": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 1.594985
+   },
+   "step": "fast"
+  },
+  {
+   "name": "fast.acq_fast_n",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 0.2027373,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 0.2027373
+   },
+   "max": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 0.2027373
+   },
+   "step": "fast"
+  },
+  {
+   "name": "slow.acq_slow_p",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 1.599998,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 1.599998
+   },
+   "max": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 1.599998
+   },
+   "step": "slow"
+  },
+  {
+   "name": "slow.acq_slow_n",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 0.2000055,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 0.2000055
+   },
+   "max": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 0.2000055
+   },
+   "step": "slow"
+  },
+  {
+   "name": "slow.acq_late_p",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 1.600001,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 1.600001
+   },
+   "max": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 1.600001
+   },
+   "step": "slow"
+  },
+  {
+   "name": "slow.acq_late_n",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 0.1999956,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 0.1999956
+   },
+   "max": {
+    "corner_id": "tt/1.800V/27C",
+    "value": 0.1999956
+   },
+   "step": "slow"
+  }
+ ],
+ "corners": [
+  {
+   "corner_id": "tt/1.800V/27C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 2.27,
+   "peak_rss_bytes": 180883456,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.594985,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2027373,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.599998,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.2000055,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.600001,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.1999956,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/dr027-runs/ho/code_alt/out/tt_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/dr027-runs/ho/code_alt/out/tt_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  }
+ ]
+}

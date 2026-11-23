@@ -1,0 +1,1585 @@
+{
+ "schema_version": 3,
+ "netlist": {
+  "path": null,
+  "scope": "external"
+ },
+ "status": "pass",
+ "corner_count": 9,
+ "passed": 9,
+ "failed": 0,
+ "errored": 0,
+ "inconclusive": 0,
+ "diagnostic_counts": {
+  "by_code": {},
+  "by_severity": {},
+  "corners_with_diagnostics": 0
+ },
+ "metrics": {
+  "sim__corner__count": 9,
+  "sim__corner__passed_count": 9,
+  "sim__corner__failed_count": 0,
+  "sim__corner__errored_count": 0,
+  "sim__corner__inconclusive_count": 0
+ },
+ "environment": {
+  "engine": "ngspice",
+  "engine_version": "47",
+  "ngspice_binary": "/usr/local/bin/ngspice",
+  "engine_build": {
+   "version_banner": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Fri Nov 13 23:19:32 UTC 2026\n******",
+   "binary_sha256": null,
+   "probe": "ok",
+   "reason": null
+  },
+  "ngspice_init": {
+   "source": "runner",
+   "lines": null,
+   "sha256": null
+  },
+  "models_lib": {
+   "path": null,
+   "scope": "external"
+  },
+  "models_lib_sha256": "48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+  "models_lib_sha256_scope": "client",
+  "netlist_sha256": "78deed00fb8e4bdc14b94f728a07e79f8d5e0f3741cb92951f68a81be793bb4d",
+  "netlist_sha256_scope": "staged",
+  "netlist_closure": [
+   {
+    "path": null,
+    "scope": "external",
+    "sha256": "78deed00fb8e4bdc14b94f728a07e79f8d5e0f3741cb92951f68a81be793bb4d"
+   }
+  ],
+  "netlist_identity": "sha256:c9def9d5f851716d8b0fe31da1414cbd50764a87376da10cb6da3f43d30dc184",
+  "device_multiplier": {
+   "findings": [],
+   "note": "16 instance(s) pass m=/mult= to a subcircuit whose text is not in the scanned include closure (models supplied outside it): XCp1 (sky130_fd_pr__cap_mim_m3_1), XCp2 (sky130_fd_pr__cap_mim_m3_1), XCp3 (sky130_fd_pr__cap_mim_m3_1), XCp4 (sky130_fd_pr__cap_mim_m3_1), XCp5 (sky130_fd_pr__cap_mim_m3_1), +11 more. Their vendor-mult/m= pair was not cross-checked."
+  },
+  "remote": {
+   "fleet": [
+    {
+     "provider": "aws-batch-fleet",
+     "job_id": "klt-sim-5ca047cc5e0e",
+     "region": "us-east-1",
+     "instance_id": "i-08292dc49edea696f",
+     "instance_type": "m7i.4xlarge",
+     "availability_zone": "us-east-1a",
+     "ami_id": "ami-09c14f55df4958cbd",
+     "lifecycle": "spot",
+     "spot": true,
+     "state": "done",
+     "exit_code": "0",
+     "concurrency": "1",
+     "physical_cores": "8",
+     "elapsed_seconds": 14,
+     "client_submitted_at": "2026-11-23T00:19:15.209290Z",
+     "client_launched_at": "2026-11-23T00:19:39.234116Z",
+     "client_status_terminal_at": "2026-11-23T00:20:11.105023Z",
+     "client_collected_at": "2026-11-23T00:20:12.567073Z",
+     "runner_klt_version": "0.9.0",
+     "client_klt_version": "0.9.3.dev3479+gbd50025ebc5e",
+     "runner_compatibility": "match",
+     "runner_request_features": {
+      "required": [
+       "analysis_steps"
+      ],
+      "missing": [],
+      "status": "supported"
+     },
+     "worker_environment": {
+      "capture": "ok",
+      "simulator": {
+       "requested_binary": "ngspice",
+       "binary_source": "PATH",
+       "selected_path": "/usr/local/bin/ngspice",
+       "version_banner": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Fri Nov 13 23:19:32 UTC 2026\n******\n",
+       "version_probe": "ok"
+      },
+      "pdk": {
+       "variant": "sky130A",
+       "root": "/opt/pdk",
+       "stamp_scheme": "sources-sha256",
+       "stamp_sha256": "4ca10280ae9f293aa1ff69f0060a52e0026929111bda881503717469b429ce67",
+       "stamp_text": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+       "models_staged": false,
+       "stamp_scope": "executed"
+      },
+      "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+      "omp_num_threads": null,
+      "image_manifest": null,
+      "model_inputs": null,
+      "diagnostics": [],
+      "pdk_stamp_comparison": {
+       "status": "match"
+      },
+      "ngspice_init": null,
+      "threads_per_worker": 1,
+      "engine_build_comparison": {
+       "status": "match"
+      }
+     },
+     "runner_model_inputs": null,
+     "runner_models_lib_sha256": "48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+     "runner_corner_section_libs": null,
+     "runner_osdi_preload": null,
+     "resumed": false,
+     "models_lib_comparison": {
+      "status": "match"
+     }
+    },
+    {
+     "provider": "aws-batch-fleet",
+     "job_id": "klt-sim-5154babc53d4",
+     "region": "us-east-1",
+     "instance_id": "i-00d14747736049a2d",
+     "instance_type": "c7i.4xlarge",
+     "availability_zone": "us-east-1f",
+     "ami_id": "ami-09c14f55df4958cbd",
+     "lifecycle": "spot",
+     "spot": true,
+     "state": "done",
+     "exit_code": "0",
+     "concurrency": "1",
+     "physical_cores": "8",
+     "elapsed_seconds": 16,
+     "client_submitted_at": "2026-11-23T00:19:15.209786Z",
+     "client_launched_at": "2026-11-23T00:19:38.680450Z",
+     "client_status_terminal_at": "2026-11-23T00:20:10.713099Z",
+     "client_collected_at": "2026-11-23T00:20:12.251159Z",
+     "runner_klt_version": "0.9.0",
+     "client_klt_version": "0.9.3.dev3479+gbd50025ebc5e",
+     "runner_compatibility": "match",
+     "runner_request_features": {
+      "required": [
+       "analysis_steps"
+      ],
+      "missing": [],
+      "status": "supported"
+     },
+     "worker_environment": {
+      "capture": "ok",
+      "simulator": {
+       "requested_binary": "ngspice",
+       "binary_source": "PATH",
+       "selected_path": "/usr/local/bin/ngspice",
+       "version_banner": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Fri Nov 13 23:19:32 UTC 2026\n******\n",
+       "version_probe": "ok"
+      },
+      "pdk": {
+       "variant": "sky130A",
+       "root": "/opt/pdk",
+       "stamp_scheme": "sources-sha256",
+       "stamp_sha256": "4ca10280ae9f293aa1ff69f0060a52e0026929111bda881503717469b429ce67",
+       "stamp_text": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+       "models_staged": false,
+       "stamp_scope": "executed"
+      },
+      "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+      "omp_num_threads": null,
+      "image_manifest": null,
+      "model_inputs": null,
+      "diagnostics": [],
+      "pdk_stamp_comparison": {
+       "status": "match"
+      },
+      "ngspice_init": null,
+      "threads_per_worker": 1,
+      "engine_build_comparison": {
+       "status": "match"
+      }
+     },
+     "runner_model_inputs": null,
+     "runner_models_lib_sha256": "48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+     "runner_corner_section_libs": null,
+     "runner_osdi_preload": null,
+     "resumed": false,
+     "models_lib_comparison": {
+      "status": "match"
+     }
+    }
+   ],
+   "job_ids": [
+    "klt-sim-5ca047cc5e0e",
+    "klt-sim-5154babc53d4"
+   ],
+   "runner_compatibility": "match"
+  },
+  "engine_host": "worker",
+  "client_ngspice_binary": "/home/ubuntu/.local/bin/ngspice",
+  "client_engine_build": {
+   "version_banner": "******\n** ngspice-47 : Circuit level simulation program\n** Compiled with KLU Direct Linear Solver\n** The U. C. Berkeley CAD Group\n** Copyright 1985-1994, Regents of the University of California.\n** Copyright 2001-2026, The ngspice team.\n** Please get your ngspice manual from https://ngspice.sourceforge.io/docs.html\n** Please file your bug-reports at http://ngspice.sourceforge.net/bugrep.html\n** Creation Date: Fri Nov 13 23:19:32 UTC 2026\n******",
+   "binary_sha256": "39ca1adb826660324c3626f72bd946ec40704f0f3fc8e243c623f76e24b3eee2",
+   "probe": "ok",
+   "reason": null
+  },
+  "backend": {
+   "resolved": "batch",
+   "source": "env",
+   "requested": "batch"
+  }
+ },
+ "coverage": {
+  "corners_simulated": 9,
+  "measurements_declared": 7,
+  "measurements_with_limits": 0,
+  "unrecognized_limit_keys": [],
+  "schema_version": 1,
+  "known": true,
+  "checked": [
+   "measurement:[0,\"ff/1.800V/27C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"slow.acq_slow_p\"]/observation",
+   "measurement:[0,\"ff/1.800V/27C\",\"tset.acq_tset\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"slow.acq_slow_p\"]/observation",
+   "measurement:[1,\"fs/1.800V/27C\",\"tset.acq_tset\"]/observation",
+   "measurement:[2,\"sf/1.800V/27C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[2,\"sf/1.800V/27C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[2,\"sf/1.800V/27C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[2,\"sf/1.800V/27C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[2,\"sf/1.800V/27C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[2,\"sf/1.800V/27C\",\"slow.acq_slow_p\"]/observation",
+   "measurement:[2,\"sf/1.800V/27C\",\"tset.acq_tset\"]/observation",
+   "measurement:[3,\"ss/1.800V/27C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[3,\"ss/1.800V/27C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[3,\"ss/1.800V/27C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[3,\"ss/1.800V/27C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[3,\"ss/1.800V/27C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[3,\"ss/1.800V/27C\",\"slow.acq_slow_p\"]/observation",
+   "measurement:[3,\"ss/1.800V/27C\",\"tset.acq_tset\"]/observation",
+   "measurement:[4,\"tt/1.620V/27C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[4,\"tt/1.620V/27C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[4,\"tt/1.620V/27C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[4,\"tt/1.620V/27C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[4,\"tt/1.620V/27C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[4,\"tt/1.620V/27C\",\"slow.acq_slow_p\"]/observation",
+   "measurement:[4,\"tt/1.620V/27C\",\"tset.acq_tset\"]/observation",
+   "measurement:[5,\"tt/1.800V/-40C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[5,\"tt/1.800V/-40C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[5,\"tt/1.800V/-40C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[5,\"tt/1.800V/-40C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[5,\"tt/1.800V/-40C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[5,\"tt/1.800V/-40C\",\"slow.acq_slow_p\"]/observation",
+   "measurement:[5,\"tt/1.800V/-40C\",\"tset.acq_tset\"]/observation",
+   "measurement:[6,\"tt/1.800V/27C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[6,\"tt/1.800V/27C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[6,\"tt/1.800V/27C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[6,\"tt/1.800V/27C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[6,\"tt/1.800V/27C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[6,\"tt/1.800V/27C\",\"slow.acq_slow_p\"]/observation",
+   "measurement:[6,\"tt/1.800V/27C\",\"tset.acq_tset\"]/observation",
+   "measurement:[7,\"tt/1.800V/125C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[7,\"tt/1.800V/125C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[7,\"tt/1.800V/125C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[7,\"tt/1.800V/125C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[7,\"tt/1.800V/125C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[7,\"tt/1.800V/125C\",\"slow.acq_slow_p\"]/observation",
+   "measurement:[7,\"tt/1.800V/125C\",\"tset.acq_tset\"]/observation",
+   "measurement:[8,\"tt/1.980V/27C\",\"fast.acq_fast_n\"]/observation",
+   "measurement:[8,\"tt/1.980V/27C\",\"fast.acq_fast_p\"]/observation",
+   "measurement:[8,\"tt/1.980V/27C\",\"slow.acq_late_n\"]/observation",
+   "measurement:[8,\"tt/1.980V/27C\",\"slow.acq_late_p\"]/observation",
+   "measurement:[8,\"tt/1.980V/27C\",\"slow.acq_slow_n\"]/observation",
+   "measurement:[8,\"tt/1.980V/27C\",\"slow.acq_slow_p\"]/observation",
+   "measurement:[8,\"tt/1.980V/27C\",\"tset.acq_tset\"]/observation"
+  ],
+  "skipped": [],
+  "inapplicable": [
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[0,\"ff/1.800V/27C\",\"tset.acq_tset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[1,\"fs/1.800V/27C\",\"tset.acq_tset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"sf/1.800V/27C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"sf/1.800V/27C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"sf/1.800V/27C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"sf/1.800V/27C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"sf/1.800V/27C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"sf/1.800V/27C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[2,\"sf/1.800V/27C\",\"tset.acq_tset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"ss/1.800V/27C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"ss/1.800V/27C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"ss/1.800V/27C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"ss/1.800V/27C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"ss/1.800V/27C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"ss/1.800V/27C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[3,\"ss/1.800V/27C\",\"tset.acq_tset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"tt/1.620V/27C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"tt/1.620V/27C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"tt/1.620V/27C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"tt/1.620V/27C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"tt/1.620V/27C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"tt/1.620V/27C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[4,\"tt/1.620V/27C\",\"tset.acq_tset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"tt/1.800V/-40C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"tt/1.800V/-40C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"tt/1.800V/-40C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"tt/1.800V/-40C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"tt/1.800V/-40C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"tt/1.800V/-40C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[5,\"tt/1.800V/-40C\",\"tset.acq_tset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"tt/1.800V/27C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"tt/1.800V/27C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"tt/1.800V/27C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"tt/1.800V/27C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"tt/1.800V/27C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"tt/1.800V/27C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[6,\"tt/1.800V/27C\",\"tset.acq_tset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"tt/1.800V/125C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"tt/1.800V/125C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"tt/1.800V/125C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"tt/1.800V/125C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"tt/1.800V/125C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"tt/1.800V/125C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[7,\"tt/1.800V/125C\",\"tset.acq_tset\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.980V/27C\",\"fast.acq_fast_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.980V/27C\",\"fast.acq_fast_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.980V/27C\",\"slow.acq_late_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.980V/27C\",\"slow.acq_late_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.980V/27C\",\"slow.acq_slow_n\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.980V/27C\",\"slow.acq_slow_p\"]/limits",
+    "reason": "characterization_without_limits"
+   },
+   {
+    "id": "measurement:[8,\"tt/1.980V/27C\",\"tset.acq_tset\"]/limits",
+    "reason": "characterization_without_limits"
+   }
+  ],
+  "unknown": [],
+  "nothing_checked": false,
+  "nothing_checked_reasons": []
+ },
+ "provenance": {
+  "klt_version": "0.9.3.dev3479+gbd50025ebc5e",
+  "klt_git_commit": "bd50025ebc5e9339e6527cb0de4b48b9247e855d",
+  "klt_reinstall_spec": "klayout-tools @ git+https://github.com/2AMLogic/klayout-tools@bd50025ebc5e9339e6527cb0de4b48b9247e855d",
+  "klayout_version": "0.30.12",
+  "pdk": {
+   "name": "sky130A",
+   "source": "PDK_ROOT environment variable",
+   "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+   "ambiguous_sources": [
+    "search root: ~/.volare"
+   ]
+  },
+  "deck": {
+   "name": "sky130.lib.spice",
+   "content_hash": "sha256:48de7c677e2c6e7d09b2559279de9f818be71010a4aa933d728eb4db3b133c84",
+   "released": false
+  },
+  "input": {
+   "content_hash": "sha256:78deed00fb8e4bdc14b94f728a07e79f8d5e0f3741cb92951f68a81be793bb4d",
+   "role": "netlist"
+  }
+ },
+ "measurements": [
+  {
+   "name": "fast.acq_fast_p",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.599158,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.620V/27C",
+    "value": 1.593225
+   },
+   "max": {
+    "corner_id": "tt/1.800V/-40C",
+    "value": 1.599174
+   },
+   "step": "fast"
+  },
+  {
+   "name": "fast.acq_fast_n",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 0.2048042,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.980V/27C",
+    "value": 0.2045618
+   },
+   "max": {
+    "corner_id": "tt/1.620V/27C",
+    "value": 0.2170183
+   },
+   "step": "fast"
+  },
+  {
+   "name": "slow.acq_slow_p",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.6,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.6
+   },
+   "max": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.6
+   },
+   "step": "slow"
+  },
+  {
+   "name": "slow.acq_slow_n",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 0.2,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.800V/-40C",
+    "value": 0.1999999
+   },
+   "max": {
+    "corner_id": "ss/1.800V/27C",
+    "value": 0.2000002
+   },
+   "step": "slow"
+  },
+  {
+   "name": "slow.acq_late_p",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.6,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.6
+   },
+   "max": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.6
+   },
+   "step": "slow"
+  },
+  {
+   "name": "slow.acq_late_n",
+   "unit": "V",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 0.2000001,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "fs/1.800V/27C",
+    "value": 0.2
+   },
+   "max": {
+    "corner_id": "ss/1.800V/27C",
+    "value": 0.2000002
+   },
+   "step": "slow"
+  },
+  {
+   "name": "tset.acq_tset",
+   "unit": "s",
+   "limits": null,
+   "status": "pass",
+   "worst_case": {
+    "corner_id": "ff/1.800V/27C",
+    "value": 1.005823e-07,
+    "margin": null
+   },
+   "min": {
+    "corner_id": "tt/1.980V/27C",
+    "value": 1.005045e-07
+   },
+   "max": {
+    "corner_id": "tt/1.620V/27C",
+    "value": 1.365391e-07
+   },
+   "step": "tset"
+  }
+ ],
+ "corners": [
+  {
+   "corner_id": "ff/1.800V/27C",
+   "process": "ff",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 6.051,
+   "peak_rss_bytes": 185065472,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.599158,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2048042,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.2000001,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "tset.acq_tset",
+     "value": 1.005823e-07,
+     "unit": "s",
+     "status": "pass",
+     "margin": null,
+     "step": "tset"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/ff_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/ff_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "tset",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "fs/1.800V/27C",
+   "process": "fs",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 5.978,
+   "peak_rss_bytes": 185065472,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.597034,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2081575,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "tset.acq_tset",
+     "value": 1.127687e-07,
+     "unit": "s",
+     "status": "pass",
+     "margin": null,
+     "step": "tset"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/fs_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/fs_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "tset",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "sf/1.800V/27C",
+   "process": "sf",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 6.033,
+   "peak_rss_bytes": 185065472,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.598578,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2081285,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "tset.acq_tset",
+     "value": 1.119431e-07,
+     "unit": "s",
+     "status": "pass",
+     "margin": null,
+     "step": "tset"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/sf_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/sf_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "tset",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "ss/1.800V/27C",
+   "process": "ss",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 6.039,
+   "peak_rss_bytes": 185065472,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.595361,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2125497,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.2000002,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.2000002,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "tset.acq_tset",
+     "value": 1.240113e-07,
+     "unit": "s",
+     "status": "pass",
+     "margin": null,
+     "step": "tset"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/ss_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/ss_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "tset",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.620V/27C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.62
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 5.973,
+   "peak_rss_bytes": 185065472,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.593225,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2170183,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.2000001,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "tset.acq_tset",
+     "value": 1.365391e-07,
+     "unit": "s",
+     "status": "pass",
+     "margin": null,
+     "step": "tset"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/tt_1p620V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5ca047cc5e0e/tt_1p620V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "tset",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.800V/-40C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": -40.0,
+   "status": "pass",
+   "runtime_s": 6.836,
+   "peak_rss_bytes": 185118720,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.599174,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2049163,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.1999999,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "tset.acq_tset",
+     "value": 1.012442e-07,
+     "unit": "s",
+     "status": "pass",
+     "margin": null,
+     "step": "tset"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5154babc53d4/tt_1p800V_n40C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5154babc53d4/tt_1p800V_n40C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "tset",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.800V/27C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 6.82,
+   "peak_rss_bytes": 185118720,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.597946,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2078012,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "tset.acq_tset",
+     "value": 1.112783e-07,
+     "unit": "s",
+     "status": "pass",
+     "margin": null,
+     "step": "tset"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5154babc53d4/tt_1p800V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5154babc53d4/tt_1p800V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "tset",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.800V/125C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.8
+   },
+   "temperature_c": 125.0,
+   "status": "pass",
+   "runtime_s": 6.695,
+   "peak_rss_bytes": 185049088,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.593335,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2143828,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.2000001,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.2000001,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "tset.acq_tset",
+     "value": 1.28062e-07,
+     "unit": "s",
+     "status": "pass",
+     "margin": null,
+     "step": "tset"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5154babc53d4/tt_1p800V_125C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5154babc53d4/tt_1p800V_125C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "tset",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  },
+  {
+   "corner_id": "tt/1.980V/27C",
+   "process": "tt",
+   "supply_v": {
+    "vsup": 1.98
+   },
+   "temperature_c": 27.0,
+   "status": "pass",
+   "runtime_s": 6.774,
+   "peak_rss_bytes": 185049088,
+   "engine_exit_code": 0,
+   "engine_killed_by_signal": null,
+   "measurements": [
+    {
+     "name": "fast.acq_fast_p",
+     "value": 1.599008,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "fast.acq_fast_n",
+     "value": 0.2045618,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "fast"
+    },
+    {
+     "name": "slow.acq_slow_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_slow_n",
+     "value": 0.1999999,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_p",
+     "value": 1.6,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "slow.acq_late_n",
+     "value": 0.2,
+     "unit": "V",
+     "status": "pass",
+     "margin": null,
+     "step": "slow"
+    },
+    {
+     "name": "tset.acq_tset",
+     "value": 1.005045e-07,
+     "unit": "s",
+     "status": "pass",
+     "margin": null,
+     "step": "tset"
+    }
+   ],
+   "diagnostics": [],
+   "artifacts": {
+    "log": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5154babc53d4/tt_1p980V_27C/ngspice.log",
+    "raw": null,
+    "waveform": null,
+    "deck": "/tmp/handoff-dr027-kffpnfyh/grid/out/klt-sim-5154babc53d4/tt_1p980V_27C/corner.cir"
+   },
+   "monte_carlo": null,
+   "steps": [
+    {
+     "name": "fast",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "slow",
+     "kind": "tran",
+     "status": "ok"
+    },
+    {
+     "name": "tset",
+     "kind": "tran",
+     "status": "ok"
+    }
+   ]
+  }
+ ]
+}

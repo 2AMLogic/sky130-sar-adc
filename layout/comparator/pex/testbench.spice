@@ -22,20 +22,33 @@
 * (see that record's "Recommendation" section for the full derivation and a
 * corner spot check at ss/-40C and ff/125C).
 *
-* Two corner points, swept together via `corners.supply_v` on the
-* `vinp_v`/`vinn_v` params below (see pex_request.json):
-*   - index 0: vinp_v=vinn_v=0.9V -- Vindiff=0. Both legs' *devices* are
+* CORNER AXES (issue #1017's re-mint at the ratified 9-point OAT grid):
+* `vdd` is a literal DC source keyed by `corners.supply_v` (the alter
+* gotcha below), and the evaluate clock TRACKS the rail at every corner the
+* way sim/comparator-decision's own regen-corners campaign drives it
+* ("reset(CLK=0)->evaluate(CLK=supply)"). The original bench's
+* `PULSE(0 {vdd_val} ...)` amplitude cannot be altered (ngspice `alter`
+* sets a named source's DC value, not a waveform parameter), so the clock
+* is now an ideal switch (`Sclk`) that connects the CLK node to the VDD
+* RAIL NODE while a fixed-amplitude PWL control enables it -- the same
+* ideal-switch primitive this repo's other pex testbenches already use.
+* The 100MEG bleed gives the reset phase its CLK=0 level (the DUT's CLK
+* load is purely capacitive). The evaluate high level is then exactly
+* v(VDD) at every rail, e.g. 1.62V at the -10% supply corner.
+*
+* Vindiff's two points per OAT rail (see run_pex.py's generated requests):
+*   - zero: vinp=vinn=vdd/2 -- Vindiff=0. Both legs' *devices* are
 *     identical on both the schematic DUT and (since `klt pex` extracts
 *     this composed layout's real device instances, not a stochastically
 *     mismatched draw) the extracted netlist too -- so a nonzero pick-off
 *     differential at this point isolates the ROUTING/parasitic-driven
-*     imbalance alone, with device mismatch structurally excluded from the
-*     comparison.
-*   - index 1: vinp_v=0.905V, vinn_v=0.895V -- Vindiff=+10mV, one of
+*     imbalance alone, with device mismatch structurally excluded from
+*     the comparison.
+*   - cal: vinp=vdd/2+5mV, vinn=vdd/2-5mV -- Vindiff=+10mV, one of
 *     run.py's own VINDIFF_GAIN_CAL_MV gain-calibration points, included so
-*     the index-0 delta can be converted to an input-referred quantity via
-*     the same zero-intercept-gain technique run.py's `offset` subcommand
-*     uses, without re-deriving a new methodology for this issue.
+*     the zero-point delta can be converted to an input-referred quantity
+*     via the same zero-intercept-gain technique run.py's `offset`
+*     subcommand uses, without re-deriving a new methodology.
 *
 * `.include`s the schematic-equivalent DUT (comparator_pex_reference.spice
 * -- see that file's own header for why it exists as a separate,
@@ -43,23 +56,14 @@
 * directly). `klt pex` rewrites only that one line to point at its own
 * freshly `--parasitics`-extracted netlist for the extracted-side leg; the
 * schematic-side leg runs this file completely unmodified.
-.param vdd_val=1.8
-
-Vdd VDD 0 DC {vdd_val}
-Vclk CLK 0 PULSE(0 {vdd_val} 5n 0.1n 0.1n 1.5n 16.6n)
-* Vinp/Vinn's DC values are the `corners.supply_v` alter target below --
-* ngspice's `alter <name>=<value>` command sets a named SOURCE's own DC
-* value directly (case-insensitive device-name match); it does NOT resolve
-* a `.param`-only indirection (verified empirically: keying
-* `corners.supply_v` off a `.param` name here silently no-ops with a
-* logged "no such device or model name" rather than failing the run, since
-* `klt sim`'s failure classification does not (yet) treat an `alter`
-* target-not-found line as its own diagnostic code -- see
-* docs/cli/sim.md's "Corner axes"/`corners.supply_v`). So these are literal
-* DC sources, not `.param`-substituted, and `pex_request.json`'s
-* `supply_v` keys name them directly (`vinp`/`vinn`).
+Vdd VDD 0 DC 1.8
 Vinp VINP 0 DC 0.9
 Vinn VINN 0 DC 0.9
+
+Vclken nclk 0 PULSE(0 1.8 5n 0.1n 0.1n 1.5n 16.6n)
+.model SWCLK SW(Ron=1 Roff=1e12 Vt=0.9 Vh=0.05)
+Sclk CLK VDD nclk 0 SWCLK
+Rclkbleed CLK 0 100e6
 
 .include "comparator_pex_reference.spice"
 Xdut CLK GND OUTN OUTP VDD VINN VINP gen_compose_0
