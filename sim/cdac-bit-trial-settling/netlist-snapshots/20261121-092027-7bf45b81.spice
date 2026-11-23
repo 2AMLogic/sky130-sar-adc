@@ -1,0 +1,187 @@
+* sim/cdac-bit-trial-settling -- DR-027 candidate-geometry study
+* (issue #1033): bit-trial switch-Ron settling at the proposed
+* 3.3000 um unit plate (C_tot ~ 12.19 pF/side, model-evaluated),
+* switch sizes and binary weights unchanged. EXPERIMENTAL study
+* deck: design/cdac/ still draws the DR-019 1.9000 um plate.
+* Six independent copies of the single-instance reduction (one per
+* (test_bit, direction)); circuit body only -- klt sim supplies the* corner section, temperature card, measurement cards and tran* analysis steps.
+.options num_threads=1
+.model SWMOD SW(Ron=1 Roff=1e12 Vt=0.9 Vh=0.05)
+vsup VDD 0 DC 1.8
+Bvrefp VREFP 0 V=v(VDD)
+Vrefn VREFN 0 DC 0
+Bvcm VCM 0 V=v(VDD)/2
+
+* --- copy b0f: bit 0 (fall), weight 1, ratio 0.0019531 ---
+Vrstn_b0f RSTN_b0f 0 pwl(0 1 0.9n 1 1.1n 0 850n 0)
+Brst_b0f NCTRL_b0f 0 V=v(RSTN_b0f)*v(VDD)
+Sreset_b0f TOP_b0f VCM NCTRL_b0f 0 SWMOD
+Rdc_b0f TOP_b0f VCM 1T
+Vseln_b0f SELN_b0f 0 pwl(0 0 0.9n 0 1.1n 1 850n 1)
+Bsel_b0f SEL_b0f 0 V=v(SELN_b0f)*v(VDD)
+Xc_bit0_b0f bot0_b0f TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Xn_bit0_b0f bot0_b0f SEL_b0f VREFN 0 sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_bit0_b0f bot0_b0f SEL_b0f VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vbot1_b0f bot1_b0f 0 DC 0
+Xc_bit1_b0f bot1_b0f TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=2 m=2
+Vbot2_b0f bot2_b0f 0 DC 0
+Xc_bit2_b0f bot2_b0f TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=4 m=4
+Vbot3_b0f bot3_b0f 0 DC 0
+Xc_bit3_b0f bot3_b0f TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=8 m=8
+Vbot4_b0f bot4_b0f 0 DC 0
+Xc_bit4_b0f bot4_b0f TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=16 m=16
+Vbot5_b0f bot5_b0f 0 DC 0
+Xc_bit5_b0f bot5_b0f TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=32 m=32
+Vbot6_b0f bot6_b0f 0 DC 0
+Xc_bit6_b0f bot6_b0f TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=64 m=64
+Vbot7_b0f bot7_b0f 0 DC 0
+Xc_bit7_b0f bot7_b0f TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=128 m=128
+Vbot8_b0f bot8_b0f 0 DC 0
+Xc_bit8_b0f bot8_b0f TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=256 m=256
+Xc_term_b0f VREFN TOP_b0f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Bnorm_b0f NORM_b0f 0 V=(v(TOP_b0f)-v(VCM))/v(VDD)
+
+* --- copy b0r: bit 0 (rise), weight 1, ratio 0.0019531 ---
+Vrstn_b0r RSTN_b0r 0 pwl(0 1 0.9n 1 1.1n 0 850n 0)
+Brst_b0r NCTRL_b0r 0 V=v(RSTN_b0r)*v(VDD)
+Sreset_b0r TOP_b0r VCM NCTRL_b0r 0 SWMOD
+Rdc_b0r TOP_b0r VCM 1T
+Vseln_b0r SELN_b0r 0 pwl(0 1 0.9n 1 1.1n 0 850n 0)
+Bsel_b0r SEL_b0r 0 V=v(SELN_b0r)*v(VDD)
+Xc_bit0_b0r bot0_b0r TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Xn_bit0_b0r bot0_b0r SEL_b0r VREFN 0 sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_bit0_b0r bot0_b0r SEL_b0r VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vbot1_b0r bot1_b0r 0 DC 0
+Xc_bit1_b0r bot1_b0r TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=2 m=2
+Vbot2_b0r bot2_b0r 0 DC 0
+Xc_bit2_b0r bot2_b0r TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=4 m=4
+Vbot3_b0r bot3_b0r 0 DC 0
+Xc_bit3_b0r bot3_b0r TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=8 m=8
+Vbot4_b0r bot4_b0r 0 DC 0
+Xc_bit4_b0r bot4_b0r TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=16 m=16
+Vbot5_b0r bot5_b0r 0 DC 0
+Xc_bit5_b0r bot5_b0r TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=32 m=32
+Vbot6_b0r bot6_b0r 0 DC 0
+Xc_bit6_b0r bot6_b0r TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=64 m=64
+Vbot7_b0r bot7_b0r 0 DC 0
+Xc_bit7_b0r bot7_b0r TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=128 m=128
+Vbot8_b0r bot8_b0r 0 DC 0
+Xc_bit8_b0r bot8_b0r TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=256 m=256
+Xc_term_b0r VREFN TOP_b0r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Bnorm_b0r NORM_b0r 0 V=(v(TOP_b0r)-v(VCM))/v(VDD)
+
+* --- copy b4f: bit 4 (fall), weight 16, ratio 0.0312500 ---
+Vrstn_b4f RSTN_b4f 0 pwl(0 1 0.9n 1 1.1n 0 850n 0)
+Brst_b4f NCTRL_b4f 0 V=v(RSTN_b4f)*v(VDD)
+Sreset_b4f TOP_b4f VCM NCTRL_b4f 0 SWMOD
+Rdc_b4f TOP_b4f VCM 1T
+Vseln_b4f SELN_b4f 0 pwl(0 0 0.9n 0 1.1n 1 850n 1)
+Bsel_b4f SEL_b4f 0 V=v(SELN_b4f)*v(VDD)
+Vbot0_b4f bot0_b4f 0 DC 0
+Xc_bit0_b4f bot0_b4f TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Vbot1_b4f bot1_b4f 0 DC 0
+Xc_bit1_b4f bot1_b4f TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=2 m=2
+Vbot2_b4f bot2_b4f 0 DC 0
+Xc_bit2_b4f bot2_b4f TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=4 m=4
+Vbot3_b4f bot3_b4f 0 DC 0
+Xc_bit3_b4f bot3_b4f TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=8 m=8
+Xc_bit4_b4f bot4_b4f TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=16 m=16
+Xn_bit4_b4f bot4_b4f SEL_b4f VREFN 0 sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_bit4_b4f bot4_b4f SEL_b4f VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vbot5_b4f bot5_b4f 0 DC 0
+Xc_bit5_b4f bot5_b4f TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=32 m=32
+Vbot6_b4f bot6_b4f 0 DC 0
+Xc_bit6_b4f bot6_b4f TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=64 m=64
+Vbot7_b4f bot7_b4f 0 DC 0
+Xc_bit7_b4f bot7_b4f TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=128 m=128
+Vbot8_b4f bot8_b4f 0 DC 0
+Xc_bit8_b4f bot8_b4f TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=256 m=256
+Xc_term_b4f VREFN TOP_b4f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Bnorm_b4f NORM_b4f 0 V=(v(TOP_b4f)-v(VCM))/v(VDD)
+
+* --- copy b4r: bit 4 (rise), weight 16, ratio 0.0312500 ---
+Vrstn_b4r RSTN_b4r 0 pwl(0 1 0.9n 1 1.1n 0 850n 0)
+Brst_b4r NCTRL_b4r 0 V=v(RSTN_b4r)*v(VDD)
+Sreset_b4r TOP_b4r VCM NCTRL_b4r 0 SWMOD
+Rdc_b4r TOP_b4r VCM 1T
+Vseln_b4r SELN_b4r 0 pwl(0 1 0.9n 1 1.1n 0 850n 0)
+Bsel_b4r SEL_b4r 0 V=v(SELN_b4r)*v(VDD)
+Vbot0_b4r bot0_b4r 0 DC 0
+Xc_bit0_b4r bot0_b4r TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Vbot1_b4r bot1_b4r 0 DC 0
+Xc_bit1_b4r bot1_b4r TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=2 m=2
+Vbot2_b4r bot2_b4r 0 DC 0
+Xc_bit2_b4r bot2_b4r TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=4 m=4
+Vbot3_b4r bot3_b4r 0 DC 0
+Xc_bit3_b4r bot3_b4r TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=8 m=8
+Xc_bit4_b4r bot4_b4r TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=16 m=16
+Xn_bit4_b4r bot4_b4r SEL_b4r VREFN 0 sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_bit4_b4r bot4_b4r SEL_b4r VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Vbot5_b4r bot5_b4r 0 DC 0
+Xc_bit5_b4r bot5_b4r TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=32 m=32
+Vbot6_b4r bot6_b4r 0 DC 0
+Xc_bit6_b4r bot6_b4r TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=64 m=64
+Vbot7_b4r bot7_b4r 0 DC 0
+Xc_bit7_b4r bot7_b4r TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=128 m=128
+Vbot8_b4r bot8_b4r 0 DC 0
+Xc_bit8_b4r bot8_b4r TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=256 m=256
+Xc_term_b4r VREFN TOP_b4r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Bnorm_b4r NORM_b4r 0 V=(v(TOP_b4r)-v(VCM))/v(VDD)
+
+* --- copy b8f: bit 8 (fall), weight 256, ratio 0.5000000 ---
+Vrstn_b8f RSTN_b8f 0 pwl(0 1 0.9n 1 1.1n 0 850n 0)
+Brst_b8f NCTRL_b8f 0 V=v(RSTN_b8f)*v(VDD)
+Sreset_b8f TOP_b8f VCM NCTRL_b8f 0 SWMOD
+Rdc_b8f TOP_b8f VCM 1T
+Vseln_b8f SELN_b8f 0 pwl(0 0 0.9n 0 1.1n 1 850n 1)
+Bsel_b8f SEL_b8f 0 V=v(SELN_b8f)*v(VDD)
+Vbot0_b8f bot0_b8f 0 DC 0
+Xc_bit0_b8f bot0_b8f TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Vbot1_b8f bot1_b8f 0 DC 0
+Xc_bit1_b8f bot1_b8f TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=2 m=2
+Vbot2_b8f bot2_b8f 0 DC 0
+Xc_bit2_b8f bot2_b8f TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=4 m=4
+Vbot3_b8f bot3_b8f 0 DC 0
+Xc_bit3_b8f bot3_b8f TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=8 m=8
+Vbot4_b8f bot4_b8f 0 DC 0
+Xc_bit4_b8f bot4_b8f TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=16 m=16
+Vbot5_b8f bot5_b8f 0 DC 0
+Xc_bit5_b8f bot5_b8f TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=32 m=32
+Vbot6_b8f bot6_b8f 0 DC 0
+Xc_bit6_b8f bot6_b8f TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=64 m=64
+Vbot7_b8f bot7_b8f 0 DC 0
+Xc_bit7_b8f bot7_b8f TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=128 m=128
+Xc_bit8_b8f bot8_b8f TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=256 m=256
+Xn_bit8_b8f bot8_b8f SEL_b8f VREFN 0 sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_bit8_b8f bot8_b8f SEL_b8f VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_term_b8f VREFN TOP_b8f sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Bnorm_b8f NORM_b8f 0 V=(v(TOP_b8f)-v(VCM))/v(VDD)
+
+* --- copy b8r: bit 8 (rise), weight 256, ratio 0.5000000 ---
+Vrstn_b8r RSTN_b8r 0 pwl(0 1 0.9n 1 1.1n 0 850n 0)
+Brst_b8r NCTRL_b8r 0 V=v(RSTN_b8r)*v(VDD)
+Sreset_b8r TOP_b8r VCM NCTRL_b8r 0 SWMOD
+Rdc_b8r TOP_b8r VCM 1T
+Vseln_b8r SELN_b8r 0 pwl(0 1 0.9n 1 1.1n 0 850n 0)
+Bsel_b8r SEL_b8r 0 V=v(SELN_b8r)*v(VDD)
+Vbot0_b8r bot0_b8r 0 DC 0
+Xc_bit0_b8r bot0_b8r TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Vbot1_b8r bot1_b8r 0 DC 0
+Xc_bit1_b8r bot1_b8r TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=2 m=2
+Vbot2_b8r bot2_b8r 0 DC 0
+Xc_bit2_b8r bot2_b8r TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=4 m=4
+Vbot3_b8r bot3_b8r 0 DC 0
+Xc_bit3_b8r bot3_b8r TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=8 m=8
+Vbot4_b8r bot4_b8r 0 DC 0
+Xc_bit4_b8r bot4_b8r TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=16 m=16
+Vbot5_b8r bot5_b8r 0 DC 0
+Xc_bit5_b8r bot5_b8r TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=32 m=32
+Vbot6_b8r bot6_b8r 0 DC 0
+Xc_bit6_b8r bot6_b8r TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=64 m=64
+Vbot7_b8r bot7_b8r 0 DC 0
+Xc_bit7_b8r bot7_b8r TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=128 m=128
+Xc_bit8_b8r bot8_b8r TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=256 m=256
+Xn_bit8_b8r bot8_b8r SEL_b8r VREFN 0 sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1
+Xp_bit8_b8r bot8_b8r SEL_b8r VREFP VDD sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1
+Xc_term_b8r VREFN TOP_b8r sky130_fd_pr__cap_mim_m3_1 W=3.3000 L=3.3000 MF=1 m=1
+Bnorm_b8r NORM_b8r 0 V=(v(TOP_b8r)-v(VCM))/v(VDD)
