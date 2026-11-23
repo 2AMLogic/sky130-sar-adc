@@ -397,17 +397,6 @@ def write_record(
 ) -> Path:
     out = work_dir
     record_id = out.name
-    for name in (
-        "cdac_array.pex-extract.spice",
-        "extract.json",
-        "cdac_array_pex_reference.spice",
-        "testbench.spice",
-        "pex_request.json",
-        "pex.json",
-    ):
-        src, dst = work_dir / name, out / name
-        if src.resolve() != dst.resolve():
-            shutil.copy(src, dst)
 
     prov = extract_json["provenance"]
     body_bias = pex_json.get("body_bias", {})

@@ -55,7 +55,7 @@ sys.path.insert(0, str(PEX_DIR.parents[2] / "sim"))
 
 import pex_flow  # noqa: E402
 
-from harness import evidence, pdk  # noqa: E402
+from harness import evidence  # noqa: E402
 
 BLOCK_DIR = PEX_DIR.parent
 REPORTS_DIR = BLOCK_DIR / "reports"
@@ -98,26 +98,13 @@ def oat_points(pilot: bool):
     def cal_n(v: float) -> float:
         return round(v / 2.0 - CAL_VINDIFF_MV / 2000.0, 6)
 
-    star = [
-        (p, t, v)
-        for p, t, v in pex_flow.corners_mod.ratified_oat_grid(
-            1.8,
-            pex_flow.corners_mod.RATIFIED_SUPPLY_TOLERANCE,
-            pex_flow.corners_mod.RATIFIED_PROCESS_CORNERS,
-            pex_flow.corners_mod.RATIFIED_TEMPS_C,
-        )
-    ]
-    if pilot:
-        star = [(p, t, v) for p, t, v in star if p == "tt" and t == 27.0 and v == 1.8]
-    zero = [
-        pex_flow.OatPoint(p, t, v, {"vdd": v, "vinp": half(v), "vinn": half(v)})
-        for p, t, v in star
-    ]
-    cal = [
-        pex_flow.OatPoint(p, t, v, {"vdd": v, "vinp": cal_p(v), "vinn": cal_n(v)})
-        for p, t, v in star
-    ]
-    return zero, cal
+    def star(vinp, vinn):
+        pts = pex_flow.ratified_oat_points({"vinp": vinp, "vinn": vinn})
+        if pilot:
+            pts = [p for p in pts if p.cid == "tt_27c_1.80v"]
+        return pts
+
+    return star(half, half), star(cal_p, cal_n)
 
 
 def build_request(points) -> dict:
@@ -142,18 +129,6 @@ def build_request(points) -> dict:
             },
         ],
         "options": {"timeout_s": 120, "keep_artifacts": False},
-    }
-
-
-def _pickoff_diffs(delta: list[dict], value_key: str) -> dict[str, tuple[float, float]]:
-    """`klt pex`'s `delta[]` -> corner_id -> (outp_v, outn_v), reading either
-    `schematic_value` or `extracted_value` (`value_key`) from each row."""
-    by_corner: dict[str, dict[str, float]] = {}
-    for row in delta:
-        by_corner.setdefault(row["corner_id"], {})[row["spec_row"]] = row[value_key]
-    return {
-        corner_id: (values["outp_pickoff"], values["outn_pickoff"])
-        for corner_id, values in by_corner.items()
     }
 
 
@@ -285,16 +260,7 @@ def write_record(
 ) -> Path:
     out = work_dir
     record_id = out.name
-    net_caps = {}
-    for net in extract_json.get("parasitics", {}).get("nets", []):
-        if net["net"] in ("OUTP", "OUTN", "VINP", "VINN"):
-            total_coupled = sum(c["capacitance_ff"] for c in net.get("coupled", []))
-            net_caps[net["net"]] = {
-                "r_ohm": net["resistance_ohm"],
-                "c_ground_ff": net["capacitance_ff"],
-                "c_coupled_total_ff": total_coupled,
-                "c_total_ff": net["capacitance_ff"] + total_coupled,
-            }
+    net_caps = pex_flow.net_table(extract_json, {"OUTP", "OUTN", "VINP", "VINN"})
     body_bias = results["zero"].get("body_bias", {})
     model = results["zero"].get("extraction", {}).get("model", {})
     prov = extract_json["provenance"]
