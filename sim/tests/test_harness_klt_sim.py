@@ -749,10 +749,10 @@ class TestOatCorners(unittest.TestCase):
 
 
 class TestBuildOatRequest(unittest.TestCase):
-    """Issue #1052: the `klt sim` request assembly around `oat_corners()`.
-    The exact dicts below -- values AND insertion order -- are what the four
-    consolidated drivers emitted privately; the order half is what makes the
-    serialized request byte-for-byte identical."""
+    """Issues #1052/#1054: the `klt sim` request assembly around
+    `oat_corners()`. The exact dicts below -- values AND insertion order --
+    are what the six consolidated drivers emitted privately; the order half
+    is what makes the serialized request byte-for-byte identical."""
 
     STEPS = [{"name": "s0", "analysis": {"kind": "ac", "args": "lin 1 1e6 1e6"}}]
 
@@ -815,6 +815,27 @@ class TestBuildOatRequest(unittest.TestCase):
             analysis_steps=self.STEPS, batch=batch)
         self.assertEqual(req["batch"], batch)
         self.assertIsNot(req["batch"], batch)
+
+    def test_hosts_over_one_appends_remote_last(self):
+        """Issue #1054: the two `remote.hosts` drivers' `remote` block came
+        after `backend`, so the helper must append it after every other
+        conditional key to keep the serialized request identical."""
+        req = klt_sim.build_oat_request(
+            "tb.spice", ["tt_27c_1.80v", "ss_27c_1.80v", "tt_125c_1.80v"],
+            "vsup", analysis_steps=self.STEPS, backend="batch", hosts=2)
+        self.assertEqual(req["remote"], {"hosts": 2})
+        self.assertEqual(list(req), ["netlist", "engine", "models", "corners",
+                                     "analysis_steps", "options", "exclude",
+                                     "backend", "remote"])
+
+    def test_hosts_of_none_zero_or_one_omits_remote(self):
+        for hosts in (None, 0, 1):
+            with self.subTest(hosts=hosts):
+                req = klt_sim.build_oat_request(
+                    "tb.spice", ["tt_27c_1.80v"], "vsup",
+                    analysis_steps=self.STEPS, hosts=hosts)
+                self.assertNotIn("remote", req)
+                self.assertNotIn("backend", req)
 
     def test_both_modes_at_once_is_refused(self):
         with self.assertRaises(ValueError):
@@ -998,8 +1019,8 @@ class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
 
 
 class TestNoCampaignModuleKeepsItsOwnOatExpansion(unittest.TestCase):
-    """Issue #1052: the OAT `corners`/`exclude` expansion and the request
-    assembly around it live in `harness.klt_sim.oat_corners()` /
+    """Issues #1052/#1054: the OAT `corners`/`exclude` expansion and the
+    request assembly around it live in `harness.klt_sim.oat_corners()` /
     `build_oat_request()`; a campaign module re-copies them at its own risk.
     A new campaign that copies a sibling's block instead of calling the
     helper fails here -- this is the request-side counterpart of
@@ -1013,19 +1034,19 @@ class TestNoCampaignModuleKeepsItsOwnOatExpansion(unittest.TestCase):
     single-corner `params` sweep) do not.
     """
 
-    #: The four drivers #1052 migrated; they must stay delegated forever.
+    #: The six drivers #1052 and #1054 migrated; they must stay delegated
+    #: forever.
     CONSOLIDATED = {
         "input-drive-budget", "vcm-drive-budget",
         "top-plate-cpar", "digital-partition",
+        "cdac-bit-trial-settling", "sampling-cdac-handoff",
     }
 
-    #: Campaigns that still carry a private copy today, deliberately
-    #: outside #1052's four-driver scope (each adds a `remote.hosts` knob
-    #: the shared helper does not take). Tracked for their own migration
-    #: in #1054; a campaign that migrates must come OFF this set, and a
-    #: NEW private copy is not coverable by adding to it (the exactness
-    #: test below fails on either drift).
-    STILL_PRIVATE = {"cdac-bit-trial-settling", "sampling-cdac-handoff"}
+    #: Campaigns that still carry a private copy. #1054 migrated the last
+    #: two, so the set is empty and must stay empty: the exactness test
+    #: below fails on any drift in either direction, and a NEW private copy
+    #: is not coverable by adding to it.
+    STILL_PRIVATE: set[str] = set()
 
     @staticmethod
     def _campaign_modules() -> list[Path]:
@@ -1034,7 +1055,7 @@ class TestNoCampaignModuleKeepsItsOwnOatExpansion(unittest.TestCase):
                 if p.parent.name not in ("harness", "tests")
                 and "harness/" not in p.as_posix()]
 
-    def test_the_four_consolidated_drivers_delegate(self):
+    def test_every_consolidated_driver_delegates(self):
         for name in self.CONSOLIDATED:
             mods = [p for p in self._campaign_modules()
                     if p.parent.name == name]
@@ -1066,18 +1087,17 @@ class TestNoCampaignModuleKeepsItsOwnOatExpansion(unittest.TestCase):
                     "harness.klt_sim.build_oat_request() instead "
                     "(issue #1052)")
 
-    def test_the_still_private_allowlist_is_exactly_the_two_known_copies(self):
-        """Keeps the allowlist honest in BOTH directions: a campaign that
-        migrates off its private copy must come off it, and a fresh private
-        copy cannot hide behind a stale entry."""
+    def test_no_campaign_still_carries_a_private_copy(self):
+        """Keeps the migration complete: #1054 emptied the allowlist, so any
+        campaign found re-copying the expansion is a regression (or a fresh
+        copy) and must be migrated onto the helper, not allowlisted."""
         private = {p.parent.name for p in self._campaign_modules()
                    if _oat_axis_dicts(p.read_text())}
         self.assertEqual(
             private, self.STILL_PRIVATE,
-            "the set of campaigns still carrying a private OAT copy "
-            f"changed ({sorted(private)}) -- migrate them onto "
-            "harness.klt_sim.build_oat_request() and update this "
-            "allowlist (#1054)")
+            "campaigns are still carrying a private OAT copy "
+            f"({sorted(private)}) -- migrate them onto "
+            "harness.klt_sim.build_oat_request() (#1054 left none behind)")
 
     def test_the_axis_triple_matcher_fires_on_both_artifacts_of_a_copy(self):
         """The matcher keys on the dict literal's key set, so both halves of
