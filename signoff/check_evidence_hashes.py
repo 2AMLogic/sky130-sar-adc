@@ -158,21 +158,24 @@ def classify(envelope: dict) -> str:
         return "drc"
     if "mismatches" in envelope and "reference" in envelope:
         return "lvs"
-    # `klt sim` (item 5 analog, issue #1014), detected by the same structural
-    # pair `klt signoff` uses: a `measurements` list plus `corner_count`.
-    # Tested AHEAD of `yield`'s triple, whose own rule excludes `corner_count`
-    # for exactly this reason (a yield envelope carries `measurement_count`,
-    # never `corner_count`) -- so the pair ordering here mirrors the grader's
-    # and the two tests cannot collide.
+    # `klt sim` (item 5, issues #564/#881/#1014/#1023): a `measurements` list
+    # plus `corner_count`, detected by the same structural pair `klt signoff`
+    # uses and checked BEFORE `yield` (whose own rule excludes `corner_count`
+    # for exactly this reason: a yield envelope carries `measurement_count`,
+    # never `corner_count`), so the pair ordering mirrors the grader's and the
+    # two tests cannot collide. ARTIFACT_FIELD names its `netlist` -- which a
+    # `klt sim` report records as a `{"path", "scope"}` object, so the
+    # artifact-name reader below accepts both that object's `path` and a plain
+    # string.
     if isinstance(envelope.get("measurements"), list) and "corner_count" in envelope:
         return "sim"
     # `klt yield` (item 6, issue #1015), detected by the same structural
     # triple `klt signoff` uses: a `measurements` list plus
     # `measurement_count` plus a `source` object, and never `corner_count`
-    # (that pair is `sim`, classified above). A yield
-    # envelope is the one kind whose freshness artifact is NOT described by
-    # its own `provenance` block -- it names a second document, `samples`,
-    # and the grader hashes THAT file live (klayout-tools#870/#2197).
+    # (that pair is `sim`, checked first above). A yield envelope is the one
+    # kind whose freshness artifact is NOT described by its own `provenance`
+    # block -- it names a second document, `samples`, and the grader hashes
+    # THAT file live (klayout-tools#870/#2197).
     if (
         isinstance(envelope.get("measurements"), list)
         and "measurement_count" in envelope
@@ -518,9 +521,17 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
         closure = (envelope.get("environment") or {}).get("netlist_closure")
         entries = [e for e in closure if isinstance(e, dict)] if isinstance(closure, list) else []
         verified = 0
+        skipped_unhashed = 0
         for entry in entries:
             entry_path = entry.get("path")
             entry_sha = entry.get("sha256")
+            if entry_sha is None and isinstance(entry.get("unhashed_reason"), str):
+                # klt sim itself declares this entry unhashable (e.g. a
+                # `$PDK_ROOT/...` target, `unhashed_reason: env_var`): it names
+                # no committed file and records no hash, so there is nothing to
+                # re-hash. Skipped, not failed; a hashed entry below still is.
+                skipped_unhashed += 1
+                continue
             if not isinstance(entry_path, str) or not isinstance(entry_sha, str):
                 failures.append(
                     f"item {item_key}: {named_file} carries a netlist_closure entry "
@@ -555,6 +566,7 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
         elif entries:
             notes.append(
                 f"item {item_key}: sim closure {verified} input(s) re-hashed"
+                + (f", {skipped_unhashed} declared unhashed (skipped)" if skipped_unhashed else "")
                 + ("" if netlist_scope is None else f" (netlist scope {netlist_scope!r})")
             )
         return
@@ -566,10 +578,20 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
             notes.append(f"item {item_key}: kind={kind} names no artifact field; input not re-hashed")
         else:
             named_artifact = envelope.get(field)
-            if not isinstance(named_artifact, str):
+            # A `klt sim` report records its netlist as a `{"path", "scope"}`
+            # object, not a string: read the path out of the object. A `null`
+            # path (scope "external"/"absent" -- a request submitted from
+            # outside any repo, the /tmp-scratch shape) names nothing this
+            # checkout can re-hash, and is refused as such rather than
+            # silently skipping the re-derivation.
+            if isinstance(named_artifact, dict):
+                named_artifact = named_artifact.get("path")
+            if not isinstance(named_artifact, str) or not named_artifact:
                 failures.append(
                     f"item {item_key}: {named_file} (kind={kind}) records an input hash "
-                    f"but no '{field}' naming the artifact it describes"
+                    f"but no '{field}' path naming the artifact it describes -- "
+                    "submit the request from inside this repo so the report "
+                    "records a repo-relative netlist path"
                 )
                 return
             artifact = resolve_artifact(named_artifact, envelope_path)

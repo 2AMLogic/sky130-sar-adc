@@ -480,40 +480,16 @@ def build_request(
     windows: dict[str, float] | None = None,
     r_source_list: list[float] | None = None,
 ) -> dict:
-    """The `klt sim` request for one submission.
-
-    The corner axes are declared as the full cross product with the points the
-    one-at-a-time grid omits listed under `exclude` -- `klt sim` has no OAT
-    axis form, so this is how sim/top-plate-cpar/ expresses the same grid."""
-    pts = [corners_mod.parse_corner_id(c) for c in cids]
-    procs = sorted({p for p, _, _ in pts})
-    temps = sorted({t for _, t, _ in pts})
-    vdds = sorted({v for _, _, v in pts})
-    want = set(pts)
-    exclude = [
-        {"process": p, "temperature_c": t, "supply_v": {SUPPLY_KEY: v}}
-        for p in procs
-        for t in temps
-        for v in vdds
-        if (p, t, v) not in want
-    ]
-    req: dict = {
-        "netlist": netlist_name,
-        "engine": "ngspice",
-        "models": {"pdk": "sky130A", "lib": "libs.tech/combined/sky130.lib.spice"},
-        "corners": {
-            "process": procs,
-            "supply_v": {SUPPLY_KEY: vdds},
-            "temperature_c": temps,
-        },
-        "analysis_steps": analysis_steps(windows, r_source_list),
-        "options": {"timeout_s": timeout_s, "keep_artifacts": True},
-    }
-    if exclude:
-        req["exclude"] = exclude
-    if backend:
-        req["backend"] = backend
-    return req
+    """The `klt sim` request for one submission -- the shared OAT assembly
+    on harness.klt_sim (issue #1052). The corner axes are declared as the
+    full cross product with the points the one-at-a-time grid omits listed
+    under `exclude` -- `klt sim` has no OAT axis form, so this is how
+    sim/top-plate-cpar/ expresses the same grid."""
+    return klt_sim.build_oat_request(
+        netlist_name, cids, SUPPLY_KEY,
+        analysis_steps=analysis_steps(windows, r_source_list),
+        timeout_s=timeout_s, backend=backend,
+    )
 
 
 def read_report(report: dict) -> tuple[dict[str, dict[str, float | None]], dict]:

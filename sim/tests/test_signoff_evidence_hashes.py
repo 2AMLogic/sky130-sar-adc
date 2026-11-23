@@ -806,6 +806,16 @@ class SimCitationTests(unittest.TestCase):
         self.assertIn("does not resolve to a committed file", failures[0])
         self.assertIn("netlist_closure", failures[0])
 
+    def test_skips_a_closure_entry_klt_declares_unhashed(self):
+        """A `$PDK_ROOT/...` closure entry carries `sha256: None` plus an
+        `unhashed_reason`; it names no committed file, so it is skipped, while
+        the hashed entries are still verified."""
+        self.envelope["environment"]["netlist_closure"].append(
+            {"target": "$PDK_ROOT/lib.spice", "sha256": None, "unhashed_reason": "env_var"}
+        )
+        self.tree.write_json("sim/x/klt-sim/r/report.json", self.envelope)
+        self.assertEqual(self.tree.check(self.manifest), [])
+
     def test_fails_when_the_pin_disagrees_with_the_envelope(self):
         self.manifest["evidence"]["5.analog"][0]["content_hash"] = sha256_bytes(b"other")
         failures = self.tree.check(self.manifest)
