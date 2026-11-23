@@ -1559,7 +1559,7 @@ What can drift unnoticed is not that either set exists but its *size and
 membership*, so that is gated (check 18), in the same shape check 6 gates the
 pointer-claim census below:
 
-> of the **32** (spec row, evidence flow) citation pairs in Section 4's table, **23** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**10** records), `sim/comparator-decision` (**18** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
+> of the **32** (spec row, evidence flow) citation pairs in Section 4's table, **23** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**11** records), `sim/comparator-decision` (**18** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
 
 (30 → **31** pairs and 21 → **22** freshness-checked on 2026-11-13,
 issue #841: the **Sample rate** row's new `sim/reference-drive-budget`
@@ -5753,7 +5753,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **257** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **259** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      (164 → **165** on 2026-10-03: issue #525's PR #533 added
@@ -6331,7 +6331,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **123** of the **128** records under `sim/*/records/` name both an `ngspice`
+  > **124** of the **129** records under `sim/*/records/` name both an `ngspice`
   > version and a 40-hex `open_pdks` commit, while of the **117** records under
   > `layout/*/reports/` and `layout/*/erc-reports/` **116** name a `klt`
   > version and **79** name the `open_pdks` commit
