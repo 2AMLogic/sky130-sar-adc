@@ -6327,8 +6327,8 @@ and is not claimed to be met.
   freshness-pinnable DNL/INL yield envelope re-mint — which names both an
   `ngspice` version (`ngspice-47`) and a 40-hex `open_pdks` commit
   (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), so it counts as pinned: the
-  totals move 121 → **122** records and 116 → **117** pinned, which is the
-  figure the census above now states. That flow's own count of records naming
+  totals move 121 → **122** records and 116 → **117** pinned, which was the
+  figure the census above stated at that date. That flow's own count of records naming
   no commit is unchanged — six of its ten, all minted before 2026-10-02 — so
   no flow newly pins the commit. No earlier record was rewritten.
 
@@ -6353,8 +6353,8 @@ and is not claimed to be met.
   `20261113-175840-8a49c8e1`, one per (`--sweep`, `--window`). Each names both
   an `ngspice` version (`ngspice-47`) and a 40-hex `open_pdks` commit
   (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), so all four count as pinned:
-  the totals move 116 → **120** records and 111 → **115** pinned, which is the
-  figure the census above now states. No flow's count of records naming no
+  the totals move 116 → **120** records and 111 → **115** pinned, which was the
+  figure the census above stated at that date. No flow's count of records naming no
   commit changed, so no flow newly pins the commit. The version and the commit
   are the ones the *executing* batch worker reported, which each record states
   beside the submitting host's own. The four records they supersede stay on
@@ -6372,7 +6372,7 @@ and is not claimed to be met.
   single `sim/input-drive-budget/records/20261113-110421-e03343e.md` — minted
   the same day, naming the same `ngspice-47` and the same 40-hex
   `open_pdks` commit, and likewise pinned — carries them to **116** records
-  and **111** pinned, which is the figure the census above states. Both the
+  and **111** pinned, which was the figure the census stated at that date. Both the
   version and the commit they name are the ones the *executing* batch workers
   reported, which each record says in the line above them and which all eleven
   of its shards agreed on; the submitting host happened to resolve the same
