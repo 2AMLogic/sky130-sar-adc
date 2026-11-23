@@ -294,3 +294,11 @@ class TestReviewFixes(unittest.TestCase):
         report_vals = {}
         rows = rt.candidate_rows(report_vals, 1.8)
         self.assertTrue(all(r["plate_err_mv"] is None for r in rows))
+
+    def test_slow_step_ceiling_matches_fast_step(self):
+        steps = {s["name"]: s for s in rt.candidate_analysis_steps()}
+        self.assertEqual(
+            steps["fast"]["analysis"]["args"].split()[0].replace("p", ""),
+            "5",
+        )
+        self.assertEqual(steps["slow"]["analysis"]["args"].split()[0], "0.005n")

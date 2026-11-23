@@ -302,7 +302,9 @@ CAND_DEADLINE_FAST_NS = T_PHASE_WORST_NS   # 83.333... ns @ f_clk = 12 MHz
 CAND_DEADLINE_SLOW_NS = T_PHASE_SLOW_NS    # 833.333... ns @ f_clk = 1.2 MHz
 CAND_FAST_TRAN_STOP_NS = 100.0             # 2.7x the predicted worst t_settle
 CAND_SLOW_TRAN_STOP_NS = 850.0             # covers the slow deadline + late read
-CAND_SLOW_TRAN_STEP_NS = 0.5               # coarse ceiling: fixed-time tail reads only
+# Same ceiling as the fast step (PR #1041 finding 3): a coarser slow step
+# changed the converged bit-0 tail by ~2.4 uV, enough to flip a 99 % crossing.
+CAND_SLOW_TRAN_STEP_NS = TRAN_STEP_PS / 1000.0  # 0.005 ns, matches the fast step
 CAND_LATE_AT_NS = CAND_SLOW_TRAN_STOP_NS - 5.0  # 845 ns, mirrors CONFIRM_AT_NS
 
 #: Supply-source name = the `corners.supply_v` axis key (the same convention
@@ -1265,9 +1267,9 @@ def candidate_analysis_steps() -> list[dict]:
     """Two `tran` steps per corner. `fast` re-runs the baseline convention
     (5 ps ceiling) over a window sized to the candidate's ~2.83x-slower
     settling, carrying the 50/90/99 % crossings on the normalised node plus
-    the 12 MHz phase-end read. `slow` uses a coarse 0.5 ns ceiling (only
-    fixed-time reads deep in the settled tail -- the same argument
-    TRAN_STEP_NS's own comment makes for the acquisition campaign) out past
+    the 12 MHz phase-end read. `slow` uses the SAME 5 ps ceiling (a coarser
+    0.5 ns step shifted the converged bit-0 tail by ~2.4 uV, enough to flip
+    a 99 % crossing -- PR #1041 finding 3) out past
     the 1.2 MHz deadline, carrying that deadline's phase-end read and the
     late read that separates a still-settling node from a settled offset."""
     fast_meas: list[dict] = []
@@ -1581,6 +1583,19 @@ def candidate_result_lines(by_corner: dict[str, list[dict]], cids: list[str]) ->
             "separate a still-settling node (phase-end error >> late error) "
             "from a settled offset (both similar, and time-invariant)."
         )
+        # Signed per-row residuals for the missing rows themselves, all
+        # three reads taken on trajectories of the same 5 ps ceiling.
+        for cid, tag in missing:
+            r = next(x for x in by_corner[cid] if x["tag"] == tag)
+            out.append(
+                f"  - missing-crossing row `{tag}` at `{cid}`, signed "
+                "read-minus-closed-form-ideal (mV): phase-end 12 MHz "
+                f"{_fmt_mv(r['pend_fast_err_mv'])}, phase-end 1.2 MHz "
+                f"{_fmt_mv(r['pend_slow_err_mv'])}, late "
+                f"{_fmt_mv(r['plate_err_mv'])}; 99 % threshold sits at "
+                f"{0.01 * r['ratio'] * (-1 if r['direction']=='fall' else 1) * corners_mod.parse_corner_id(cid)[2] * 1e3:.4f} mV "
+                "of residual from the ideal final value."
+            )
     return out
 
 

@@ -1187,7 +1187,10 @@ assert abs(CAND_FAST_AT_NS - BUDGET_PROBE_AT_NS) < 1e-9
 #: deep in the settled tail (the same argument TRAN_STEP_NS's own comment
 #: makes for the 0.2 ns ceiling), so a 1 ns ceiling over the 1040 ns window
 #: costs far less than 0.2 ns would while changing nothing measurable.
-CAND_SLOW_TRAN_STEP_NS = 1.0
+#: PR #1041 finding 3: the slow step now uses the SAME ceiling as the fast
+#: step (TRAN_STEP_NS), so fixed-time reads at both deadlines and the
+#: settling-time crossing below all come from trajectories of one resolution.
+CAND_SLOW_TRAN_STEP_NS = 0.2
 CAND_FAST_TRAN_STOP_NS = 250.0  # covers the fast deadline with margin
 
 #: Supply-source name = the `corners.supply_v` axis key (sim/input-drive-
@@ -1335,6 +1338,10 @@ def build_candidate_body(code_name: str = CORNERS_CODE_STATE) -> str:
         f"Vinn VINN 0 {testbench.pwl(vinn)}",
         f"Vsmpn SMPN 0 {testbench.pwl(sample)}",
         "Bsample SAMPLE 0 V=v(SMPN)*v(VDD)",
+        "* ACQERR: |(TOP_P - TOP_N) - 1.4 V|, the differential acquisition",
+        "* error the settling-time measurement (acq_tset) crosses the",
+        "* half-LSB reference band on (PR #1041 finding 4).",
+        f"Bacqerr ACQERR 0 V=abs(v(TOP_P)-v(TOP_N)-{V_TARGET_DIFF:g})",
         "",
         "* SELp<i>/SELn<i>: ideal previous-code drivers (`" + code_name + "`),",
         "* normalised and scaled by the corner supply -- the same ideal-DC",
@@ -1356,7 +1363,7 @@ def build_candidate_body(code_name: str = CORNERS_CODE_STATE) -> str:
 CAND_MEAS_FAST = [f"acq_{stat}_{side}" for side in SIDES for stat in ("fast",)]
 CAND_MEAS_SLOW = [
     f"acq_{stat}_{side}" for side in SIDES for stat in ("slow", "late")
-]
+] + ["acq_tset"]
 
 
 def candidate_analysis_steps() -> list[dict]:
@@ -1391,6 +1398,19 @@ def candidate_analysis_steps() -> list[dict]:
             }
             for side, (node, _i, _f) in SIDES.items()
         ]
+    # Settling time (PR #1041 finding 4): from the acquiring SAMPLE edge's
+    # 50 % crossing to the LAST fall of |differential error| through the
+    # provisional differential half-LSB band, i.e. the instant after which
+    # the node entered the band and stayed in it for the rest of the window.
+    # A missing crossing (never in band / never out of it) is DATA.
+    slow_meas.append({
+        "name": "acq_tset",
+        "spice": (
+            f".meas tran acq_tset TRIG AT={TRIG_AT_NS:g}n "
+            f"TARG V(ACQERR) VAL={HALF_LSB_MV * 1e-3:.9g} FALL=LAST"
+        ),
+        "unit": "s",
+    })
     return [
         {
             "name": "fast",
@@ -1528,6 +1548,8 @@ def candidate_corner_row(values: dict[str, float | None], code_name: str) -> dic
         for side in SIDES
     )
     row["complete"] = complete
+    tset = values.get("slow.acq_tset")
+    row["tset_ns"] = tset * 1e9 if klt_sim.finite(tset) else None
     if complete:
         row["worst_node"] = max(
             SIDES, key=lambda s: abs(row[f"fast_{s}_err_mv"])
@@ -1842,6 +1864,52 @@ def write_candidate_record(
                 f"{_fmt_mv(row['late_diff_err_mv'])} |"
             )
         lines.append("")
+
+    lines += [
+        "## Acquisition settling time (time of entry into the half-LSB band)",
+        "",
+        "Measured, not read at a fixed instant: `.meas ... TRIG AT="
+        f"{TRIG_AT_NS:g}n TARG V(ACQERR) VAL={HALF_LSB_MV * 1e-3:.9g} "
+        "FALL=LAST` on ACQERR = |(TOP_P - TOP_N) - 1.4 V|, i.e. the time "
+        "from the acquiring (second) SAMPLE edge's 50 % crossing to the "
+        "last instant the differential error falls through the provisional "
+        f"differential half-LSB ({HALF_LSB_MV:.4f} mV, DR-003 Item 2 "
+        "pending #27) -- after which it stays inside the band for the rest "
+        f"of the {CAND_TRAN_STOP_NS:g} ns window. A corner with no "
+        "crossing is shown as `none` (never entered, or never left, the "
+        "band) and is retained as data. Same 0.2 ns step ceiling as the "
+        "fixed-time reads.",
+        "",
+        "| Corner | t_settle (half-LSB band) (ns) | within 12 MHz deadline "
+        f"({T_PHASE_WORST_NS:.3f} ns) | within 1.2 MHz deadline "
+        f"({T_PHASE_SLOW_NS:.3f} ns) |",
+        "|---|---|---|---|",
+    ]
+    for cid in cids:
+        t = grid.get(cid, {}).get("tset_ns")
+        if t is None:
+            lines.append(f"| `{cid}` | none | -- | -- |")
+        else:
+            lines.append(
+                f"| `{cid}` | {t:.3f} | "
+                f"{'yes' if t <= T_PHASE_WORST_NS else 'NO'} | "
+                f"{'yes' if t <= T_PHASE_SLOW_NS else 'NO'} |"
+            )
+    tvals = [
+        (c, grid[c]["tset_ns"]) for c in cids
+        if grid.get(c, {}).get("tset_ns") is not None
+    ]
+    if tvals:
+        tb_cid, tb = max(tvals, key=lambda ct: ct[1])
+        lines += [
+            "",
+            f"Binding corner: `{tb_cid}`, t_settle = {tb:.3f} ns after the "
+            f"acquiring SAMPLE edge ({tb / T_PHASE_WORST_NS:.2f}x the "
+            f"12 MHz deadline, {tb / T_PHASE_SLOW_NS:.2f}x the 1.2 MHz "
+            f"deadline); {len(tvals)}/{len(cids)} corners produced a "
+            "crossing.",
+        ]
+    lines.append("")
 
     lines += [
         "## Code-state independence control (baseline corner)",
