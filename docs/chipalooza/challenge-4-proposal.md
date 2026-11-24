@@ -1559,7 +1559,7 @@ What can drift unnoticed is not that either set exists but its *size and
 membership*, so that is gated (check 18), in the same shape check 6 gates the
 pointer-claim census below:
 
-> of the **32** (spec row, evidence flow) citation pairs in Section 4's table, **23** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**11** records), `sim/comparator-decision` (**18** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
+> of the **32** (spec row, evidence flow) citation pairs in Section 4's table, **23** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**11** records), `sim/comparator-decision` (**19** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
 
 (30 → **31** pairs and 21 → **22** freshness-checked on 2026-11-13,
 issue #841: the **Sample rate** row's new `sim/reference-drive-budget`
@@ -1568,7 +1568,12 @@ joins the checked set and the pointerless list is unchanged — the direction
 this gate is meant to allow. 31 → **32** pairs and 22 → **23** the same day,
 issue #847: the **Sample rate** row's new `sim/input-drive-budget` citation
 likewise names a flow that publishes a `records/LATEST` pointer, so it joins
-the checked set too and the pointerless list is again unchanged.)
+the checked set too and the pointerless list is again unchanged.
+comparator-decision 18 → **19** on 2026-11-21, issue #1014: the item-5
+`klt sim` noise envelope's record
+`sim/comparator-decision/records/20261121-010219-75b91e8.md` mints a new
+distinct claim beside the campaign record — that flow still publishes no
+`LATEST` pointer, so it stays in the pointerless list with one more record.)
 
 `python3 docs/chipalooza/check_proposal_citations.py --stats` prints that
 sentence live, to be pasted back in when it moves. It is graded in both
@@ -5753,7 +5758,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **259** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **260** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      (164 → **165** on 2026-10-03: issue #525's PR #533 added
@@ -5798,6 +5803,13 @@ tracker already owns.
      (`sim/sar-sequencer-behavioral/corners/20261121-073156-75b91e85/request/tb.spice`)
      and DUT netlist snapshot, two more copies of decks already counted in
      kind, with no inductor card and no ground-return model.
+
+     259 → **260** on 2026-11-23 (merge with `main`): issue #1014's item-5
+     `klt sim` noise request committed one more deck,
+     `sim/comparator-decision/testbench/klt/tb_body.spice`, the comparator noise
+     campaign's reduced sub-model transcribed device-for-device with ideal
+     supplies and an AC stimulus source; it carries no inductor card and models
+     no ground-return path, so the count moves and the qualification does not.
 
      Read this census the way it already reads itself: **a floor on the gap,
      not a proof of it, and it never claimed to be the thing that retires
@@ -6331,7 +6343,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **124** of the **129** records under `sim/*/records/` name both an `ngspice`
+  > **125** of the **130** records under `sim/*/records/` name both an `ngspice`
   > version and a 40-hex `open_pdks` commit, while of the **117** records under
   > `layout/*/reports/` and `layout/*/erc-reports/` **116** name a `klt`
   > version and **79** name the `open_pdks` commit
@@ -6356,6 +6368,13 @@ and is not claimed to be met.
   its flow (the 2026-11-21 run and this correction). No flow newly pins the
   commit and no earlier record was rewritten.
 
+  **Update (2026-11-23, issue #1014, merge with `main`):** this branch's
+  `sim/comparator-decision/records/20261121-010219-75b91e8.md` names an
+  `ngspice` version and a 40-hex `open_pdks` commit, so it also counts as
+  pinned. Added to `main`'s own **124** of **129**, the totals are restated
+  from `--stats` as **125** of **130**. No flow newly pins the commit and no
+  earlier record was rewritten.
+
   **Update (2026-11-15, merge of issue #912's PR #938):** merging origin/main
   into this branch brings in
   `sim/cdac-array-transfer/records/20261115-014818-7adcfe77.md` — the
@@ -6366,6 +6385,19 @@ and is not claimed to be met.
   figure the census above stated at that date. That flow's own count of records naming
   no commit is unchanged — six of its ten, all minted before 2026-10-02 — so
   no flow newly pins the commit. No earlier record was rewritten.
+
+  **Update (2026-11-21, issue #1014):** the item-5 analog manifest work mints
+  one record of the existing `sim/comparator-decision/` campaign —
+  `sim/comparator-decision/records/20261121-010219-75b91e8.md`, the
+  machine-graded `klt sim` noise envelope beside the 2026-08-27 campaign
+  record — naming both an `ngspice` version (`ngspice-47`, the executing
+  batch worker's) and a 40-hex `open_pdks` commit
+  (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`, the current `sim/pdk.json`
+  pin), so it counts as pinned: the totals moved 122 → **123** records and
+  117 → **118** pinned on this branch as it then stood; the 2026-11-23 merge
+  note above restates the census at its current **125** of **130** from
+  `--stats`. No flow's count of records naming no commit changed, so no flow
+  newly pins the commit. No earlier record was rewritten.
 
   **Update (2026-11-15, issue #913):** the converging-range input sweep
   mints one record of the existing `sim/full-conversion-transient/` campaign —

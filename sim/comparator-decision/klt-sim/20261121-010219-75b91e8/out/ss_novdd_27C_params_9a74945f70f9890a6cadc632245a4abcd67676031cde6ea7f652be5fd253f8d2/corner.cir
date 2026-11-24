@@ -1,0 +1,30 @@
+* klt sim -- generated corner deck, do not edit
+.lib /opt/pdk/sky130A/libs.tech/combined/sky130.lib.spice ss
+.include /var/tmp/eda-job-klt-sim-96524467ec36/inputs/netlist.cir
+.temp 27
+.control
+alterparam vdd_val=1.8
+reset
+save all
+noise v(dip,din) Vinp dec 20 1e3 1e9 20
+let inoise_spectrum = noise1.inoise_spectrum
+let onoise_spectrum = noise1.onoise_spectrum
+let __klt_nz_inoise_se_rms_n = length(noise1.frequency)
+let __klt_nz_inoise_se_rms_f1 = noise1.frequency[0,__klt_nz_inoise_se_rms_n-2]
+let __klt_nz_inoise_se_rms_f2 = noise1.frequency[1,__klt_nz_inoise_se_rms_n-1]
+let __klt_nz_inoise_se_rms_p = noise1.inoise_spectrum*noise1.inoise_spectrum
+let __klt_nz_inoise_se_rms_p1 = __klt_nz_inoise_se_rms_p[0,__klt_nz_inoise_se_rms_n-2]
+let __klt_nz_inoise_se_rms_p2 = __klt_nz_inoise_se_rms_p[1,__klt_nz_inoise_se_rms_n-1]
+let __klt_nz_inoise_se_rms_a = (__klt_nz_inoise_se_rms_f1 gt 1000.0)*__klt_nz_inoise_se_rms_f1 + (__klt_nz_inoise_se_rms_f1 le 1000.0)*1000.0
+let __klt_nz_inoise_se_rms_b = (__klt_nz_inoise_se_rms_f2 lt 1000000000.0)*__klt_nz_inoise_se_rms_f2 + (__klt_nz_inoise_se_rms_f2 ge 1000000000.0)*1000000000.0
+let __klt_nz_inoise_se_rms_w = (__klt_nz_inoise_se_rms_b gt __klt_nz_inoise_se_rms_a)
+let __klt_nz_inoise_se_rms_pa = __klt_nz_inoise_se_rms_p1+(__klt_nz_inoise_se_rms_p2-__klt_nz_inoise_se_rms_p1)*(__klt_nz_inoise_se_rms_a-__klt_nz_inoise_se_rms_f1)/(__klt_nz_inoise_se_rms_f2-__klt_nz_inoise_se_rms_f1)
+let __klt_nz_inoise_se_rms_pb = __klt_nz_inoise_se_rms_p1+(__klt_nz_inoise_se_rms_p2-__klt_nz_inoise_se_rms_p1)*(__klt_nz_inoise_se_rms_b-__klt_nz_inoise_se_rms_f1)/(__klt_nz_inoise_se_rms_f2-__klt_nz_inoise_se_rms_f1)
+let __klt_nz_inoise_se_rms_t = __klt_nz_inoise_se_rms_w*(__klt_nz_inoise_se_rms_pa+__klt_nz_inoise_se_rms_pb)/2*(__klt_nz_inoise_se_rms_b-__klt_nz_inoise_se_rms_a)
+let inoise_se_rms = sqrt(mean(__klt_nz_inoise_se_rms_t)*length(__klt_nz_inoise_se_rms_t))
+print inoise_se_rms
+let inoise_diff_rms = inoise_se_rms * sqrt(2)
+print inoise_diff_rms
+quit
+.endc
+.end
