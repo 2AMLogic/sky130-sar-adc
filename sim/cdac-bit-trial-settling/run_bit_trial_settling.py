@@ -1251,18 +1251,6 @@ def build_candidate_body(copies: list[tuple[int, str]] | None = None) -> str:
     return "\n".join(L).rstrip("\n") + "\n"
 
 
-def _candidate_meas_names() -> dict[str, list[str]]:
-    """Every measurement name the two analysis steps emit, by step name."""
-    names: dict[str, list[str]] = {"fast": [], "slow": []}
-    for test_bit, direction in candidate_copies():
-        tag = candidate_tag(test_bit, direction)
-        names["fast"] += [
-            f"t50_{tag}", f"t90_{tag}", f"t99_{tag}", f"pend_fast_{tag}"
-        ]
-        names["slow"] += [f"pend_slow_{tag}", f"plate_{tag}"]
-    return names
-
-
 def candidate_analysis_steps() -> list[dict]:
     """Two `tran` steps per corner. `fast` re-runs the baseline convention
     (5 ps ceiling) over a window sized to the candidate's ~2.83x-slower
