@@ -8,6 +8,9 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-23
 
+- **PR #1024**: Add cdac-array-transfer ff-corner PDK A/B diagnostic record ruling out the pin bump
+- **Issue #1013** (closed): Isolate the ff_27c_1.80v 3e-5 V delta that parks #811 (klt sim batch vs baseline 20261001-120402-d24f700)
+- **Issue #921** (closed): Remove GND_MESH_MEMBERS: a declared-but-never-read member list the mesh builder does not consult
 - **PR #1062**: feat: assert GND_MESH_MEMBERS against the analog ground mesh's drawn legs
 - **PR #1061**: pex: finish comparator pex_flow delegation, drop #1017 leftovers
 - **PR #1060**: consolidate the last two private OAT request builders onto build_oat_request()
