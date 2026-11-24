@@ -36,7 +36,6 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
-- **#1078**: chore: gitignore the daemon runtime artifact .loom/account-ranking.codex
 
 ## In Progress
 
@@ -49,13 +48,12 @@ Issues currently being built (`loom:building`).
 - **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST
 - **#1016**: CDAC linearity: design iteration toward INL/DNL <= +-1 LSB at 0.99 yield (the redesign path DR-007 left as future work)
 - **#1021**: T1 item 5 (analog): grade V_REF, LSB and sampling cap as full ratified claims, not just top-plate voltages
-- **#1075**: Remove duplicated streamed SHA-256 file helpers in favor of harness.evidence.sha256_bytes_file
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#1077**: refactor: dedupe streamed SHA-256 file helpers onto harness.evidence
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -86,7 +84,6 @@ Issues carrying `loom:curated`.
 - **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry *(curated)*
 - **#1016**: CDAC linearity: design iteration toward INL/DNL <= +-1 LSB at 0.99 yield (the redesign path DR-007 left as future work) *(curated)*
 - **#1021**: T1 item 5 (analog): grade V_REF, LSB and sampling cap as full ratified claims, not just top-plate voltages *(curated)*
-- **#1078**: chore: gitignore the daemon runtime artifact .loom/account-ranking.codex *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -107,11 +104,11 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 4 |
 | Very important | 1 |
 | Important | 9 |
-| Ready (`loom:issue`) | 3 |
-| In Progress (`loom:building`) | 8 |
-| PRs awaiting review | 1 |
+| Ready (`loom:issue`) | 2 |
+| In Progress (`loom:building`) | 7 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 5 |
-| Curated | 16 |
+| Curated | 15 |
 | Architect / Hermit proposals | 5 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
