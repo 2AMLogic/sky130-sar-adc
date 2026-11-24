@@ -6344,7 +6344,8 @@ and is not claimed to be met.
   (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`), the pair the *executing* batch
   worker reported, stated beside the submitting host's own. It counts as
   pinned: the totals move 122 → **123** records and 117 → **118** pinned,
-  which is the figure the census above now states. The flow's own earlier
+  which was the figure the census above stated at that date — a branch-local
+  figure; the census above has since moved past it. The flow's own earlier
   records already pinned both, so no flow newly pins the commit. No earlier
   record was rewritten.
 
