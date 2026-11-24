@@ -8,6 +8,12 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-24
 
+- **PR #1074**: docs: reword the 2026-11-21 census note's clause as historical
+- **Issue #1073** (closed): challenge-4-proposal: a "census above now states" clause re-drifted onto main after #1055 fixed the class
+- **PR #1072**: refactor: fold the three PEX run_pex.py main()/klt-pex argv copies into pex_flow
+- **Issue #1071** (closed): sim/ records cite per-corner ngspice.log files that are not committed (klt sim flow)
+- **Issue #1069** (closed): Fold the three run_pex.py main()/klt-pex argv copies into pex_flow.py (copies have already drifted)
+- **PR #1028**: signoff: declare item-5 analog spec rows and cite the comparator-noise klt sim envelope
 - **PR #1068**: refactor: drop local pass-through wrappers in schematic-parity gates
 - **Issue #930** (closed): Remove the three leftover pass-through wrappers in the two schematic-parity gates
 
