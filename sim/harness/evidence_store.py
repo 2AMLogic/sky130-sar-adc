@@ -37,6 +37,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from . import klt_sim
+from .evidence import sha256_bytes_file
 
 ENV_BROKER = "KLT_ARTIFACT_BROKER"
 ENV_REPO = "KLT_ARTIFACT_REPO"
@@ -65,13 +66,10 @@ def manifest_path(repo_root: Path, bench: str, rid: str) -> Path:
 
 
 def sha256_file(path: Path) -> tuple[str, int]:
-    h = hashlib.sha256()
-    n = 0
-    with open(path, "rb") as fh:
-        while chunk := fh.read(1 << 20):
-            h.update(chunk)
-            n += len(chunk)
-    return h.hexdigest(), n
+    """(digest, size) of a file's raw bytes. The streamed digest itself is
+    `evidence.sha256_bytes_file`'s -- the single file-hash helper -- so only
+    the size this manifest writer also needs is computed here."""
+    return sha256_bytes_file(path), os.path.getsize(path)
 
 
 def _repo_name(repo_root: Path, env, run) -> str:
