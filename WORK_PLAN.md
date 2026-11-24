@@ -37,6 +37,7 @@ Human-approved issues ready for implementation (`loom:issue`).
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
 - **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry
+- **#1069**: Fold the three run_pex.py main()/klt-pex argv copies into pex_flow.py (copies have already drifted)
 
 ## In Progress
 
@@ -93,7 +94,6 @@ Issues carrying `loom:curated`.
 - **#924**: Remove dead duplicate import os / SETTLE assignment in the two SDF testbenches (needs an evidence re-mint) *(hermit)*
 - **#928**: Collapse the four digital-functional cocotb benches to two: the SDF variants are 296 duplicated lines of the zero-delay originals *(hermit)*
 - **#929**: Execute the #820 follow-up: klt 0.9.2 ships `klt evidence claims`, but the swap is vacuous on this repo's records *(hermit)*
-- **#930**: Remove the three leftover pass-through wrappers in the two schematic-parity gates *(hermit)*
 
 ## Epics
 
@@ -106,11 +106,11 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 4 |
 | Very important | 1 |
 | Important | 9 |
-| Ready (`loom:issue`) | 3 |
+| Ready (`loom:issue`) | 4 |
 | In Progress (`loom:building`) | 7 |
 | PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 5 |
 | Curated | 15 |
-| Architect / Hermit proposals | 6 |
+| Architect / Hermit proposals | 5 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->

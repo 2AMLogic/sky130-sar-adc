@@ -6,6 +6,11 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-24
+
+- **PR #1068**: refactor: drop local pass-through wrappers in schematic-parity gates
+- **Issue #930** (closed): Remove the three leftover pass-through wrappers in the two schematic-parity gates
+
 ### 2026-11-23
 
 - **PR #1064**: fix: draw each GND mesh leg from the member pair it records
