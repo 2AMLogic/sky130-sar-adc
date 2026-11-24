@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
-import hashlib
 import json
 import math
 import re
@@ -43,6 +42,11 @@ MANIFEST_SCHEMA_VERSION = 1
 # stdlib-only coherent-sampling FFT analyzer; the spectrum figure reuses it
 # rather than carrying a second implementation of the same transform.
 sys.path.insert(0, str(REPO_ROOT / "sim" / "full-conversion-transient"))
+# Same reuse for file hashing: `sim/harness` is stdlib-only (see its own
+# __init__.py), so importing its streamed SHA-256 helper keeps `--check`
+# stdlib-only while the chunked hash loop lives in exactly one place.
+sys.path.insert(0, str(REPO_ROOT / "sim"))
+from harness.evidence import sha256_bytes_file  # noqa: E402
 
 
 class ProvenanceError(RuntimeError):
@@ -159,17 +163,8 @@ PLOTS: tuple[PlotSpec, ...] = (
 
 
 # --------------------------------------------------------------------------
-# Hashing and small record helpers (stdlib only -- the `--check` half)
+# Small record helpers (stdlib only -- the `--check` half)
 # --------------------------------------------------------------------------
-
-
-def sha256_bytes_file(path: Path) -> str:
-    """Binary-safe SHA-256 of a file's raw bytes, streamed."""
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _record_field(path: Path, name: str) -> str | None:
