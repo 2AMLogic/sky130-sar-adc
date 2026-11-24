@@ -6393,10 +6393,11 @@ and is not claimed to be met.
   record — naming both an `ngspice` version (`ngspice-47`, the executing
   batch worker's) and a 40-hex `open_pdks` commit
   (`f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`, the current `sim/pdk.json`
-  pin), so it counts as pinned: the totals move 122 → **123** records and
-  117 → **118** pinned, which is the figure the census above now states. No
-  flow's count of records naming no commit changed, so no flow newly pins
-  the commit. No earlier record was rewritten.
+  pin), so it counts as pinned: the totals moved 122 → **123** records and
+  117 → **118** pinned on this branch as it then stood; the 2026-11-23 merge
+  note above restates the census at its current **125** of **130** from
+  `--stats`. No flow's count of records naming no commit changed, so no flow
+  newly pins the commit. No earlier record was rewritten.
 
   **Update (2026-11-15, issue #913):** the converging-range input sweep
   mints one record of the existing `sim/full-conversion-transient/` campaign —
