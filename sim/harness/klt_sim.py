@@ -36,6 +36,13 @@ strings into the `corners` axis block plus the Cartesian-complement
 The six drivers that had each carried a private copy of that assembly are
 thin wrappers over it now, so a request-schema change is one edit, not six.
 
+The local `klt --version` metadata probe used during record rendering is
+shared here for the same reason (issue #1086): `client_version()` returns
+the stripped version string when available and `CLIENT_VERSION_UNAVAILABLE`
+when the client is absent, fails, or writes empty stdout, so a missing
+local executable cannot abort record generation after a simulation report
+already exists.
+
 Stdlib plus one pure harness sibling (`corners.corner_id` -- string
 formatting, still no PDK), and the subprocess runner is injectable
 (`runner=`), so these paths are unit-testable without `klt`, the PDK or
@@ -139,10 +146,34 @@ def error_excerpt(text: str) -> str:
     return "..." + text[-ERROR_TEXT_CHARS:]
 
 
+#: Placeholder recorded in a simulation record's local client metadata field
+#: when `klt --version` cannot be probed or returns empty stdout (issue #1086).
+CLIENT_VERSION_UNAVAILABLE = "(klt --version unavailable)"
+
+
 def default_runner(argv: list[str]) -> tuple[int, str, str]:
     """Run `argv`, returning `(returncode, stdout, stderr)`."""
     done = subprocess.run(argv, capture_output=True, text=True, check=False)
     return done.returncode, done.stdout, done.stderr
+
+
+def client_version(*, runner=default_runner) -> str:
+    """Local `klt --version`, or `CLIENT_VERSION_UNAVAILABLE` when absent.
+
+    Used only for the submitting/rendering host's metadata field in evidence
+    records -- never for worker-reported versions (`run_info(report)["jobs"]`)
+    and never for simulation submission (where a missing client must still
+    fail). Falling back on `OSError`, non-zero exit, or empty stdout ensures
+    record rendering cannot abort after a simulation report already exists
+    (issue #1086).
+    """
+    try:
+        rc, out, _err = runner(["klt", "--version"])
+    except OSError:
+        return CLIENT_VERSION_UNAVAILABLE
+    if rc != 0:
+        return CLIENT_VERSION_UNAVAILABLE
+    return (out or "").strip() or CLIENT_VERSION_UNAVAILABLE
 
 
 def submit_argv(

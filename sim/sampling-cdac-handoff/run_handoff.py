@@ -81,7 +81,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -1727,9 +1726,7 @@ def write_candidate_record(
     worker_pdk = info.get("worker_pdk")
     worker_ng = info.get("worker_ngspice")
     exec_known = bool(worker_pdk and worker_ng)
-    klt_version = subprocess.run(
-        ["klt", "--version"], capture_output=True, text=True, check=False
-    ).stdout.strip()
+    klt_version = klt_sim.client_version()
     complete = [c for c in cids if grid.get(c, {}).get("complete")]
 
     lines[0] = (

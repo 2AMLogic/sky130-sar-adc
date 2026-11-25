@@ -132,7 +132,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -1587,17 +1586,6 @@ def write_corners_artifacts(record_id: str, artifacts: dict[str, str] | None) ->
         (base / "report.json").write_text(artifacts["report.json"])
 
 
-def klt_client_version() -> str:
-    """`klt --version`, or a stated placeholder when the client is absent."""
-    try:
-        done = subprocess.run(
-            ["klt", "--version"], capture_output=True, text=True, check=False
-        )
-    except OSError:
-        return "(klt --version unavailable)"
-    return done.stdout.strip() or "(klt --version unavailable)"
-
-
 def executing_environment(prov, info: dict | None) -> dict:
     """What actually produced the numbers: the executing fleet worker when it
     reported itself, otherwise the SUBMITTING host -- stated as such, never
@@ -1739,7 +1727,7 @@ def corners_environment_lines(prov, info: dict | None) -> list[str]:
         env["ngspice"],
         prov.netlist_sha,
         extra={
-            "klt (client)": klt_client_version(),
+            "klt (client)": klt_sim.client_version(),
             "klt (fleet runner)": env["runner_klt"] or "(not reported)",
             "PDK / ngspice above": "as run by the executing worker"
             if env["known"]
