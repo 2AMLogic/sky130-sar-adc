@@ -793,6 +793,29 @@ class TestRunnerSkew(unittest.TestCase):
 
 
 class TestRecordRendering(unittest.TestCase):
+    def test_campaign_records_local_klt_version(self):
+        # A failed measurement at the first frequency ends the synthetic search.
+        report = klt_report({cid: ("pass", {"dout_c0": 0.0}, []) for cid in CORNERS})
+        unavailable = klt_sim.CLIENT_VERSION_UNAVAILABLE
+        for result, expected in (
+            (FileNotFoundError("klt"), unavailable),
+            ((0, "", ""), unavailable),
+            ((1, "usage error", ""), unavailable),
+            ((0, "klt 0.9.3\n", ""), "klt 0.9.3"),
+        ):
+
+            def runner(argv, version_result=result):
+                if argv[:2] == ["klt", "sim"]:
+                    return 0, json.dumps(report), ""
+                self.assertEqual(argv, ["klt", "--version"])
+                if isinstance(version_result, OSError):
+                    raise version_result
+                return version_result
+
+            with self.subTest(result=result), tempfile.TemporaryDirectory() as td:
+                camp = rdp.run_campaign("local", Path(td), max_workers=1, runner=runner)
+                self.assertEqual(camp["environment"]["klt"], expected)
+
     def test_record_has_required_fields_and_disclosures(self):
         summ = synthetic_campaign()
         summ["area"] = dict(da.derive(REPO))
