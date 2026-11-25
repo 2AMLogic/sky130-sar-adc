@@ -1180,6 +1180,7 @@ class TestNoConsolidatedWriterProbesKltVersionDirectly(unittest.TestCase):
         "top-plate-cpar/run_top_plate_cpar.py",
         "sampling-cdac-handoff/run_handoff.py",
         "cdac-bit-trial-settling/run_bit_trial_settling.py",
+        "digital-partition/run_digital_partition.py",
     )
 
     def test_every_consolidated_writer_delegates_to_klt_sim_client_version(self):
@@ -1187,7 +1188,7 @@ class TestNoConsolidatedWriterProbesKltVersionDirectly(unittest.TestCase):
             text = (SIM_DIR / rel).read_text()
             with self.subTest(module=rel):
                 self.assertIn(
-                    "klt_sim.client_version()",
+                    "klt_sim.client_version(",
                     text,
                     f"{rel} must call klt_sim.client_version() (issue #1086)",
                 )

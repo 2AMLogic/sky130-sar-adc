@@ -38,7 +38,6 @@ import hashlib
 import json
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -396,16 +395,13 @@ def run_campaign(backend: str, probe_dir: Path, max_workers: int, runner=klt_sim
         "probe_log": log,
         "negative_control_run": nc_info,
         "pins": pins(pdk_line),
-        "environment": {"backend": backend, "klt": _klt_version(), "remote jobs": ", ".join(engines),
-                        "batch options": json.dumps(batch or {}, sort_keys=True)},
+        "environment": {
+            "backend": backend,
+            "klt": klt_sim.client_version(runner=runner),
+            "remote jobs": ", ".join(engines),
+            "batch options": json.dumps(batch or {}, sort_keys=True),
+        },
     }
-
-
-def _klt_version() -> str:
-    try:
-        return subprocess.run(["klt", "--version"], capture_output=True, text=True).stdout.strip()
-    except OSError:
-        return "unknown"
 
 
 def main() -> int:
