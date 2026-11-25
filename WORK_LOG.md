@@ -6,8 +6,15 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-25
+
+- **PR #1087**: fix(sim): share klt --version probe in harness.klt_sim
+- **Issue #1086** (closed): Share the klt client version probe so a missing executable cannot abort record rendering
+
 ### 2026-11-24
 
+- **PR #1085**: refactor: remove dead --dr027-candidate helpers from settling runners
+- **Issue #1084** (closed): Remove unused --dr027-candidate helpers and write-only _CODE_OF global in the settling runners
 - **Issue #1075** (closed): Remove duplicated streamed SHA-256 file helpers in favor of harness.evidence.sha256_bytes_file
 - **PR #1077**: refactor: dedupe streamed SHA-256 file helpers onto harness.evidence
 - **Issue #1078** (closed): chore: gitignore the daemon runtime artifact .loom/account-ranking.codex
