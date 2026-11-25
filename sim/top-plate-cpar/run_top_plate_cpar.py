@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -480,7 +479,7 @@ def write_record(analysis: dict, data: dict, cids: list[str], supersedes: str,
               "ngspice resolved on the SUBMITTING host; the numbers above were produced by the "
               "executing workers listed here. Where those differ, no comparison with a locally "
               "run record is controlled for PDK/simulator version."]
-    klt = subprocess.run(["klt", "--version"], capture_output=True, text=True).stdout.strip()
+    klt = klt_sim.client_version()
     lines += [""]
     # The numbers come from the EXECUTING workers, so the PDK / simulator lines name
     # those (all six jobs must agree); the submitting host's own are listed as extras.

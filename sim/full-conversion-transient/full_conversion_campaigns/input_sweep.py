@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -520,19 +519,6 @@ def _boundary_sentence(label: str, b: dict) -> str:
     )
 
 
-def klt_client_version() -> str:
-    """`klt --version`, or a stated placeholder when the client is absent.
-    The headless, no-PDK check host has no `klt` on PATH; the record writer
-    must still complete there (same shape as run_vcm_drive_budget.py)."""
-    try:
-        done = subprocess.run(
-            ["klt", "--version"], capture_output=True, text=True, check=False
-        )
-    except OSError:
-        return "(klt --version unavailable)"
-    return done.stdout.strip() or "(klt --version unavailable)"
-
-
 def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
                  written_by: str) -> Path:
     """The evidence record. `tag_dir` is the `submit()` workdir holding
@@ -687,7 +673,7 @@ def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
         "for PDK or simulator version.",
         "",
     ]
-    klt_version = klt_client_version()
+    klt_version = klt_sim.client_version()
     worker_pdk = info.get("worker_pdk")
     worker_ng = info.get("worker_ngspice")
     pdk_line = (f"sky130A @ {worker_pdk.split()[-1]}" if worker_pdk else prov.pdk_line)
