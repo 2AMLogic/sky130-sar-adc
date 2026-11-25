@@ -92,6 +92,7 @@ Issues carrying `loom:curated`.
 - **#924**: Remove dead duplicate import os / SETTLE assignment in the two SDF testbenches (needs an evidence re-mint) *(hermit)*
 - **#928**: Collapse the four digital-functional cocotb benches to two: the SDF variants are 296 duplicated lines of the zero-delay originals *(hermit)*
 - **#929**: Execute the #820 follow-up: klt 0.9.2 ships `klt evidence claims`, but the swap is vacuous on this repo's records *(hermit)*
+- **#1083**: Remove the obsolete latch diagnosis from regen-corners reports *(hermit)*
 
 ## Epics
 
@@ -109,6 +110,6 @@ Issues carrying `loom:curated`.
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 5 |
 | Curated | 15 |
-| Architect / Hermit proposals | 5 |
+| Architect / Hermit proposals | 6 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
