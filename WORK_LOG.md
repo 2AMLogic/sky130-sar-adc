@@ -8,6 +8,8 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 ### 2026-11-25
 
+- **PR #1090**: fix(sim): use the shared klt version probe for digital partition
+- **Issue #1088** (closed): digital-partition record writer keeps its own klt client-version placeholder
 - **PR #1087**: fix(sim): share klt --version probe in harness.klt_sim
 - **Issue #1086** (closed): Share the klt client version probe so a missing executable cannot abort record rendering
 
