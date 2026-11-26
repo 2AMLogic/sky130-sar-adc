@@ -1586,27 +1586,6 @@ def write_corners_artifacts(record_id: str, artifacts: dict[str, str] | None) ->
         (base / "report.json").write_text(artifacts["report.json"])
 
 
-def executing_environment(prov, info: dict | None) -> dict:
-    """What actually produced the numbers: the executing fleet worker when it
-    reported itself, otherwise the SUBMITTING host -- stated as such, never
-    silently substituted."""
-    info = info or {}
-    worker_pdk = info.get("worker_pdk")
-    worker_ngspice = info.get("worker_ngspice")
-    known = bool(worker_pdk and worker_ngspice)
-    jobs = info.get("jobs") or []
-    runner_klt = next(
-        (j.get("runner_klt_version") for j in jobs if j.get("runner_klt_version")),
-        None,
-    )
-    return {
-        "known": known,
-        "pdk": worker_pdk if known else prov.pdk_line,
-        "ngspice": worker_ngspice if known else prov.ng_version,
-        "runner_klt": runner_klt,
-    }
-
-
 def corners_klt_run_lines(prov, info: dict | None, sweep: str, window: str,
                           record_id: str) -> list[str]:
     """The `klt sim` run block and the uncontrolled-difference statements
@@ -1619,14 +1598,8 @@ def corners_klt_run_lines(prov, info: dict | None, sweep: str, window: str,
     the older record; they are the reasons a figure may differ without the
     circuit having changed."""
     info = info or {}
-    env = executing_environment(prov, info)
+    env = klt_sim.executing_environment(prov, info)
     prev = predecessor_environment(sweep, window)
-    exec_matches_host = (
-        env["known"]
-        and str(prov.pdk_line).split("@")[-1].strip()
-           == str(env["pdk"]).split("@")[-1].strip()
-        and str(prov.ng_version).strip() == str(env["ngspice"]).strip()
-    )
     jobs = info.get("jobs") or []
 
     lines = [
@@ -1653,32 +1626,30 @@ def corners_klt_run_lines(prov, info: dict | None, sweep: str, window: str,
     ]
 
     prev_ref = f"[`records/{prev['record']}.md`]({prev['record']}.md)"
-    if prev["pdk"] and prev["ngspice"]:
-        same_pdk = str(prev["pdk"]).split("@")[-1].strip() == str(env["pdk"]).split("@")[-1].strip()
-        same_ng = str(prev["ngspice"]).strip() == str(env["ngspice"]).strip()
-        lines.append(
-            f"- **PDK commit and simulator version.** {prev_ref} was minted on "
+    prev_known = bool(prev["pdk"] and prev["ngspice"])
+    if prev_known:
+        previous = (
+            f"{prev_ref} was minted on "
             f"`{prev['pdk']}` / `{prev['ngspice']}` (read from that record's own "
-            f"Environment block); this record was produced on `{env['pdk']}` / "
-            f"`{env['ngspice']}`. "
-            + (
-                "Those are the same, so neither is an uncontrolled difference "
-                "between the two runs."
-                if (same_pdk and same_ng)
-                else "**Those differ.** Any change in a figure between the two "
-                "records is as readily a PDK or simulator-version difference as "
-                "a circuit or harness one; nothing here is a controlled "
-                "comparison against that record, and no figure in it is "
-                "corrected by this one."
-            )
+            "Environment block)."
         )
     else:
-        lines.append(
-            f"- **PDK commit and simulator version.** {prev_ref}'s own "
-            "Environment block could not be read from this tree, so the "
-            "comparison is not stated rather than guessed. This record was "
-            f"produced on `{env['pdk']}` / `{env['ngspice']}`."
+        previous = f"{prev_ref}'s Environment block could not be read from this tree."
+    current = (f"This record was produced on `{env['pdk']}` / `{env['ngspice']}`."
+               if env["known"] else "The executing worker's environment is unknown.")
+    if prev_known and env["known"]:
+        same_pdk = klt_sim.pdk_commit_token(prev["pdk"]) == klt_sim.pdk_commit_token(env["pdk"])
+        comparison = (
+            "Those are the same, so neither is an uncontrolled difference between the two runs."
+            if same_pdk and prev["ngspice"].strip() == env["ngspice"].strip()
+            else "**Those differ.** Any change in a figure between the two "
+            "records is as readily a PDK or simulator-version difference as "
+            "a circuit or harness one; nothing here is a controlled "
+            "comparison against that record, and no figure in it is corrected by this one."
         )
+    else:
+        comparison = "PDK and simulator comparability is undetermined."
+    lines.append(f"- **PDK commit and simulator version.** {previous} {current} {comparison}")
     lines += [
         "- **Execution route.** The superseded record's grid was solved by an "
         "in-process `ngspice` loop on the submitting host, one subprocess per "
@@ -1688,24 +1659,7 @@ def corners_klt_run_lines(prov, info: dict | None, sweep: str, window: str,
         "numbers therefore come from a different machine, a different "
         "scheduler and a different deck-assembly path than the record it "
         "supersedes.",
-        "- **Submitting host vs. executing worker.** The Environment block "
-        "below names the PDK and ngspice of the EXECUTING worker when it "
-        "reported them"
-        + (
-            f"; the submitting host resolved `{prov.pdk_line}` / "
-            f"`{prov.ng_version}`. "
-            + (
-                "They are the same for this run."
-                if exec_matches_host
-                else "**They differ for this run**, so no figure here is "
-                "controlled for PDK or simulator version against a locally run "
-                "record."
-            )
-            if env["known"]
-            else ". The worker did NOT report them for this run, so the block "
-            "below names the SUBMITTING host's instead, and no figure here is "
-            "attributable to a known executing environment."
-        ),
+        "- **Submitting host vs. executing worker.** " + env["note"],
     ]
     lines += [
         "- **Deck changes made by the port itself** (issue #881) -- each is a "
@@ -1721,7 +1675,7 @@ def corners_environment_lines(prov, info: dict | None) -> list[str]:
     """`evidence.environment_block()` for a `--corners` record: the EXECUTING
     worker's PDK and simulator, with the submitting host's own stated beside
     them, plus the klt client and runner versions."""
-    env = executing_environment(prov, info)
+    env = klt_sim.executing_environment(prov, info)
     return evidence.environment_block(
         env["pdk"],
         env["ngspice"],
@@ -1729,10 +1683,7 @@ def corners_environment_lines(prov, info: dict | None) -> list[str]:
         extra={
             "klt (client)": klt_sim.client_version(),
             "klt (fleet runner)": env["runner_klt"] or "(not reported)",
-            "PDK / ngspice above": "as run by the executing worker"
-            if env["known"]
-            else "submitting host (executing worker did not report)",
-            "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
+            **env["attribution_extra"],
             "tran step": f"{TRAN_STEP_PS:g} ps",
             "toolchain pin file": "sim/toolchain.json",
         },

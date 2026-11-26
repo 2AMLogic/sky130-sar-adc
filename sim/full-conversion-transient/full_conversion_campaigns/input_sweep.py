@@ -618,6 +618,7 @@ def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
             "boundary at a level the converter's behaviour was never "
             "observed at.",
         ]
+    env = klt_sim.executing_environment(prov, info)
     lines += [
         "",
         "**This is an informational measurement of the unmodified schematic, "
@@ -645,10 +646,8 @@ def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
         f"status `{info.get('status')}`, backend `{info.get('backend')}`, "
         f"resolved backend `{info.get('resolved_backend')}`, sharded into "
         f"{len(info.get('jobs') or [])} batch job(s) (`remote.hosts`).",
-        f"- Executing PDK `{info.get('worker_pdk')}`, executing simulator "
-        f"`{info.get('worker_ngspice')}` -- reported only because every shard "
-        f"agrees (seen: {info.get('worker_pdks_seen')}, "
-        f"{info.get('worker_ngspice_seen')}).",
+        f"- PDKs reported by shards: {info.get('worker_pdks_seen') or []}. "
+        f"Simulator versions reported: {info.get('worker_ngspice_seen') or []}.",
         f"- `corners.params` support on the worker image: "
         f"`{info.get('request_feature_status')}`. This reader additionally "
         f"refuses any corner that does not echo back its own "
@@ -666,21 +665,13 @@ def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
             for j in (info.get("jobs") or [])
         ],
         "",
-        "**Uncontrolled difference.** The Environment block below names the "
-        "PDK and ngspice resolved on the SUBMITTING host; the numbers above "
-        "were produced by the executing worker named in this section. Where "
-        "those differ, no comparison with a locally run record is controlled "
-        "for PDK or simulator version.",
+        "**Uncontrolled difference.** " + env["note"],
         "",
     ]
     klt_version = klt_sim.client_version()
-    worker_pdk = info.get("worker_pdk")
-    worker_ng = info.get("worker_ngspice")
-    pdk_line = (f"sky130A @ {worker_pdk.split()[-1]}" if worker_pdk else prov.pdk_line)
-    ng_line = (worker_ng.split()[0] if worker_ng else prov.ng_version)
     lines += evidence.environment_block(
-        pdk_line,
-        ng_line,
+        env["pdk"],
+        env["ngspice"],
         prov.netlist_sha,
         {
             "klt": klt_version,
@@ -689,10 +680,7 @@ def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
             "testbench fragment sha256": f"`{evidence.sha256_file(tb.SWEEP_FRAGMENT_PATH)}`",
             "DUT netlist sha256 above": "the assembled circuit body, not design/sar_adc_top.spice alone",
             "design/sar_adc_top.spice sha256": f"`{evidence.sha256_file(DUT_NETLIST)}`",
-            "PDK / ngspice above": (
-                "as reported by the executing worker" if worker_pdk and worker_ng
-                else "submitting host (the worker reported none)"),
-            "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
+            **env["attribution_extra"],
         },
     )
     lines += [""]

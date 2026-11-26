@@ -475,25 +475,17 @@ def write_record(analysis: dict, data: dict, cids: list[str], supersedes: str,
         lines.append(f"- `{v}`: job `{r.get('job_id')}`, status `{r.get('status')}`, backend "
                      f"`{r.get('backend')}`, executing PDK `{r.get('worker_pdk')}`, "
                      f"executing simulator `{r.get('worker_ngspice')}`")
-    lines += ["", "**Uncontrolled difference.** The Environment block below names the PDK and "
-              "ngspice resolved on the SUBMITTING host; the numbers above were produced by the "
-              "executing workers listed here. Where those differ, no comparison with a locally "
-              "run record is controlled for PDK/simulator version."]
+    # The numbers come from the EXECUTING workers, so the PDK / simulator lines
+    # name theirs only when every variant's run reports the same pair; the
+    # submitting host's own are listed as extras.
+    env = klt_sim.executing_environment(prov, [data["runs"][v] for v in VARIANTS])
+    lines += ["", "**Uncontrolled difference.** " + env["note"]]
     klt = klt_sim.client_version()
     lines += [""]
-    # The numbers come from the EXECUTING workers, so the PDK / simulator lines name
-    # those (all six jobs must agree); the submitting host's own are listed as extras.
-    wp = {data["runs"][v].get("worker_pdk") for v in VARIANTS}
-    wn = {data["runs"][v].get("worker_ngspice") for v in VARIANTS}
-    pdk_commit = next(iter(wp)).split()[-1] if len(wp) == 1 and None not in wp else None
-    ng_ver = (next(iter(wn)).split()[0] if len(wn) == 1 and None not in wn else None)
-    exec_known = pdk_commit is not None and ng_ver is not None
     lines += evidence.environment_block(
-        f"sky130A @ {pdk_commit}" if exec_known else prov.pdk_line,
-        ng_ver if exec_known else prov.ng_version, prov.netlist_sha,
+        env["pdk"], env["ngspice"], prov.netlist_sha,
         {"klt": klt, "AC frequency": f"{FREQ_HZ:g} Hz", "BPREF bias resistor": R_BIAS,
-         "PDK / ngspice above": "as run by the executing workers" if exec_known else "submitting host",
-         "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}"})
+         **env["attribution_extra"]})
     lines += [""]
     lines += evidence.footer_lines("sim/top-plate-cpar/run_top_plate_cpar.py", supersedes)
     evidence.write_latest_pointer(EXPERIMENT_DIR, prov.record_id)

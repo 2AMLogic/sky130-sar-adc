@@ -1308,7 +1308,9 @@ class TestInputSweepSubmitPath(unittest.TestCase):
         # the deck and request survive for the NOT RUN record
         self.assertTrue((scratch / "sweep" / "request.json").is_file())
 
-    def _write_record_with_fixture(self):
+    def _write_record_with_fixture(self, **worker):
+        """`worker` overrides run-info keys, for the tests that render a
+        record from a worker that reported only part of its environment."""
         runner, _calls = self._fake_runner(self._canned_report())
         tmp_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
@@ -1317,7 +1319,7 @@ class TestInputSweepSubmitPath(unittest.TestCase):
                                     hosts=1)
         with provenance_fixture.fake_provenance(fc_common, tmp_dir):
             path = fc_sweep.write_record(
-                result["rows"], result["info"], result["req"],
+                result["rows"], dict(result["info"], **worker), result["req"],
                 result["workdir"],
                 "sim/full-conversion-transient/run_conversion.py --input-sweep --record",
             )
@@ -1366,6 +1368,41 @@ class TestInputSweepSubmitPath(unittest.TestCase):
         text = path.read_text()
         self.assertIn("(klt --version unavailable)", text)
         self.assertTrue(result["all_read"])
+
+    def test_the_environment_block_names_the_executing_worker_and_the_prose_agrees(self):
+        """Issue #1094: the block is rendered through
+        `klt_sim.executing_environment()`. Its private copy's prose said the
+        block named the SUBMITTING host's PDK and ngspice while the block
+        stamped the worker's."""
+        path, _tmp, _result = self._write_record_with_fixture()
+        text = path.read_text()
+        stamp = "f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+        self.assertIn(f"- PDK: sky130A @ {stamp}", text)
+        self.assertIn("- ngspice: ngspice-47", text)
+        self.assertIn("- PDK / ngspice above: as run by the executing worker", text)
+        self.assertIn("names the PDK and ngspice of the EXECUTING worker", text)
+        self.assertIn("**They differ for this run**", text,
+                      "the stubbed submitting host is not the worker's")
+        self.assertNotIn("resolved on the SUBMITTING host", text)
+
+    def test_a_run_reporting_only_one_of_the_two_names_the_submitting_hosts_pair(self):
+        """The private copy filled the block's two lines independently, so a
+        run reporting its PDK but not its simulator stamped the worker's PDK
+        under a submitting-host label."""
+        for half in ({"worker_ngspice": None}, {"worker_pdk": None}):
+            with self.subTest(worker=half):
+                path, _tmp, _result = self._write_record_with_fixture(**half)
+                text = path.read_text()
+                self.assertIn(f"- PDK: {provenance_fixture.PDK_LINE}", text)
+                self.assertIn(f"- ngspice: {provenance_fixture.NG_VERSION}", text)
+                self.assertNotIn("- PDK: sky130A @ f6eeac7", text)
+                self.assertNotIn("- ngspice: ngspice-47", text)
+                self.assertNotIn("every shard agrees", text)
+                self.assertIn("- PDK / ngspice above: submitting host "
+                              "(worker environment unknown)", text)
+                self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
+                self.assertNotIn("They differ for this run", text,
+                                 "an unreported worker is not a difference")
 
     def test_not_run_record_quotes_the_refusal_and_never_moves_latest(self):
         refusal = ('klt sim (sweep): {"code": "batch_no_capacity"}')

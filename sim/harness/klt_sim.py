@@ -43,6 +43,18 @@ when the client is absent, fails, or writes empty stdout, so a missing
 local executable cannot abort record generation after a simulation report
 already exists.
 
+The executing-worker attribution a record renders right after `run_info()`
+is shared here for the same reason (issue #1094): `executing_environment()`
+takes the submitting host's provenance and one or more `run_info()` dicts and
+returns the Environment block's PDK / ngspice lines, the two extras that say
+whose they are, and the sentence that says the same in prose. The seven
+batch drivers that had each carried a private copy had drifted four ways:
+two filled the block's two lines independently and so labelled a half-known
+run by the wrong host, four said in prose that the block named the
+SUBMITTING host while it stamped the worker's values, six re-parsed and
+re-hardcoded `"sky130A @ ..."` over a string `run_info()` had already
+formatted, and two compared the host's ngspice version by different rules.
+
 Stdlib plus one pure harness sibling (`corners.corner_id` -- string
 formatting, still no PDK), and the subprocess runner is injectable
 (`runner=`), so these paths are unit-testable without `klt`, the PDK or
@@ -58,7 +70,7 @@ import re
 import subprocess
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from .corners import corner_id, parse_corner_id
@@ -339,18 +351,16 @@ def run_info(report: dict) -> dict:
         # A LOST shard reports as a null fleet entry (a real campaign hit
         # this: 5 of 9 corners `lost_shard`, and reading the report crashed
         # run_info before the campaign could report the loss). A missing
-        # shard contributes no environment facts; the corners it carried
-        # report their own `lost_shard` status either way.
+        # shard has unknown environment values and cannot establish consensus.
         if not isinstance(entry, dict):
-            continue
+            entry = {}
         worker = entry.get("worker_environment") or {}
-        pdk_stamp = (worker.get("pdk") or {}).get("stamp_text")
+        pdk_stamp = ((worker.get("pdk") or {}).get("stamp_text") or "").strip()
         variant = (worker.get("pdk") or {}).get("variant")
         ng = ngspice_from_banner((worker.get("simulator") or {}).get("version_banner") or "")
-        if pdk_stamp:
-            pdks.add(f"{variant} @ {pdk_stamp.split()[-1]}" if variant else pdk_stamp)
-        if ng:
-            ngs.add(ng)
+        pdk = f"{variant} @ {pdk_stamp.split()[-1]}" if variant and pdk_stamp else pdk_stamp
+        pdks.add(pdk or None)
+        ngs.add(ng)
         feats = entry.get("runner_request_features") or {}
         if feats.get("status"):
             features.add(str(feats["status"]))
@@ -385,9 +395,113 @@ def run_info(report: dict) -> dict:
         # letting one shard's environment stand for the whole run.
         "worker_pdk": next(iter(pdks)) if len(pdks) == 1 else None,
         "worker_ngspice": next(iter(ngs)) if len(ngs) == 1 else None,
-        "worker_pdks_seen": sorted(pdks),
-        "worker_ngspice_seen": sorted(ngs),
+        "worker_pdks_seen": sorted(pdks - {None}),
+        "worker_ngspice_seen": sorted(ngs - {None}),
         "request_feature_status": next(iter(features)) if len(features) == 1 else None,
+    }
+
+
+def pdk_commit_token(text) -> str:
+    """The commit token of a PDK line: the last whitespace-separated token
+    after the last `@`.
+
+    That is the token `run_info()` reads off a worker's own stamp
+    (`stamp.split()[-1]`), so the forms a line takes compare by commit:
+    `"{variant} @ {sha}"`, a stamp the worker reported without a variant,
+    and the submitting host's own line. A host line carrying
+    `pdk.resolved_commit()`'s "(unverified -- ...)" suffix ends in that
+    suffix and never in the commit, so an unverifiable install never
+    compares equal to a worker's.
+    """
+    tokens = str(text or "").rsplit("@", 1)[-1].split()
+    return tokens[-1] if tokens else ""
+
+
+def executing_environment(prov, info) -> dict:
+    """Resolve the worker environment for a record, with a labelled fallback
+    to the submitting host's provenance (issue #1094).
+
+    `info` is one `run_info()` dict, any iterable of them (a campaign that
+    submits one request per variant gets one per variant, and its numbers
+    come from several workers), or None. `prov` is the submitting host's own
+    provenance, read for `pdk_line` and `ng_version` only.
+
+    The worker's environment is `known` only when every run reported BOTH
+    its PDK and its simulator and they all agree. One all-or-nothing rule,
+    because the Environment block's PDK and ngspice lines are one claim. Two
+    of the seven private copies this replaces filled those lines
+    independently and then labelled the PAIR by whether both were present,
+    so a run reporting one of the two stamped the worker's value under a
+    submitting-host label.
+
+    `pdk` is the worker's `worker_pdk` verbatim: `run_info()` already
+    formats it `"{variant} @ {sha}"`, so no campaign re-prefixes it.
+    `matches_host` compares the PDK commit (`pdk_commit_token()`) and the
+    whole ngspice version string. It is true only for a confirmed match.
+    A difference in either known field proves a mismatch. If neither field
+    proves a mismatch and host provenance is incomplete, the note reports
+    that the comparison is undetermined.
+
+    Returns `{known, pdk, ngspice, runner_klt, matches_host,
+    attribution_extra, note}`: `pdk` / `ngspice` are the
+    `evidence.environment_block()` arguments, `attribution_extra` the two
+    block extras saying whose they are, and `note` the sentence saying the
+    same in prose. A record renders all three from this one dict, so its
+    prose cannot contradict its block.
+    """
+    if info is None:
+        runs: list = []
+    elif isinstance(info, Mapping):
+        runs = [info]
+    else:
+        runs = list(info)
+    infos = [run if isinstance(run, Mapping) else {} for run in runs]
+    pdks = {run.get("worker_pdk") or None for run in infos}
+    ngs = {run.get("worker_ngspice") or None for run in infos}
+    worker_pdk = next(iter(pdks)) if len(pdks) == 1 else None
+    worker_ng = next(iter(ngs)) if len(ngs) == 1 else None
+    known = worker_pdk is not None and worker_ng is not None
+    runner_klt = next(
+        (job.get("runner_klt_version")
+         for run in infos for job in (run.get("jobs") or [])
+         if job.get("runner_klt_version")),
+        None,
+    )
+    matches_host = False
+    if known:
+        host_commit = pdk_commit_token(prov.pdk_line)
+        pdk_match = None
+        # resolved_commit() can display the expected pin of an unverified install.
+        if host_commit not in ("", "unknown") and "(unverified" not in prov.pdk_line:
+            pdk_match = host_commit == pdk_commit_token(worker_pdk)
+        host_ng = (prov.ng_version or "").strip()
+        ng_match = host_ng == worker_ng.strip() if ngspice_from_banner(host_ng) else None
+        matches_host = pdk_match is True and ng_match is True
+        note = ("The Environment block below names the PDK and ngspice of the "
+                "EXECUTING worker. The submitting host recorded "
+                f"`{prov.pdk_line}` / `{prov.ng_version}`. ")
+        if matches_host:
+            note += "They are the same for this run."
+        elif pdk_match is False or ng_match is False:
+            note += ("**They differ for this run**. A comparison with a run on the "
+                     "submitting host cannot isolate the effect of a design change.")
+        else:
+            note += "The host-to-worker comparison is undetermined."
+    else:
+        note = ("The worker reports do not establish a single PDK and simulator pair. "
+                "The Environment block below names the SUBMITTING host's PDK and ngspice.")
+    return {
+        "known": known,
+        "pdk": worker_pdk if known else prov.pdk_line,
+        "ngspice": worker_ng if known else prov.ng_version,
+        "runner_klt": runner_klt,
+        "matches_host": matches_host,
+        "attribution_extra": {
+            "PDK / ngspice above": "as run by the executing worker" if known
+            else "submitting host (worker environment unknown)",
+            "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
+        },
+        "note": note,
     }
 
 

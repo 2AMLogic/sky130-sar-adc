@@ -786,20 +786,7 @@ def write_record(
     windows = list(WINDOWS)
     complete = [c for c in cids if all(analysis[c][w] for w in windows)]
 
-    worker_pdk = info.get("worker_pdk")
-    worker_ng = info.get("worker_ngspice")
-    exec_known = bool(worker_pdk and worker_ng)
-    # What actually produced the numbers: the worker when it reported itself,
-    # otherwise the submitting host (stated as such, never silently).
-    executing_pdk = (
-        f"sky130A @ {worker_pdk.split()[-1]}" if exec_known else prov.pdk_line
-    )
-    executing_ngspice = worker_ng.split()[0] if exec_known else prov.ng_version
-    exec_matches_host = (
-        exec_known
-        and prov.pdk_line.split("@")[-1].strip() == worker_pdk.split()[-1].strip()
-        and prov.ng_version.split()[-1] == executing_ngspice
-    )
+    env = klt_sim.executing_environment(prov, info)
 
     # open_record() starts `lines` with a generic `# Record <id>` title; give
     # this campaign's records the same descriptive heading shape every other
@@ -936,29 +923,17 @@ def write_record(
         f"`{info.get('backend')}`, executing PDK `{info.get('worker_pdk')}`, "
         f"executing simulator `{info.get('worker_ngspice')}`",
         "",
-        "**Uncontrolled difference 1 -- submitting host vs. executing worker.** The "
-        "Environment block below names the PDK and ngspice resolved on the "
-        "SUBMITTING host; the numbers above were produced by the executing worker "
-        "named here. "
-        + (
-            "For this run they resolved to the SAME PDK commit and ngspice version, "
-            "so nothing in this record turns on that distinction."
-            if exec_matches_host
-            else "They DIFFER for this run, so no figure here is controlled for "
-            "PDK or simulator version against a locally run record."
-        ),
+        "**Uncontrolled difference 1 -- submitting host vs. executing worker.** "
+        + env["note"],
         "",
-        "**Uncontrolled difference 2 -- against the record cited for the control "
-        f"row.** [`{CONTROL_REFERENCE['record']}`](../../../{CONTROL_REFERENCE['record']}) "
-        f"(the {CONTROL_REFERENCE['value']} quoted above) was minted on "
-        f"`{CONTROL_REFERENCE['pdk']}` / `{CONTROL_REFERENCE['ngspice']}`; this record "
-        f"was produced on `{executing_pdk}` / `{executing_ngspice}`. "
-        + (
+    ]
+    if env["known"]:
+        same_pdk = (klt_sim.pdk_commit_token(CONTROL_REFERENCE["pdk"])
+                    == klt_sim.pdk_commit_token(env["pdk"]))
+        comparison = f"This record was produced on `{env['pdk']}` / `{env['ngspice']}`. "
+        comparison += (
             "Those are the same, so the two runs are directly comparable."
-            if (
-                CONTROL_REFERENCE["pdk"].split("@")[-1].strip() == str(executing_pdk).split("@")[-1].strip()
-                and CONTROL_REFERENCE["ngspice"] in str(executing_ngspice)
-            )
+            if same_pdk and CONTROL_REFERENCE["ngspice"] == env["ngspice"].strip()
             else "**Those differ.** The control-row residual measured here is "
             "therefore NOT a controlled reproduction of that record's figure: a "
             "difference between the two is as readily a PDK or simulator-version "
@@ -966,24 +941,28 @@ def write_record(
             "as confirming or contradicting it. What the control row is used for "
             "here -- the per-corner reference every budget in this record is "
             "measured relative to -- is internal to THIS run and is unaffected."
-        ),
+        )
+    else:
+        comparison = "The executing worker's environment is unknown, so comparability is undetermined."
+    lines += [
+        "**Uncontrolled difference 2 -- against the record cited for the control "
+        f"row.** [`{CONTROL_REFERENCE['record']}`](../../../{CONTROL_REFERENCE['record']}) "
+        f"(the {CONTROL_REFERENCE['value']} quoted above) was minted on "
+        f"`{CONTROL_REFERENCE['pdk']}` / `{CONTROL_REFERENCE['ngspice']}`. {comparison}",
         "",
     ]
 
     klt_version = klt_sim.client_version()
     lines += evidence.environment_block(
-        executing_pdk,
-        executing_ngspice,
+        env["pdk"],
+        env["ngspice"],
         prov.netlist_sha,
         {
             "klt": klt_version,
             "tran step": f"{TRAN_STEP_NS:g} ns",
             "provisional differential LSB": f"{LSB_DIFF_MV_PROVISIONAL:g} mV "
             "(DR-003 Item 2, pending #27 -- reference scale only)",
-            "PDK / ngspice above": "as run by the executing worker"
-            if exec_known
-            else "submitting host (executing worker did not report)",
-            "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
+            **env["attribution_extra"],
         },
     )
     lines += [""]

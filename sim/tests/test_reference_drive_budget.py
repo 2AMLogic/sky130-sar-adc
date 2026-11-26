@@ -18,6 +18,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 TESTS_DIR = Path(__file__).resolve().parent
@@ -1034,6 +1035,97 @@ class TestWriteRecordWithMissingKltClient(unittest.TestCase):
                     self._section(rendered, heading),
                     self._section(committed_md, heading),
                 )
+
+
+class TestWriteRecordExecutingEnvironment(unittest.TestCase):
+    """Issue #1094: `write_record()` renders the Environment block through
+    `klt_sim.executing_environment()`, so the block names the executing
+    worker's PDK and simulator when the run reported both, and the SUBMITTING
+    host's pair -- labelled as such -- when it did not.
+
+    The private copy this replaced filled the block's two lines independently,
+    so a run reporting its PDK but not its simulator stamped the worker's PDK
+    above a label saying both were the submitting host's. Driven over the
+    saved sharded report, provenance stubbed into a temp dir like the class
+    above: nothing under sim/reference-drive-budget/ is written."""
+
+    SAVED_RECORD_ID = "20261113-113808-6b72b9f3"
+    WORKER_PDK = "sky130A @ f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
+
+    def test_complementary_partial_shards_cannot_establish_a_worker_pair(self):
+        saved_dir = m.EXPERIMENT_DIR / "corners" / self.SAVED_RECORD_ID
+        report = json.loads((saved_dir / "report.json").read_text())
+        fleet = report["environment"]["remote"]["fleet"]
+        for i, shard in enumerate(fleet):
+            del shard["worker_environment"]["simulator" if i % 2 == 0 else "pdk"]
+        _, info = m.read_report(report)
+        self.assertEqual(info["worker_pdks_seen"], [self.WORKER_PDK])
+        self.assertEqual(info["worker_ngspice_seen"], ["ngspice-47"])
+        self.assertIsNone(info["worker_pdk"])
+        self.assertIsNone(info["worker_ngspice"])
+        prov = SimpleNamespace(pdk_line=provenance_fixture.PDK_LINE,
+                               ng_version=provenance_fixture.NG_VERSION)
+        env = m.klt_sim.executing_environment(prov, info)
+        self.assertFalse(env["known"])
+        self.assertEqual((env["pdk"], env["ngspice"]), (prov.pdk_line, prov.ng_version))
+
+    def _render(self, **worker) -> str:
+        saved_dir = m.EXPERIMENT_DIR / "corners" / self.SAVED_RECORD_ID
+        report = json.loads((saved_dir / "report.json").read_text())
+        req = json.loads((saved_dir / "request.json").read_text())
+        points = m.ratified_points()
+        r_values = list(m.DEFAULT_R_OHM)
+        units, info = m.read_report(report)
+        analysis = m.analyze(units, points, r_values)
+
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        workdir = tmp_dir / "work"
+        tag_dir = workdir / "grid"
+        tag_dir.mkdir(parents=True)
+        for name in ("report.json", "request.json", "tb.spice"):
+            shutil.copy2(saved_dir / name, tag_dir / name)
+
+        with provenance_fixture.fake_provenance(m, tmp_dir / "experiment"):
+            path = m.write_record(analysis, points, r_values, dict(info, **worker),
+                                  req, workdir, supersedes="(none)")
+        return path.read_text()
+
+    def test_the_block_names_the_executing_worker_and_the_prose_agrees(self):
+        text = self._render()
+        self.assertIn(f"- PDK: {self.WORKER_PDK}", text)
+        self.assertIn("- ngspice: ngspice-47", text)
+        self.assertIn("- PDK / ngspice above: as run by the executing worker", text)
+        # the stubbed submitting host differs from the worker, and the prose
+        # says so in the same words for every campaign (issue #1094)
+        self.assertIn("names the PDK and ngspice of the EXECUTING worker", text)
+        self.assertIn("**They differ for this run**", text)
+        self.assertNotIn("resolved on the SUBMITTING host", text)
+
+    def test_the_same_worker_and_host_are_stated_as_the_same(self):
+        text = self._render(worker_pdk=provenance_fixture.PDK_LINE,
+                            worker_ngspice=provenance_fixture.NG_VERSION)
+        self.assertIn("They are the same for this run.", text)
+        self.assertNotIn("They differ for this run", text)
+
+    def test_a_run_reporting_only_one_of_the_two_names_the_submitting_hosts_pair(self):
+        """The Run section still states what the worker did and did not
+        report; the Environment block never carries a half-worker pair."""
+        for half in ({"worker_ngspice": None}, {"worker_pdk": None}):
+            with self.subTest(worker=half):
+                text = self._render(**half)
+                self.assertIn(f"- PDK: {provenance_fixture.PDK_LINE}", text)
+                self.assertIn(f"- ngspice: {provenance_fixture.NG_VERSION}", text)
+                self.assertNotIn(f"- PDK: {self.WORKER_PDK}", text)
+                self.assertNotIn("- ngspice: ngspice-47", text)
+                self.assertNotIn("every shard agrees", text)
+                self.assertIn("comparability with the full-conversion record is undetermined", text)
+                self.assertIn(
+                    "- PDK / ngspice above: submitting host "
+                    "(worker environment unknown)", text)
+                self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
+                self.assertNotIn("They differ for this run", text,
+                                 "an unreported worker is not a difference")
 
 
 if __name__ == "__main__":

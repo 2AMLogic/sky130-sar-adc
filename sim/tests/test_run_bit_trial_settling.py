@@ -10,22 +10,110 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
+sys.path.insert(0, str(SIM_DIR / "tests"))
 
 from harness import toolchain  # noqa: E402
 
+import provenance_fixture  # noqa: E402
 
 RUNNER = SIM_DIR / "cdac-bit-trial-settling/run_bit_trial_settling.py"
 _spec = importlib.util.spec_from_file_location("run_bit_trial_settling_under_test", RUNNER)
 rt = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = rt
 _spec.loader.exec_module(rt)
+
+
+class TestCandidateRecordExecutingEnvironment(unittest.TestCase):
+    """Issue #1094: `write_candidate_record()` renders the Environment block
+    through `klt_sim.executing_environment()`, so the block names the
+    executing worker's PDK and simulator when the run reported both, and the
+    SUBMITTING host's pair -- labelled as such -- when it did not.
+
+    Records are rendered in a temporary experiment directory."""
+
+    @staticmethod
+    def _info(**worker) -> dict:
+        return dict({"status": "pass", "backend": "batch", "job_id": "job-42",
+                     "jobs": [{"job_id": "job-42", "runner_klt_version": "klt 9.9.9"}],
+                     "worker_pdk": "sky130A @ deadbeef",
+                     "worker_ngspice": "ngspice-47"}, **worker)
+
+    def _record_text(self, **worker) -> str:
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp) / "request"
+            workdir.mkdir()
+            (workdir / "request.json").write_text("{}\n")
+            c_u = {rt.UNIT_CAP_WL_UM: 23.805, rt.CANDIDATE_UNIT_CAP_WL_UM: 71.4}
+            with provenance_fixture.fake_provenance(rt, tmp):
+                path = rt.write_candidate_record(
+                    {"status": "error", "corners": []}, self._info(**worker),
+                    ["tt_27c_1.80v"], "(none)", workdir, c_u, {})
+                return path.read_text()
+
+    def test_the_block_names_the_executing_worker(self):
+        text = self._record_text()
+        self.assertIn("- PDK: sky130A @ deadbeef", text)
+        self.assertIn("- ngspice: ngspice-47", text)
+        self.assertIn("- PDK / ngspice above: as run by the executing worker", text)
+        self.assertIn(
+            "- submitting host PDK / ngspice: sky130A @ testing / ngspice-46", text)
+
+    def test_a_run_reporting_only_one_of_the_two_names_the_submitting_hosts_pair(self):
+        for half in ({"worker_ngspice": None}, {"worker_pdk": None}):
+            with self.subTest(worker=half):
+                text = self._record_text(**half)
+                self.assertIn("- PDK: sky130A @ testing", text)
+                self.assertIn("- ngspice: ngspice-46", text)
+                self.assertNotIn("- PDK: sky130A @ deadbeef", text)
+                self.assertNotIn("- ngspice: ngspice-47", text)
+                self.assertIn("- PDK / ngspice above: submitting host "
+                              "(worker environment unknown)", text)
+
+    def test_archived_grid_and_local_unit_cap_probes(self):
+        archive = RUNNER.parent / "corners" / "20261123-000415-d1ce38af"
+        report = json.loads((archive / "report.json").read_text())
+
+        def replay_probe(deck, scratch, log_name):
+            wl = log_name.removeprefix("capprobe_")
+            return (archive / f"unit_cap_{wl}um.log").read_text()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            argv = ["run_bit_trial_settling.py", "--dr027-candidate", "--record",
+                    "--backend", "batch", "--workdir", str(Path(tmp) / "work")]
+            with (
+                provenance_fixture.fake_provenance(rt, tmp),
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.object(rt.toolchain, "preflight", return_value=None),
+                mock.patch.object(rt.pdk, "resolve_or_raise"),
+                mock.patch.object(rt.toolchain, "run_ngspice_with_retry", side_effect=replay_probe),
+                mock.patch.object(rt.klt_sim, "submit", return_value=report),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                self.assertEqual(rt.main(), 0)
+            text = (Path(tmp) / "records" / "REC.md").read_text()
+
+        probes = next((line for line in text.splitlines()
+                       if line.startswith("- **Unit-capacitance probes**")), "")
+        self.assertIn("submitting host", probes)
+        self.assertIn("sky130A @ testing", probes)
+        self.assertIn("ngspice-46", probes)
+        self.assertIn("1.9000 um -> 8.405 fF/unit", probes)
+        self.assertIn("3.3000 um -> 23.805 fF/unit", probes)
+        environment = text.split("## Environment\n", 1)[1]
+        self.assertIn("- PDK: sky130A @ f6eeac7d", environment)
+        self.assertIn("- ngspice: ngspice-47", environment)
+        self.assertIn("settling grid", environment)
+        self.assertNotIn("fF/unit", environment)
+        self.assertNotIn("this record was produced by the executing worker", text)
 
 
 class TestBuildTransient(unittest.TestCase):

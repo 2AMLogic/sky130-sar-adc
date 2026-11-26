@@ -21,9 +21,11 @@ from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
+sys.path.insert(0, str(SIM_DIR / "tests"))
 sys.path.insert(0, str(SIM_DIR / "input-drive-budget"))
 
 from harness import klt_sim  # noqa: E402
+import provenance_fixture  # noqa: E402
 import run_input_drive_budget as m  # noqa: E402
 
 
@@ -541,6 +543,86 @@ class TestDryRun(unittest.TestCase):
             req = json.loads((Path(d) / "request.json").read_text())
             self.assertEqual(len(req["analysis_steps"]), 16)
             self.assertFalse((Path(d) / "report.json").exists())
+
+
+class TestRecordExecutingEnvironment(unittest.TestCase):
+    """Issue #1094: `write_record()` renders the Environment block through
+    `klt_sim.executing_environment()`, so the block names the executing
+    worker's PDK and simulator when the run reported both, and the SUBMITTING
+    host's pair -- labelled as such -- when it did not.
+
+    Driven over an all-incomplete analysis (no corner completed): the
+    Environment section reads the run info, not the numbers. Provenance is
+    stubbed into a temp dir, so nothing under sim/input-drive-budget/ is
+    written and neither `klt` nor the PDK is needed."""
+
+    HOST = ("sky130A @ testing", "ngspice-46")   # provenance_fixture's stand-ins
+
+    INFO = {
+        "status": "pass",
+        "backend": "batch",
+        "job_id": "job-42",
+        "jobs": [{"job_id": "job-42", "state": "SUCCEEDED", "exit_code": 0,
+                  "instance_type": "m7i.4xlarge", "elapsed_seconds": 61,
+                  "runner_klt_version": "klt 9.9.9"}],
+        "worker_pdk": "sky130A @ deadbeef",
+        "worker_ngspice": "ngspice-47",
+        "sharded": False,
+    }
+
+    def _record_text(self, **worker) -> str:
+        cids = m.corner_ids()
+        analysis = {cid: {w: None for w in m.WINDOWS} for cid in cids}
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp)
+            for name in ("report.json", "request.json"):
+                (workdir / name).write_text("{}\n")
+            with provenance_fixture.fake_provenance(m, tmp):
+                path = m.write_record(analysis, dict(self.INFO, **worker), cids,
+                                      "(none)", workdir)
+                return path.read_text()
+
+    def test_the_block_names_the_executing_worker_and_the_prose_agrees(self):
+        text = self._record_text()
+        self.assertIn("- PDK: sky130A @ deadbeef", text)
+        self.assertIn("- ngspice: ngspice-47", text)
+        self.assertIn("- PDK / ngspice above: as run by the executing worker", text)
+        self.assertIn("- submitting host PDK / ngspice: sky130A @ testing / ngspice-46", text)
+        # the fixture's host differs from the worker, and the prose says so in
+        # the same words for every campaign (issue #1094)
+        self.assertIn("names the PDK and ngspice of the EXECUTING worker", text)
+        self.assertIn("**They differ for this run**", text)
+        self.assertNotIn("resolved on the SUBMITTING host", text)
+
+    def test_the_same_worker_and_host_are_stated_as_the_same(self):
+        text = self._record_text(worker_pdk=self.HOST[0], worker_ngspice=self.HOST[1])
+        self.assertIn("They are the same for this run.", text)
+        self.assertNotIn("They differ for this run", text)
+
+    def test_only_a_known_worker_can_match_the_control_environment(self):
+        with mock.patch.dict(m.CONTROL_REFERENCE, pdk=self.HOST[0], ngspice=self.HOST[1]):
+            known = self._record_text(worker_pdk=self.HOST[0], worker_ngspice=self.HOST[1])
+            unknown = self._record_text(worker_ngspice=None)
+        self.assertIn("the two runs are directly comparable", known)
+        self.assertIn("comparability is undetermined", unknown)
+        self.assertNotIn("this record was produced on", unknown.lower())
+        self.assertNotIn("the two runs are directly comparable", unknown)
+        self.assertNotIn("Those differ", unknown)
+
+    def test_a_run_reporting_only_its_pdk_names_the_submitting_hosts_pair(self):
+        for half in ({"worker_ngspice": None}, {"worker_pdk": None}):
+            with self.subTest(worker=half):
+                text = self._record_text(**half)
+                self.assertIn("- PDK: sky130A @ testing", text)
+                self.assertIn("- ngspice: ngspice-46", text)
+                self.assertNotIn("- PDK: sky130A @ deadbeef", text)
+                self.assertNotIn("- ngspice: ngspice-47", text)
+                self.assertIn(
+                    "- PDK / ngspice above: submitting host "
+                    "(worker environment unknown)", text)
+                self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
+                self.assertNotIn("They differ for this run", text,
+                                 "an unreported worker is not a difference")
 
 
 if __name__ == "__main__":

@@ -531,8 +531,8 @@ def main() -> int:
     )
     ap.add_argument(
         "--backend", default=None,
-        help="klt sim backend for --dr027-candidate (default: klt's own / "
-        "KLT_SIM_BACKEND; the grid goes to the batch fleet)",
+        help="requested klt sim backend for --dr027-candidate (default: "
+        "klt's own / KLT_SIM_BACKEND). Each report records its resolved backend.",
     )
     ap.add_argument(
         "--workdir", type=Path, default=None,
@@ -1543,7 +1543,10 @@ def _report_backend(rep: dict) -> str:
     """The backend a report says it actually ran on (environment.backend.
     resolved) -- the record states what happened, not what was requested."""
     env = rep.get("environment") or {}
-    return str((env.get("backend") or {}).get("resolved"))
+    backend = env.get("backend")
+    if isinstance(backend, dict):
+        backend = backend.get("resolved")
+    return backend or "unreported"
 
 
 def _fmt_mv(v: float | None, nd: int = 4) -> str:
@@ -1695,7 +1698,6 @@ def write_candidate_record(
     grid: dict[str, dict],
     control: dict[str, dict],
     cids: list[str],
-    info: dict,
     reports: dict[str, dict],
     workdirs: dict[str, Path],
     bt_record: str | None,
@@ -1723,9 +1725,8 @@ def write_candidate_record(
         (d / "request.json").write_text((wd / "request.json").read_text())
         (d / "tb.spice").write_text((wd / "tb.spice").read_text())
 
-    worker_pdk = info.get("worker_pdk")
-    worker_ng = info.get("worker_ngspice")
-    exec_known = bool(worker_pdk and worker_ng)
+    runs = {name: klt_sim.run_info(rep) for name, rep in reports.items()}
+    env = klt_sim.executing_environment(prov, runs.values())
     klt_version = klt_sim.client_version()
     complete = [c for c in cids if grid.get(c, {}).get("complete")]
 
@@ -1995,46 +1996,45 @@ def write_candidate_record(
         f"    --bit-trial-record <that run's record id>",
         "```",
         "",
-        "Three `klt sim` submits, as recorded in each archived report's "
-        "`environment`: "
-        + "; ".join(
-            f"`{name}` backend `{_report_backend(rep)}`"
-            for name, rep in reports.items()
-        )
-        + ". The 9-corner grid is submitted with `--wait-for-capacity 600`; "
-        "the two single-corner code-state controls carry no capacity wait "
-        "(the client refuses that flag for a single unit). No ngspice loop "
-        "runs on the submitting host. `--probe` runs one corner on the local "
-        "backend and is the only path that simulates locally. Requests and "
-        "bodies are committed "
-        f"under `corners/{prov.record_id}/request/`, the raw reports beside "
-        f"this record under `corners/{prov.record_id}/`.",
+        f"Batch grid requests use `--wait-for-capacity {klt_sim.DEFAULT_CAPACITY_WAIT_S:g}`. "
+        "The two single-corner controls omit the capacity wait. "
+        f"Requests and bodies are archived under `corners/{prov.record_id}/request/` "
+        f"and the raw reports under `corners/{prov.record_id}/`.",
         "",
         "## `klt sim` runs",
         "",
-        f"- grid job `{info.get('job_id')}`, status `{info.get('status')}`, "
-        f"backend `{info.get('backend')}`, executing PDK "
-        f"`{info.get('worker_pdk')}`, executing simulator "
-        f"`{info.get('worker_ngspice')}`"
-        + (", sharded" if info.get("sharded") else "")
-        + ".",
+    ]
+    for name, info in runs.items():
+        label = "Grid" if name == "report" else f"Control {name.removeprefix('report_')}"
+        job_ids = ", ".join(f"`{job['job_id']}`" for job in info["jobs"])
+        lines.append(
+            f"- {label} (`{name}.json`), backend `{_report_backend(reports[name])}`, "
+            f"status `{info['status']}`, worker PDK `{info['worker_pdk'] or 'unknown'}`, "
+            f"worker simulator `{info['worker_ngspice'] or 'unknown'}`"
+            + (", sharded" if info["sharded"] else "")
+            + (f", jobs {job_ids}" if job_ids else "")
+            + "."
+        )
+    lines += [
         "",
         "**Uncontrolled difference -- against the 1.9000 um baseline "
         f"grid.** [`records/{CAND_BASELINE_RECORD}.md`]"
         f"({CAND_BASELINE_RECORD}.md) was minted on "
         "`sky130A @ c6d73a35f524070e85faff4a6a9eef49553ebc2b` / `ngspice-46` "
-        "by an in-process ngspice loop; this record was produced by the "
-        "executing worker named above. Where those differ, a change between "
+        "by an in-process ngspice loop. Where those versions differ from "
+        "the grid's reported versions, a change between "
         "the two records is as readily a PDK or simulator-version difference "
         "as a geometry one; the controlled comparison is structural (same "
         "stimulus shape, same probe instants, same fragments modulo the "
         "plate side), and the fast-deadline column is directly comparable "
         "corner-for-corner.",
         "",
+        env["note"],
+        "",
     ]
     lines += evidence.environment_block(
-        f"sky130A @ {worker_pdk.split()[-1]}" if exec_known else prov.pdk_line,
-        worker_ng.split()[0] if exec_known else prov.ng_version,
+        env["pdk"],
+        env["ngspice"],
         prov.netlist_sha,
         {
             "klt": klt_version,
@@ -2048,9 +2048,7 @@ def write_candidate_record(
                 f"slow {CAND_SLOW_TRAN_STEP_NS:g} ns ceiling x "
                 f"{CAND_TRAN_STOP_NS:g} ns"
             ),
-            "PDK / ngspice above": "as run by the executing worker"
-            if exec_known else "submitting host (executing worker did not report)",
-            "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
+            **env["attribution_extra"],
         },
     )
     lines += [""]
@@ -2110,7 +2108,6 @@ def candidate_main(args: argparse.Namespace) -> int:
 
     reports: dict[str, dict] = {}
     workdirs: dict[str, Path] = {}
-    grid_info: dict = {}
     grid: dict[str, dict] = {}
     control: dict[str, dict] = {}
     for name, code_name, sub_cids in [
@@ -2118,7 +2115,7 @@ def candidate_main(args: argparse.Namespace) -> int:
         ("code_zero", "prev_code_zero", [baseline_cid]),
         ("code_alt", "prev_code_alt", [baseline_cid]),
     ]:
-        report, info = submit_candidate(
+        report, _ = submit_candidate(
             workroot / name, code_name, sub_cids, args.backend,
             args.timeout_s, hosts=(args.hosts if name == "grid" else None),
         )
@@ -2135,7 +2132,6 @@ def candidate_main(args: argparse.Namespace) -> int:
         # prev_code_one entry
         if name == "grid":
             control[CORNERS_CODE_STATE] = grid.get(baseline_cid, {})
-            grid_info = info
             reports["report"] = report
             workdirs["grid"] = workroot / name
         else:
@@ -2162,7 +2158,7 @@ def candidate_main(args: argparse.Namespace) -> int:
 
     if args.record:
         write_candidate_record(
-            grid, control, cids, grid_info, reports, workdirs,
+            grid, control, cids, reports, workdirs,
             bt_record, bt_by_corner, bt_complete, regen_note,
             note=args.note, supersedes=args.supersedes,
         )
