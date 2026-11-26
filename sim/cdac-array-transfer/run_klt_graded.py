@@ -16,8 +16,8 @@ inventing a tolerance (CLAUDE.md: agents do not choose spec tolerances):
                the applied reference at the CDAC equals the corner's own
                rail per the ratified relation `V_REF = V_DD` (DR-003). The
                slack is solver/print precision only, not a design
-               tolerance: 1e-5 relative is >= 20x the 6-significant-digit
-               `.meas` print half-ULP (5e-7 rel) and >= 16x ngspice's
+               tolerance: 1e-5 relative is twice the 6-significant-digit
+               `.meas` print half-step just above unity (5e-6) and >= 16x ngspice's
                default `vntol` = 1e-6 V referred to the 1.62 V rail corner.
   LSB          NOT graded in-envelope. The per-corner differential step is
                measured (mono steps + vdiff values) but the ratified row
@@ -135,17 +135,36 @@ def write_record(
     report: dict,
     info: dict,
     record_id: str,
+    *,
+    request_sha256: str,
+    raw_run_id: str,
     note: str = "",
     supersedes: str = "",
 ) -> tuple[Path, bool, str]:
     corners = report.get("corners", [])
 
-    # ---- environment pins (fail loudly rather than mint an unpinnable record)
+    # Check the submission, full-grid census and worker pins before writing evidence.
     pdk_raw = json.loads((SIM_DIR / "pdk.json").read_text())
     tc_raw = json.loads((SIM_DIR / "toolchain.json").read_text())
     worker_pdk = info.get("worker_pdk")
     worker_ng = info.get("worker_ngspice")
     problems: list[str] = []
+    if request_sha256 != evidence.sha256_file(REQUEST):
+        problems.append("graded request differs from the submission")
+    expected = corners_mod.ratified_oat_grid(
+        run_transfer.NOMINAL_SUPPLY_V, run_transfer.SUPPLY_TOLERANCE,
+        run_transfer.PROCESS_CORNERS, run_transfer.TEMPS_C,
+    )
+    observed = [
+        (c.get("process"), c.get("temperature_c"), (c.get("params") or {}).get("vdd_val"))
+        for c in corners
+    ]
+    if len(observed) != len(expected) or set(observed) != set(expected):
+        problems.append("report must contain each ratified process/temperature/supply point exactly once")
+    passed = sum(c.get("status") == "pass" for c in corners)
+    if report.get("corner_count") != len(corners) or report.get("passed") != passed:
+        problems.append("reported corner counts disagree with per-corner statuses")
+
     if not worker_pdk:
         problems.append("worker PDK stamp not reported (or shards disagree)")
     else:
@@ -182,10 +201,11 @@ def write_record(
         for code in CODES:
             vp, vn = m[f"vtop_p_{code}"]["value"], m[f"vtop_n_{code}"]["value"]
             vdiff = vp - vn
+            ideal = run_transfer.ideal_vdiff(code, vdd)
             per_code[code] = dict(
                 vtop_p=vp, vtop_n=vn, vdiff=vdiff,
-                ideal=run_transfer.ideal_vdiff(code, vdd),
-                err_mv=(vdiff - run_transfer.ideal_vdiff(code, vdd)) * 1000.0,
+                ideal=ideal,
+                err_mv=(vdiff - ideal) * 1000.0,
             )
         vals = [per_code[c]["vdiff"] for c in CODES]
         gaps = [vals[i + 1] - vals[i] for i in range(len(vals) - 1)]
@@ -201,7 +221,7 @@ def write_record(
             lsb_derived_mv=2 * (m["v_vrefp"]["value"] - m["v_vrefn"]["value"]) / 1024 * 1000.0,
             step_dev_pct=max(
                 abs((per_code[c2]["vdiff"] - per_code[c1]["vdiff"])
-                    / (128 * 2 * vdd / 512) - 1.0) * 100.0
+                    / (per_code[c2]["ideal"] - per_code[c1]["ideal"]) - 1.0) * 100.0
                 for c1, c2 in zip(CODES, CODES[1:])
             ),
             cu_elec_ff=abs(m["q_vrefp"]["value"]) / (vdd * SWITCHED_UNITS_EQ) * 1e15,
@@ -211,7 +231,7 @@ def write_record(
         r["vref_ratio_status"] == "pass" and r["v_vrefn_status"] == "pass" for r in rows
     )
     functional_ok = all(r["monotonic"] and r["correct_sign"] for r in rows)
-    report_pass = report.get("status") == "pass"
+    report_pass = report.get("status") == "pass" and passed == len(corners)
     overall_ok = report_pass and graded_ok and functional_ok and struct_ok
     binding = max(rows, key=lambda r: abs(r["vref_ratio"] - 1.0))
 
@@ -251,11 +271,7 @@ def write_record(
         "spec/decision-records/DR-026-cdac-row-tolerance-decisions.md, "
         "proposed) and Sampling cap (structural plate geometry re-checked "
         "exactly; electrical C_u observed via reference charge, same "
-        "missing-tolerance decision). Supersedes nothing: this is the first "
-        "graded `klt sim` envelope for these rows, a distinct claim beside "
-        "run_transfer.py --ratified-record's structural+functional record "
-        f"`{BASELINE_RECORD}` (which stands unedited), per sim/README.md's "
-        "'distinct claim' convention."
+        "missing-tolerance decision)."
     )
     a(
         "- **Netlist provenance**: same DUT as the pilot request -- "
@@ -265,7 +281,7 @@ def write_record(
         "(which matches `design/cdac/cdac_array.sch`'s unit-cell pattern "
         "and sizing). Request: `sim/cdac-array-transfer/testbench/klt/"
         "request-graded.json` (sha256 "
-        f"`{evidence.sha256_file(REQUEST)}`); analysis tran step 0.05n "
+        f"`{request_sha256}`); analysis tran step 0.05n "
         "(finer than the pilot's 0.5n so the reference-charge integral "
         "resolves the ~0.2 n switching event; the settled t=500n FIND "
         "values can still shift at the last printed digit -- see the "
@@ -288,8 +304,9 @@ def write_record(
     a(
         "- **Graded check (V_REF)**: envelope `vref_ratio` and `v_vrefn`, "
         f"`spec_row: v_ref` -- {'PASS' if graded_ok else 'FAIL'} at all "
-        f"{len(rows)} corners. Slack provenance: 1e-5 relative >= 20x the "
-        "6-significant-digit `.meas` print half-ULP (5e-7 rel) and >= 16x "
+        f"{len(rows)} corners. At six significant digits the print step just above "
+        "unity is 1e-5 (1.00000 to 1.00001). The relative allowance of 1e-5 "
+        "is twice the 5e-6 half-step and corresponds to >= 16x "
         "ngspice's default vntol=1e-6 V at the 1.62 V rail corner; it is a "
         "solver-precision bound on an exact relation (DR-003's `V_REF = "
         "V_DD`), NOT a design tolerance. No LSB or sampling-cap pass "
@@ -307,7 +324,10 @@ def write_record(
     )
     a(
         "- **Informational (no ratified tolerance -> not graded)**: max "
-        f"|vdiff error| vs ideal = {max_err_mv:.4f} mV across corners/codes; "
+        f"sampled voltage-level error |vdiff - ideal| = {max_err_mv:.4f} mV across "
+        "corners/codes. The table separately gives the largest relative interval "
+        "error at each corner, comparing each measured voltage difference with "
+        "the ideal difference at its two codes (spans of 128, 128, 128 and 127 codes). The "
         "per-corner LSB derived from the graded reference "
         "(`2*(v_vrefp-v_vrefn)/2^N`) and per-corner electrical unit cap "
         "from the reference charge are tabulated below. The electrical C_u "
@@ -351,8 +371,8 @@ def write_record(
     )
     a(f"- worker ngspice: {worker_ng}; worker PDK: {worker_pdk}")
     a(
-        f"- raw outputs: `sim/cdac-array-transfer/klt-sim/{record_id}/` "
-        "(`report.json`, `client-stderr.txt`, `out/` per-corner decks + logs)"
+        f"- raw outputs: [report.json](../klt-sim/{raw_run_id}/report.json) "
+        f"and [per-corner artifacts](../klt-sim/{raw_run_id}/out/)"
     )
     a("")
     a("## Per-corner results")
@@ -409,9 +429,8 @@ def write_record(
         )
     )
 
-    out = EXPERIMENT_DIR / "records" / f"{record_id}.md"
-    out.write_text("\n".join(lines))
-    return out, overall_ok, ""
+    record_path.write_text("\n".join(lines))
+    return record_path, overall_ok, ""
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -421,7 +440,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--backend", default=None,
                     help="klt sim backend (default: klt's own / $KLT_SIM_BACKEND)")
     ap.add_argument("--request", default=str(REQUEST),
-                    help="request file to submit (default: the committed graded request)")
+                    help="full-grid records require the committed request-graded.json")
     ap.add_argument("--note", default="")
     ap.add_argument("--supersedes", default="")
     args = ap.parse_args(argv)
@@ -432,12 +451,19 @@ def main(argv: list[str] | None = None) -> int:
               "the submit itself fails loudly on a missing PDK or klt)")
         return 2
 
+    request = Path(args.request).resolve()
+    if request != REQUEST:
+        print(f"REFUSING to mint full-grid evidence from {request}. "
+              f"Use {REQUEST.name} for --record or klt sim for a debug request.")
+        return 3
+    request_sha256 = evidence.sha256_file(request)
     record_id = evidence.new_record_id()
     stderr_path = EXPERIMENT_DIR / "klt-sim" / record_id / "client-stderr.txt"
     stderr_path.parent.mkdir(parents=True, exist_ok=True)
-    report, info = run(args.backend, Path(args.request), record_id, stderr_path)
+    report, info = run(args.backend, request, record_id, stderr_path)
     record_path, ok, problem = write_record(
-        report, info, record_id, note=args.note, supersedes=args.supersedes
+        report, info, record_id, request_sha256=request_sha256, raw_run_id=record_id,
+        note=args.note, supersedes=args.supersedes,
     )
     if problem:
         print(f"REFUSING to mint {record_path}: {problem}")
