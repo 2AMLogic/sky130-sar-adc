@@ -1586,27 +1586,6 @@ def write_corners_artifacts(record_id: str, artifacts: dict[str, str] | None) ->
         (base / "report.json").write_text(artifacts["report.json"])
 
 
-def executing_environment(prov, info: dict | None) -> dict:
-    """What actually produced the numbers: the executing fleet worker when it
-    reported itself, otherwise the SUBMITTING host -- stated as such, never
-    silently substituted."""
-    info = info or {}
-    worker_pdk = info.get("worker_pdk")
-    worker_ngspice = info.get("worker_ngspice")
-    known = bool(worker_pdk and worker_ngspice)
-    jobs = info.get("jobs") or []
-    runner_klt = next(
-        (j.get("runner_klt_version") for j in jobs if j.get("runner_klt_version")),
-        None,
-    )
-    return {
-        "known": known,
-        "pdk": worker_pdk if known else prov.pdk_line,
-        "ngspice": worker_ngspice if known else prov.ng_version,
-        "runner_klt": runner_klt,
-    }
-
-
 def corners_klt_run_lines(prov, info: dict | None, sweep: str, window: str,
                           record_id: str) -> list[str]:
     """The `klt sim` run block and the uncontrolled-difference statements
@@ -1619,14 +1598,8 @@ def corners_klt_run_lines(prov, info: dict | None, sweep: str, window: str,
     the older record; they are the reasons a figure may differ without the
     circuit having changed."""
     info = info or {}
-    env = executing_environment(prov, info)
+    env = klt_sim.executing_environment(prov, info)
     prev = predecessor_environment(sweep, window)
-    exec_matches_host = (
-        env["known"]
-        and str(prov.pdk_line).split("@")[-1].strip()
-           == str(env["pdk"]).split("@")[-1].strip()
-        and str(prov.ng_version).strip() == str(env["ngspice"]).strip()
-    )
     jobs = info.get("jobs") or []
 
     lines = [
@@ -1688,24 +1661,7 @@ def corners_klt_run_lines(prov, info: dict | None, sweep: str, window: str,
         "numbers therefore come from a different machine, a different "
         "scheduler and a different deck-assembly path than the record it "
         "supersedes.",
-        "- **Submitting host vs. executing worker.** The Environment block "
-        "below names the PDK and ngspice of the EXECUTING worker when it "
-        "reported them"
-        + (
-            f"; the submitting host resolved `{prov.pdk_line}` / "
-            f"`{prov.ng_version}`. "
-            + (
-                "They are the same for this run."
-                if exec_matches_host
-                else "**They differ for this run**, so no figure here is "
-                "controlled for PDK or simulator version against a locally run "
-                "record."
-            )
-            if env["known"]
-            else ". The worker did NOT report them for this run, so the block "
-            "below names the SUBMITTING host's instead, and no figure here is "
-            "attributable to a known executing environment."
-        ),
+        "- **Submitting host vs. executing worker.** " + env["note"],
     ]
     lines += [
         "- **Deck changes made by the port itself** (issue #881) -- each is a "
@@ -1721,7 +1677,7 @@ def corners_environment_lines(prov, info: dict | None) -> list[str]:
     """`evidence.environment_block()` for a `--corners` record: the EXECUTING
     worker's PDK and simulator, with the submitting host's own stated beside
     them, plus the klt client and runner versions."""
-    env = executing_environment(prov, info)
+    env = klt_sim.executing_environment(prov, info)
     return evidence.environment_block(
         env["pdk"],
         env["ngspice"],
@@ -1729,10 +1685,7 @@ def corners_environment_lines(prov, info: dict | None) -> list[str]:
         extra={
             "klt (client)": klt_sim.client_version(),
             "klt (fleet runner)": env["runner_klt"] or "(not reported)",
-            "PDK / ngspice above": "as run by the executing worker"
-            if env["known"]
-            else "submitting host (executing worker did not report)",
-            "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
+            **env["attribution_extra"],
             "tran step": f"{TRAN_STEP_PS:g} ps",
             "toolchain pin file": "sim/toolchain.json",
         },

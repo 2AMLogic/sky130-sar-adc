@@ -14,8 +14,10 @@ from pathlib import Path
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
+sys.path.insert(0, str(SIM_DIR / "tests"))
 sys.path.insert(0, str(SIM_DIR / "top-plate-cpar"))
 
+import provenance_fixture  # noqa: E402
 import run_top_plate_cpar as m  # noqa: E402
 
 DUT = m.DUT_NETLIST.read_text()
@@ -128,6 +130,67 @@ class TestKnownCapacitance(unittest.TestCase):
     def test_single_and_parallel(self):
         self.assertTrue(math.isclose(self._c(["10f"]), 10e-15, rel_tol=1e-6))
         self.assertTrue(math.isclose(self._c(["10f", "25f"]), 35e-15, rel_tol=1e-6))
+
+
+class TestRecordExecutingEnvironment(unittest.TestCase):
+    """Issue #1094: this campaign submits one request per variant, so the
+    Environment block names the executing workers' PDK and simulator only
+    when EVERY variant's run reports the same pair; otherwise it names the
+    submitting host's pair and says so.
+
+    Driven over an all-incomplete analysis (the Environment section reads the
+    run info, not the numbers), with provenance stubbed into a temp dir:
+    nothing under sim/top-plate-cpar/ is written."""
+
+    @staticmethod
+    def _info(pdk="sky130A @ deadbeef", ng="ngspice-47") -> dict:
+        return {"job_id": "job-1", "status": "pass", "backend": "batch",
+                "worker_pdk": pdk, "worker_ngspice": ng}
+
+    def _record_text(self, **variant_overrides: dict) -> str:
+        runs = {v: self._info() for v in m.VARIANTS}
+        runs.update(variant_overrides)
+        cids = m.corner_ids()
+        analysis = {cid: {"complete": False} for cid in cids}
+        with tempfile.TemporaryDirectory() as tmp:
+            for v in m.VARIANTS:
+                d = Path(tmp) / v
+                d.mkdir()
+                for name in ("report.json", "request.json", "tb.spice"):
+                    (d / name).write_text("{}\n")
+            with provenance_fixture.fake_provenance(m, tmp):
+                path = m.write_record(analysis, {"runs": runs}, cids, "(none)", Path(tmp))
+                return path.read_text()
+
+    def test_every_variant_agreeing_names_the_workers_pair(self):
+        text = self._record_text()
+        self.assertIn("- PDK: sky130A @ deadbeef", text)
+        self.assertIn("- ngspice: ngspice-47", text)
+        self.assertIn("- PDK / ngspice above: as run by the executing worker", text)
+        # the stubbed submitting host differs from the workers, and the prose
+        # says so in the same words for every campaign (issue #1094)
+        self.assertIn("names the PDK and ngspice of the EXECUTING worker", text)
+        self.assertIn("**They differ for this run**", text)
+        self.assertNotIn("resolved on the SUBMITTING host", text)
+
+    def test_one_variant_disagreeing_names_the_submitting_hosts_pair(self):
+        text = self._record_text(**{m.VARIANTS[0]: self._info(pdk="sky130A @ caffee")})
+        self.assertIn("- PDK: sky130A @ testing", text)
+        self.assertIn("- ngspice: ngspice-46", text)
+        self.assertNotIn("- PDK: sky130A @ deadbeef", text)
+        self.assertIn("- PDK / ngspice above: submitting host "
+                      "(executing worker did not report)", text)
+        self.assertIn("The worker did NOT report them for this run", text)
+
+    def test_one_variant_half_reporting_names_the_submitting_hosts_pair(self):
+        """A variant reporting its PDK but not its simulator is no PDK for the
+        campaign: the block's two lines are one claim."""
+        text = self._record_text(**{m.VARIANTS[-1]: self._info(ng=None)})
+        self.assertIn("- PDK: sky130A @ testing", text)
+        self.assertIn("- ngspice: ngspice-46", text)
+        self.assertNotIn("- PDK: sky130A @ deadbeef", text)
+        self.assertNotIn("- ngspice: ngspice-47", text)
+        self.assertIn("The worker did NOT report them for this run", text)
 
 
 if __name__ == "__main__":

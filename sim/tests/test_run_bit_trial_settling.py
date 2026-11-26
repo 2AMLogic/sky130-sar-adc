@@ -11,21 +11,73 @@ import contextlib
 import importlib.util
 import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
+sys.path.insert(0, str(SIM_DIR / "tests"))
 
 from harness import toolchain  # noqa: E402
 
+import provenance_fixture  # noqa: E402
 
 RUNNER = SIM_DIR / "cdac-bit-trial-settling/run_bit_trial_settling.py"
 _spec = importlib.util.spec_from_file_location("run_bit_trial_settling_under_test", RUNNER)
 rt = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = rt
 _spec.loader.exec_module(rt)
+
+
+class TestCandidateRecordExecutingEnvironment(unittest.TestCase):
+    """Issue #1094: `write_candidate_record()` renders the Environment block
+    through `klt_sim.executing_environment()`, so the block names the
+    executing worker's PDK and simulator when the run reported both, and the
+    SUBMITTING host's pair -- labelled as such -- when it did not.
+
+    Driven over an empty report: no corner completes, and the Environment
+    section reads the run info, not the numbers. Provenance is stubbed into a
+    temp dir, so nothing under sim/cdac-bit-trial-settling/ is written."""
+
+    @staticmethod
+    def _info(**worker) -> dict:
+        return dict({"status": "pass", "backend": "batch", "job_id": "job-42",
+                     "jobs": [{"job_id": "job-42", "runner_klt_version": "klt 9.9.9"}],
+                     "worker_pdk": "sky130A @ deadbeef",
+                     "worker_ngspice": "ngspice-47"}, **worker)
+
+    def _record_text(self, **worker) -> str:
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp) / "request"
+            workdir.mkdir()
+            (workdir / "request.json").write_text("{}\n")
+            c_u = {rt.UNIT_CAP_WL_UM: 23.805, rt.CANDIDATE_UNIT_CAP_WL_UM: 71.4}
+            with provenance_fixture.fake_provenance(rt, tmp):
+                path = rt.write_candidate_record(
+                    {"status": "error", "corners": []}, self._info(**worker),
+                    ["tt_27c_1.80v"], "(none)", workdir, c_u, {})
+                return path.read_text()
+
+    def test_the_block_names_the_executing_worker(self):
+        text = self._record_text()
+        self.assertIn("- PDK: sky130A @ deadbeef", text)
+        self.assertIn("- ngspice: ngspice-47", text)
+        self.assertIn("- PDK / ngspice above: as run by the executing worker", text)
+        self.assertIn(
+            "- submitting host PDK / ngspice: sky130A @ testing / ngspice-46", text)
+
+    def test_a_run_reporting_only_one_of_the_two_names_the_submitting_hosts_pair(self):
+        for half in ({"worker_ngspice": None}, {"worker_pdk": None}):
+            with self.subTest(worker=half):
+                text = self._record_text(**half)
+                self.assertIn("- PDK: sky130A @ testing", text)
+                self.assertIn("- ngspice: ngspice-46", text)
+                self.assertNotIn("- PDK: sky130A @ deadbeef", text)
+                self.assertNotIn("- ngspice: ngspice-47", text)
+                self.assertIn("- PDK / ngspice above: submitting host "
+                              "(executing worker did not report)", text)
 
 
 class TestBuildTransient(unittest.TestCase):

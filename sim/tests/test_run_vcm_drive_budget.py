@@ -959,6 +959,20 @@ class TestCornersRecordPortSections(TestCornersRecordTtNoteWiring):
         self.assertIn("submitting host (executing worker did not report)", text)
         self.assertIn("The worker did NOT report them for this run", text)
 
+    def test_a_half_reported_worker_falls_back_on_both_lines(self):
+        """Issue #1094: the block's PDK and ngspice lines are one claim, so a
+        run reporting only one of them names the submitting host's PAIR; the
+        worker's single value is never stamped alone."""
+        for half in ({"worker_ngspice": None}, {"worker_pdk": None}):
+            with self.subTest(worker=half):
+                text = self._record_text(100e3, info=dict(self.INFO, **half))
+                self.assertIn("- PDK: sky130A @ testing", text)
+                self.assertIn("- ngspice: ngspice-46", text)
+                self.assertNotIn("- PDK: sky130A @ deadbeef", text)
+                self.assertNotIn("- ngspice: ngspice-47", text)
+                self.assertIn("submitting host (executing worker did not report)", text)
+                self.assertIn("The worker did NOT report them for this run", text)
+
     def test_every_deck_change_the_port_made_is_stated(self):
         text = self._record_text(100e3, info=self.INFO)
         self.assertIn("Uncontrolled differences against the record this "

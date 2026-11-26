@@ -19,6 +19,7 @@ import io
 import json
 import sys
 import tempfile
+import types
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -561,6 +562,174 @@ class TestRunInfo(unittest.TestCase):
             "ngspice-47")
         self.assertIsNone(klt_sim.ngspice_from_banner(""))
         self.assertIsNone(klt_sim.ngspice_from_banner("no version here"))
+
+
+class TestExecutingEnvironment(unittest.TestCase):
+    """Issue #1094: ONE worker-vs-submitting-host resolution for every batch
+    driver, so a record's Environment block and the prose beside it are
+    rendered from the same dict and cannot disagree.
+
+    `prov` is the submitting host's own provenance; the helper reads
+    `pdk_line` and `ng_version` off it and nothing else, so a stand-in
+    object stands in for the PDK here.
+    """
+
+    HOST = ("sky130A @ f6eeac7", "ngspice-47")
+
+    @staticmethod
+    def _prov(*host) -> object:
+        return types.SimpleNamespace(pdk_line=host[0], ng_version=host[1])
+
+    @staticmethod
+    def _info(pdk="sky130A @ deadbeef", ng="ngspice-47", runner="klt 9.9.9") -> dict:
+        jobs = [{"job_id": "job-42", "runner_klt_version": runner}] if runner else []
+        return {"worker_pdk": pdk, "worker_ngspice": ng, "jobs": jobs}
+
+    def _env(self, info, *host) -> dict:
+        return klt_sim.executing_environment(self._prov(*(host or self.HOST)), info)
+
+    def test_a_run_that_reported_itself_is_named_verbatim(self):
+        env = self._env(self._info())
+        self.assertTrue(env["known"])
+        self.assertEqual(env["pdk"], "sky130A @ deadbeef")
+        self.assertEqual(env["ngspice"], "ngspice-47")
+        self.assertEqual(env["runner_klt"], "klt 9.9.9")
+        self.assertEqual(env["attribution_extra"], {
+            "PDK / ngspice above": "as run by the executing worker",
+            "submitting host PDK / ngspice": "sky130A @ f6eeac7 / ngspice-47",
+        })
+        self.assertFalse(env["matches_host"], "deadbeef is not the host's commit")
+
+    def test_a_worker_stamp_that_names_no_variant_is_not_re_prefixed(self):
+        """`run_info()` already formats `"{variant} @ {sha}"`. Six private
+        copies re-split that and re-hardcoded `"sky130A @ ..."`, naming a
+        variant the worker never reported."""
+        env = self._env(self._info(pdk="other_pdks deadbeef"))
+        self.assertEqual(env["pdk"], "other_pdks deadbeef")
+        self.assertEqual(env["ngspice"], "ngspice-47", "the token, not re-split")
+
+    def test_a_run_that_reported_no_runner_version_reports_none(self):
+        env = self._env(self._info(runner=None))
+        self.assertIsNone(env["runner_klt"])
+
+    def test_several_runs_that_agree_are_one_known_environment(self):
+        """One request per variant: every run's worker must report the same
+        pair before the campaign's numbers are attributed to a known one."""
+        env = self._env([self._info(), self._info(runner=None), self._info()])
+        self.assertTrue(env["known"])
+        self.assertEqual(env["pdk"], "sky130A @ deadbeef")
+        self.assertEqual(env["runner_klt"], "klt 9.9.9",
+                         "the first runner version any run reported")
+        env = self._env(self._info() for _ in range(2))
+        self.assertTrue(env["known"], "any iterable of run-info dicts")
+
+    def test_one_disagreeing_run_makes_the_whole_campaign_unknown(self):
+        for disagreeing in (self._info(pdk="sky130A @ caffee"),
+                           self._info(ng="ngspice-46")):
+            with self.subTest(run=disagreeing):
+                env = self._env([self._info(), disagreeing])
+                self.assertFalse(env["known"])
+                self.assertEqual(env["pdk"], self.HOST[0])
+                self.assertEqual(env["ngspice"], self.HOST[1])
+
+    def test_a_run_that_is_not_a_run_info_dict_reports_nothing(self):
+        """A missing entry is a run that reported nothing, not a run to skip:
+        skipping it would let the remaining runs stand for the campaign."""
+        env = self._env([self._info(), None])
+        self.assertFalse(env["known"])
+        self.assertEqual(env["pdk"], self.HOST[0])
+
+    def test_a_half_known_run_falls_back_on_both_lines(self):
+        """The defect two private copies carried: they filled the PDK line
+        from the worker and the ngspice line from the submitting host, then
+        labelled the PAIR by whether both were present."""
+        for half in (self._info(ng=None), self._info(pdk=None)):
+            with self.subTest(run=half):
+                env = self._env(half)
+                self.assertFalse(env["known"])
+                self.assertEqual(env["pdk"], self.HOST[0],
+                                 "the worker's PDK is not stamped alone")
+                self.assertEqual(env["ngspice"], self.HOST[1])
+                self.assertEqual(
+                    env["attribution_extra"]["PDK / ngspice above"],
+                    "submitting host (executing worker did not report)")
+                self.assertIn("The worker did NOT report them for this run",
+                              env["note"])
+
+    def test_no_run_info_falls_back_to_the_submitting_host(self):
+        for info in (None, {}, []):
+            with self.subTest(info=info):
+                env = self._env(info)
+                self.assertFalse(env["known"])
+                self.assertEqual(env["pdk"], self.HOST[0])
+                self.assertEqual(env["ngspice"], self.HOST[1])
+                self.assertIsNone(env["runner_klt"])
+                self.assertFalse(env["matches_host"])
+
+    def test_an_empty_report_is_not_a_report(self):
+        for blank in (None, ""):
+            with self.subTest(blank=blank):
+                env = self._env(self._info(pdk=blank, ng=blank))
+                self.assertFalse(env["known"])
+                self.assertEqual(env["attribution_extra"]["PDK / ngspice above"],
+                                 "submitting host (executing worker did not report)")
+
+    def test_matches_host_compares_the_pdk_commit_and_the_whole_version(self):
+        def matches(*host, pdk="sky130A @ deadbeef", ng="ngspice-47") -> bool:
+            return self._env(self._info(pdk=pdk, ng=ng), *host)["matches_host"]
+
+        same = ("sky130A @ deadbeef", "ngspice-47")
+        self.assertTrue(matches(*same))
+        self.assertTrue(matches(" sky130A @  deadbeef ", " ngspice-47 \n"),
+                        "surrounding whitespace is not a difference")
+        self.assertTrue(matches(*same, pdk="open_pdks deadbeef"),
+                        "the stamp `run_info()` emits when no variant is named")
+        self.assertFalse(matches("sky130A @ cafe", "ngspice-47"))
+        self.assertFalse(matches("sky130A @ deadbeef", "ngspice-46"))
+        self.assertFalse(matches("sky130A @ deadbeef", "ngspice-47 (custom build)"),
+                         "a version is compared whole, not by its last token")
+        self.assertFalse(
+            matches("sky130A @ deadbeef (unverified -- no SOURCES file or volare layout)",
+                    "ngspice-47"),
+            "an unverifiable host install never equals a worker's commit")
+
+    def test_an_unknown_worker_never_counts_as_a_match(self):
+        for half in (self._info(ng=None), self._info(pdk=None)):
+            with self.subTest(run=half):
+                self.assertFalse(self._env(half, "sky130A @ deadbeef", "ngspice-47")
+                                 ["matches_host"])
+
+    def test_pdk_commit_token(self):
+        for text, token in (
+            ("sky130A @ deadbeef", "deadbeef"),
+            ("open_pdks deadbeef", "deadbeef"),
+            (" sky130A @  deadbeef ", "deadbeef"),
+            ("sky130A @ deadbeef (unverified -- no SOURCES file or volare layout)",
+             "layout)"),
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(klt_sim.pdk_commit_token(text), token)
+
+    def test_the_note_says_what_the_block_label_says(self):
+        env = self._env(self._info(pdk="sky130A @ f6eeac7"))
+        self.assertIn("names the PDK and ngspice of the EXECUTING worker", env["note"])
+        self.assertIn("They are the same for this run.", env["note"])
+        self.assertNotIn("differ", env["note"].lower())
+        self.assertEqual(env["attribution_extra"]["PDK / ngspice above"],
+                         "as run by the executing worker")
+
+        env = self._env(self._info())
+        self.assertIn("**They differ for this run**", env["note"])
+        self.assertNotIn("same for this run", env["note"])
+        self.assertEqual(env["attribution_extra"]["PDK / ngspice above"],
+                         "as run by the executing worker")
+
+        env = self._env(None)
+        self.assertIn("The worker did NOT report them for this run", env["note"])
+        self.assertIn("names the SUBMITTING host's instead", env["note"])
+        self.assertNotIn("differ", env["note"].lower())
+        self.assertTrue(env["attribution_extra"]["PDK / ngspice above"]
+                        .startswith("submitting host"))
 
 
 class TestMeasurementsByCorner(unittest.TestCase):
@@ -1202,6 +1371,97 @@ class TestNoConsolidatedWriterProbesKltVersionDirectly(unittest.TestCase):
                     text,
                     f"{rel} still defines a private klt_client_version() helper",
                 )
+
+
+class TestNoConsolidatedWriterResolvesTheExecutingEnvironmentItself(unittest.TestCase):
+    """Issue #1094: the seven batch drivers resolve the executing worker's
+    PDK and simulator through `harness.klt_sim.executing_environment()`,
+    never from a private copy.
+
+    Keyed on the artifacts a private copy necessarily carries, each one a
+    drift the seven copies had actually accumulated: the Environment block's
+    two attribution labels, a private all-or-nothing gate, a private
+    host-vs-worker comparison, the re-parsed and re-prefixed `"sky130A @ ..."`
+    line, and the sentence that said the block names the SUBMITTING host
+    while the block stamped the worker's values.
+    """
+
+    CONSOLIDATED = (
+        "vcm-drive-budget/run_vcm_drive_budget.py",
+        "full-conversion-transient/full_conversion_campaigns/input_sweep.py",
+        "reference-drive-budget/run_reference_drive_budget.py",
+        "input-drive-budget/run_input_drive_budget.py",
+        "top-plate-cpar/run_top_plate_cpar.py",
+        "sampling-cdac-handoff/run_handoff.py",
+        "cdac-bit-trial-settling/run_bit_trial_settling.py",
+    )
+
+    PRIVATE_COPY_MARKERS = (
+        '"PDK / ngspice above"',
+        '"submitting host PDK / ngspice"',
+        "exec_known =",
+        "exec_matches_host =",
+        'f"sky130A @ {',
+        "resolved on the SUBMITTING host",
+    )
+
+    def test_every_consolidated_writer_delegates_to_klt_sim_executing_environment(self):
+        for rel in self.CONSOLIDATED:
+            text = (SIM_DIR / rel).read_text()
+            with self.subTest(module=rel):
+                self.assertIn(
+                    "klt_sim.executing_environment(",
+                    text,
+                    f"{rel} must call klt_sim.executing_environment() (issue #1094)",
+                )
+                self.assertNotIn(
+                    "def executing_environment",
+                    text,
+                    f"{rel} still defines its own executing_environment()",
+                )
+
+    def test_no_consolidated_writer_keeps_a_private_copy(self):
+        for rel in self.CONSOLIDATED:
+            text = (SIM_DIR / rel).read_text()
+            for marker in self.PRIVATE_COPY_MARKERS:
+                with self.subTest(module=rel, marker=marker):
+                    self.assertNotIn(
+                        marker, text,
+                        f"{rel} carries '{marker}' -- render the block from "
+                        "klt_sim.executing_environment() instead (issue #1094)")
+
+    def test_the_markers_are_what_a_private_copy_actually_carries(self):
+        """The guard keys on text, so assert each marker against a sketch of
+        the copies it was written for -- a marker that matches none of them
+        would make the two tests above pass vacuously."""
+        private_copy = (
+            'exec_known = bool(worker_pdk and worker_ng)\n'
+            'exec_matches_host = exec_known and host.split("@")[-1] == worker.split()[-1]\n'
+            'pdk = f"sky130A @ {worker_pdk.split()[-1]}" if exec_known else prov.pdk_line\n'
+            '"PDK / ngspice above": "as run by the executing worker" if exec_known else "x",\n'
+            '"submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",\n'
+            'names the PDK and ngspice resolved on the SUBMITTING host;\n'
+        )
+        for marker in self.PRIVATE_COPY_MARKERS:
+            with self.subTest(marker=marker):
+                self.assertIn(marker, private_copy)
+
+    def test_no_campaign_module_outside_the_harness_renders_the_attribution_itself(self):
+        """The list above cannot see a NEW campaign. Discovered by content:
+        any campaign module that carries the block's attribution label or
+        the re-prefixed PDK line is a private copy, whatever it calls it."""
+        for p in sorted(SIM_DIR.glob("*/*.py")) + sorted(SIM_DIR.glob("*/*/*.py")):
+            if p.parent.name in ("harness", "tests") or "harness/" in p.as_posix():
+                continue
+            text = p.read_text()
+            for marker in ('"PDK / ngspice above"', '"submitting host PDK / ngspice"',
+                           'f"sky130A @ {'):
+                with self.subTest(module=f"{p.parent.name}/{p.name}", marker=marker):
+                    self.assertNotIn(
+                        marker, text,
+                        f"{p.parent.name}/{p.name} renders the executing-worker "
+                        "attribution itself -- use harness.klt_sim."
+                        "executing_environment() (issue #1094)")
 
 
 if __name__ == "__main__":

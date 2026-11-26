@@ -77,6 +77,14 @@ between is **`sim/harness/klt_sim.py`**, not a per-campaign copy:
   `environment.remote.fleet[]` — and reports the executing PDK and simulator
   only when every shard agrees. Reading only the single-job shape is how a
   sharded record ends up reporting `job None`.
+- `executing_environment(prov, info)` (issue #1094) turns `run_info()` into
+  what a record's Environment block prints: the executing worker's PDK and
+  simulator when every run reported both and they agree, otherwise the
+  submitting host's pair; plus the two extras that say whose they are and the
+  prose sentence that says the same. `info` is one `run_info()` dict or one
+  per variant run. Block and prose are rendered from one dict, so a record
+  cannot say the block names the SUBMITTING host while it stamps the
+  worker's values, nor stamp one of the two from each.
 
 The subprocess runner is injectable, so `sim/tests/test_harness_klt_sim.py`
 exercises all of it without `klt`, the PDK or the fleet. That file's last test

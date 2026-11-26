@@ -1588,9 +1588,7 @@ def write_candidate_record(
     (req_dir / "tb.spice").write_text(body)
 
     by_corner, complete = read_candidate_report(report)
-    worker_pdk = info.get("worker_pdk")
-    worker_ng = info.get("worker_ngspice")
-    exec_known = bool(worker_pdk and worker_ng)
+    env = klt_sim.executing_environment(prov, info)
     klt_version = klt_sim.client_version()
 
     cu_txt = "; ".join(
@@ -1802,8 +1800,8 @@ def write_candidate_record(
         "",
     ]
     lines += evidence.environment_block(
-        f"sky130A @ {worker_pdk.split()[-1]}" if exec_known else prov.pdk_line,
-        worker_ng.split()[0] if exec_known else prov.ng_version,
+        env["pdk"],
+        env["ngspice"],
         prov.netlist_sha,
         {
             "klt": klt_version,
@@ -1815,9 +1813,7 @@ def write_candidate_record(
                 f"slow {CAND_SLOW_TRAN_STEP_NS:g} ns ceiling x "
                 f"{CAND_SLOW_TRAN_STOP_NS:g} ns"
             ),
-            "PDK / ngspice above": "as run by the executing worker"
-            if exec_known else "submitting host (executing worker did not report)",
-            "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
+            **env["attribution_extra"],
         },
     )
     lines += [""]
