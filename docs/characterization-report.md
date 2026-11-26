@@ -41,10 +41,10 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md` (Record ID `20260827-211956-e13bc1e`, Supersedes: (none))
+- `sim/sar-sequencer-behavioral/records/20261126-113902-4f1b0b9c.md` (Record ID `20261126-113902-4f1b0b9c`, Supersedes: 20260827-211956-e13bc1e)
   - Overall: PASS (9/9 corners fully correct)
-  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- Resolution `N = 10 bit` (RATIFIED, DR-003 via #27): confirms correct MSB-first bit-by-bit successive-approximation capture of all 10 output bits, correct clock/…
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- Resolution `N = 10 bit` (RATIFIED, DR-003 via #27), machine-graded binding for the digital partition's T1 item-5 row set (issue #1023): correct MSB-first bit-by…
 
 ### Sample rate
 
@@ -245,10 +245,10 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
   - Overall: PASS vs. the ratified baseline threshold (1.0148 mV rms); does NOT meet the stretch threshold (0.5859 mV rms) at the binding corner.
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- Comparator input-referred noise `<=1.0148 mV rms` (baseline, ENOB>9.0) / `<=0.5859 mV rms` (stretch, ENOB>9.5) (RATIFIED, DR-003 via #27). Measures design/compa…
-- `sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md` (Record ID `20260827-211956-e13bc1e`, Supersedes: (none))
+- `sim/sar-sequencer-behavioral/records/20261126-113902-4f1b0b9c.md` (Record ID `20261126-113902-4f1b0b9c`, Supersedes: 20260827-211956-e13bc1e)
   - Overall: PASS (9/9 corners fully correct)
-  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- Resolution `N = 10 bit` (RATIFIED, DR-003 via #27): confirms correct MSB-first bit-by-bit successive-approximation capture of all 10 output bits, correct clock/…
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- Resolution `N = 10 bit` (RATIFIED, DR-003 via #27), machine-graded binding for the digital partition's T1 item-5 row set (issue #1023): correct MSB-first bit-by…
 
 ## Post-layout re-sim (T1 item 7)
 

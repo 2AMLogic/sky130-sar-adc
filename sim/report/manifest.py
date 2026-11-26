@@ -69,7 +69,7 @@ ROWS: tuple[Row, ...] = (
             "'UNITS / scope note' -- not independently re-verified by this row's "
             "own citation."
         ),
-        sim_citations=("sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md",),
+        sim_citations=("sim/sar-sequencer-behavioral/records/20261126-113902-4f1b0b9c.md",),
     ),
     Row(
         id="sample-rate",
@@ -839,7 +839,7 @@ ROWS: tuple[Row, ...] = (
             "sim/harness-corner-smoke/records/20260814-020959-98d9186.md",
             "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
             "sim/comparator-decision/records/20260906-065109-eedd532.md",
-            "sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md",
+            "sim/sar-sequencer-behavioral/records/20261126-113902-4f1b0b9c.md",
         ),
     ),
 )
