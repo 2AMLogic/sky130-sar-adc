@@ -77,6 +77,11 @@ DEFAULT_CAPACITY_WAIT_S = 600.0
 #: that says least about the failure.
 ERROR_TEXT_CHARS = 1200
 
+#: A full SHA-256 digest as `klt sim` reports one: 64 lowercase hex
+#: characters and nothing else. Anything shorter, upper-case or prefixed is
+#: not a digest a record may cite as the executing worker's binary.
+SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+
 #: A shared fleet refuses a launch while it is at its concurrency cap, and
 #: `klt sim` does not wait that refusal out itself in every pairing of client
 #: and runner. Re-submitting to the SAME batch backend is the correct
@@ -374,6 +379,11 @@ def run_info(report: dict) -> dict:
     backend = (report.get("environment") or {}).get("backend")
     if isinstance(backend, dict):
         backend = backend.get("resolved") or backend.get("requested")
+    engine_host = (report.get("environment") or {}).get("engine_host")
+    build = (report.get("environment") or {}).get("engine_build")
+    build = build if isinstance(build, dict) else {}
+    digest = build.get("binary_sha256")
+    digest = digest if isinstance(digest, str) and SHA256_HEX.fullmatch(digest) else None
     return {
         "status": report.get("status"),
         "jobs": jobs,
@@ -388,6 +398,21 @@ def run_info(report: dict) -> dict:
         "worker_pdks_seen": sorted(pdks),
         "worker_ngspice_seen": sorted(ngs),
         "request_feature_status": next(iter(features)) if len(features) == 1 else None,
+        # The engine that executed the run (`worker` on a batch job, `local`
+        # for a one-unit local run) and the sha256 of ITS ngspice executable.
+        # `klt sim`'s collector reports a single digest only when every
+        # worker hashed the binary it selected and all agreed (klayout-tools
+        # #7356); an older or incomplete capture, or two distinct digests,
+        # is a null plus a `reason`. So None here means "no single worker
+        # digest was reported" -- which a record must say, never fill in
+        # from the submitting host's own ngspice (issue #811).
+        "engine_host": engine_host,
+        "worker_ngspice_binary_sha256": (
+            digest if digest is not None and engine_host == "worker" else None
+        ),
+        "worker_ngspice_binary_sha256_reason": (
+            build.get("reason") if digest is None else None
+        ),
     }
 
 

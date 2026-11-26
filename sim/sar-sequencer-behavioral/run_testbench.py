@@ -18,6 +18,11 @@ toolchain/PDK bootstrap this assumes):
     python3 sim/sar-sequencer-behavioral/run_testbench.py --probe-klt-row
         # one local single-corner `klt sim` unit (tt/27C/1.8V) validating the
         # request/deck mechanics before any fleet submit; writes no evidence
+    python3 sim/sar-sequencer-behavioral/run_testbench.py --klt-row-evidence --record --supersedes 20260827-211956-e13bc1e
+        # the same batch run written as the record that replaces an earlier
+        # corner record of this campaign for the same claim (issue #811): the
+        # old-vs-new comparison and the differences between the two runs are
+        # rendered into the record -- see comparison_lines()
 
 Exercises the SAR sequencer + clock/phase generator (design/sar_sequencer.sch)
 against an ideal comparator-decision stimulus (sim/sar-sequencer-behavioral/
@@ -904,6 +909,10 @@ def _klt_run_lines(report: dict, request_rel: str, report_rel: str) -> list[str]
     lines.append(
         f"- request and deck body: `{request_rel}`; raw report: `{report_rel}`"
     )
+    lines.append(worker_digest_line(report))
+    client_digest = client_digest_line(report)
+    if client_digest is not None:
+        lines.append(client_digest)
     return lines
 
 
@@ -960,6 +969,396 @@ ROW_PORT_NOTES = [
 ]
 
 
+# --------------------------------------------------------------------------- #
+# Issue #811: the same run written as the SUPERSEDING record of an earlier
+# corner record of this campaign.
+#
+# `--supersedes <record-id>` links this record to the one it replaces for
+# the same claim. The footer link alone leaves a reader to diff two Markdown
+# tables by eye across everything else that moved between the two runs -- a
+# PDK pin, a simulator, an execution route and, in this campaign's own
+# history, a schematic and a stimulus revision -- so the comparison and the
+# differences that bear on it are rendered INTO the record, every `old`
+# figure read out of the superseded record and every revision read out of
+# git rather than transcribed.
+# --------------------------------------------------------------------------- #
+
+#: A record id (`20260827-211956-e13bc1e`) wherever it appears in the
+#: `--supersedes` argument: bare, or as `records/<id>.md` link text.
+_RECORD_ID_RE = re.compile(r"\d{8}-\d{6}-[0-9a-f]{7,}")
+
+#: One row of a corner record's own per-corner summary table:
+#: `| `tt_27c_1.62v` | PASS | 0.8099 |`.
+_CORNER_ROW_RE = re.compile(
+    r"^\|\s*`(?P<corner>[a-z]+_-?\d+c_\d+(?:\.\d+)?v)`\s*\|"
+    r"\s*(?P<verdict>PASS|FAIL)\s*\|\s*(?P<margin>-?\d+(?:\.\d+)?)\s*\|\s*$",
+    re.M,
+)
+
+#: Precision both records' margins are compared at: the per-corner summary's
+#: own four decimals, the only precision the superseded evidence carries.
+_MARGIN_DP = 4
+
+
+def parse_corner_summary(record_text: str) -> dict[str, tuple[str, float]]:
+    """`{corner_id: (verdict, worst_margin_v)}` read from a corner record's
+    "## Per-corner summary" table -- the figures exactly as that record
+    PRINTED them. A record without such a row yields `{}`; the caller states
+    that, never a comparison it could not make."""
+    return {
+        match.group("corner"): (match.group("verdict"), float(match.group("margin")))
+        for match in _CORNER_ROW_RE.finditer(record_text)
+    }
+
+
+def _overall_verdict(record_text: str) -> str | None:
+    """A record's `- **Overall**: PASS|FAIL ...` bullet, or None."""
+    match = re.search(r"^- \*\*Overall\*\*: (PASS|FAIL)\b", record_text, re.M)
+    return match.group(1) if match else None
+
+
+def _environment_value(record_text: str, label: str) -> str | None:
+    """A record's Environment-block `- <label>: <value>` line, or None."""
+    match = re.search(rf"^- {re.escape(label)}: (.+)$", record_text, re.M)
+    return match.group(1).strip() if match else None
+
+
+def _writer_command(record_text: str) -> str | None:
+    """The command a record's own `Written by `...`` footer names, or None."""
+    match = re.search(r"^Written by `([^`]+)`", record_text, re.M)
+    return match.group(1) if match else None
+
+
+def instance_cards(netlist_text: str) -> list[str]:
+    """A netlist's instance cards (its `x...` lines) -- the line set two
+    snapshots of this DUT are compared by."""
+    return [
+        ln.strip() for ln in netlist_text.splitlines()
+        if ln.strip().lower().startswith("x")
+    ]
+
+
+def revisions_since(
+    path: Path, record_id: str, runner=klt_sim.default_runner
+) -> list[tuple[str, str, str]] | None:
+    """`(sha, author date, subject)` of every commit that touched `path` and
+    whose AUTHOR date falls after the day `record_id` was minted (the id's
+    own `YYYYMMDD`), or None when git could not answer.
+
+    Author date, not committer date: a squash merge re-stamps the committer
+    date, so the merge that CARRIED the superseded record's own tree would
+    otherwise read as a later revision of the very content it ran. None (no
+    answer) stays distinct from `[]` (no revision) so the record can say
+    which of the two it is.
+    """
+    minted = record_id[:8]
+    if not minted.isdigit():
+        return None
+    rc, out, _err = runner(
+        ["git", "-C", str(REPO_ROOT), "log", "--format=%h %ad %s",
+         "--date=short", "--", str(path)]
+    )
+    if rc != 0:
+        return None
+    revisions = []
+    for line in out.splitlines():
+        sha, _sep, rest = line.partition(" ")
+        date, _sep, subject = rest.partition(" ")
+        day = date.replace("-", "")
+        if len(day) == 8 and day.isdigit() and day > minted:
+            revisions.append((sha, date, subject))
+    return revisions
+
+
+def _revision_list(revisions: list[tuple[str, str, str]] | None) -> str:
+    if revisions is None:
+        return "unavailable (git could not answer)"
+    if not revisions:
+        return "none"
+    return "; ".join(f"`{sha}` ({date}) {subject}" for sha, date, subject in revisions)
+
+
+def _digest_clause(report: dict) -> str:
+    """`worker_digest_line()`'s line without its bullet."""
+    return worker_digest_line(report)[2:]
+
+
+def comparison_lines(
+    supersedes: str,
+    points: list[dict],
+    overall_ok: bool,
+    report: dict,
+    dut_text: str,
+) -> list[str]:
+    """The record's `## Comparison with the superseded record` section, or
+    `[]` when the record supersedes nothing.
+
+    The campaign's own verdict tolerance is stated, not invented: every check
+    must read its expected bit at every corner, and the campaign carries no
+    numeric tolerance for margin drift -- so the margin deltas are rendered
+    as informational and nothing is graded against them. Each `old` figure is
+    read from the superseded record's own text, each difference from the two
+    runs' own evidence; a predecessor whose record is absent is stated as
+    absent, never reconstructed."""
+    if not supersedes:
+        return []
+    match = _RECORD_ID_RE.search(supersedes)
+    old_id = match.group(0) if match else supersedes
+    old_path = EXPERIMENT_DIR / "records" / f"{old_id}.md"
+    old_text = old_path.read_text() if old_path.is_file() else None
+    old_pdk = _environment_value(old_text, "PDK") if old_text else None
+    old_ng = _environment_value(old_text, "ngspice") if old_text else None
+    info = klt_sim.run_info(report)
+    job = (info["jobs"] or [{}])[0]
+    lines = [
+        f"## Comparison with the superseded record (`{old_id}`, issue #811)",
+        "",
+        "This record replaces that one for the same claim: the same "
+        f"{len(EXPECTED_BITS)} checks, expected codes and PVT grid, re-run "
+        "under the current `open_pdks` pin through `klt sim` on the batch "
+        "fleet. The campaign's own verdict tolerance is binary -- every check "
+        "must read its expected bit at every corner, each sample judged "
+        "against half its corner's rail -- and it carries no numeric "
+        "tolerance for margin drift, so the margin columns below are "
+        "informational and no threshold is applied to them. `old` is the "
+        f"superseded record's own printed figure and `delta` = new - old at "
+        f"{_MARGIN_DP} d.p.",
+        "",
+    ]
+    old = parse_corner_summary(old_text) if old_text is not None else None
+    if old is None:
+        lines += [
+            f"No comparison table: no record `records/{old_id}.md` exists under "
+            "this experiment, so there is no old figure to read. The "
+            "`Supersedes` link in the footer is written as given.",
+            "",
+        ]
+    elif not old:
+        lines += [
+            "No comparison table: the superseded record carries no per-corner "
+            "summary row this reader recognises.",
+            "",
+        ]
+    else:
+        new_by_id = {p["corner_id"]: p for p in points}
+        lines += [
+            "| corner-id | old verdict | new verdict | old worst margin (V) | "
+            "new worst margin (V) | delta (V) |",
+            "|---|---|---|---|---|---|",
+        ]
+        deltas: list[tuple[float, str]] = []
+        changed: list[str] = []
+        agreed = 0
+        for cid, p in new_by_id.items():
+            new_verdict = "PASS" if p["all_pass"] else "FAIL"
+            new_margin = p["worst_margin_v"]
+            if cid not in old:
+                lines.append(
+                    f"| `{cid}` | -- | {new_verdict} | -- | {new_margin:.4f} | -- |"
+                )
+                continue
+            old_verdict, old_margin = old[cid]
+            if new_margin == new_margin:
+                delta = round(new_margin, _MARGIN_DP) - old_margin
+                deltas.append((abs(delta), cid))
+                lines.append(
+                    f"| `{cid}` | {old_verdict} | {new_verdict} | {old_margin:.4f} | "
+                    f"{new_margin:.4f} | {delta:+.4f} |"
+                )
+            else:
+                lines.append(
+                    f"| `{cid}` | {old_verdict} | {new_verdict} | {old_margin:.4f} | "
+                    "-- | -- |"
+                )
+            if old_verdict == new_verdict:
+                agreed += 1
+            else:
+                changed.append(f"`{cid}` ({old_verdict} there, {new_verdict} here)")
+        only_old = [cid for cid in old if cid not in new_by_id]
+        for cid in only_old:
+            old_verdict, old_margin = old[cid]
+            lines.append(f"| `{cid}` | {old_verdict} | -- | {old_margin:.4f} | -- | -- |")
+        lines.append("")
+        old_overall = _overall_verdict(old_text or "")
+        new_overall = "PASS" if overall_ok else "FAIL"
+        lines.append(
+            f"- **Verdict agreement**: {agreed}/{len(old) - len(only_old)} corners "
+            "read the same verdict in both records"
+            + (
+                f" ({old_overall} there, {new_overall} here)."
+                if old_overall
+                else f" (new record {new_overall})."
+            )
+            + (
+                " Verdict changed at " + ", ".join(changed) + "."
+                if changed
+                else ""
+            )
+        )
+        if not overall_ok:
+            lines.append(
+                "- **Past-tolerance result**: this record's verdict is FAIL. An "
+                "issue must be filed and linked here before this record is "
+                "cited (issue #811's acceptance criterion); the failing "
+                "verdict stands, no threshold is adjusted."
+            )
+        if deltas:
+            largest, where = max(deltas)
+            lines.append(
+                f"- **Margin delta** (informational): largest |delta| "
+                f"{largest:.4f} V at `{where}`."
+            )
+        lines += [
+            (
+                "- **Corner sets**: "
+                + (
+                    f"identical, {len(old)} corners."
+                    if not only_old and set(new_by_id) == set(old)
+                    else "only there: "
+                    + (", ".join(f"`{c}`" for c in only_old) or "none")
+                    + "; only here: "
+                    + (
+                        ", ".join(f"`{c}`" for c in new_by_id if c not in old)
+                        or "none"
+                    )
+                    + "."
+                )
+            ),
+            "",
+        ]
+    snapshot = EXPERIMENT_DIR / "netlist-snapshots" / f"{old_id}.spice"
+    # With no predecessor record there is nothing to date a revision against
+    # and no DUT of record: git is not asked, and the two lines say so.
+    schematic_revs = stimulus_revs = None
+    if old_text is not None:
+        schematic_revs = revisions_since(DESIGN_SCH, old_id)
+        stimulus_revs = revisions_since(FRAGMENT, old_id)
+    if snapshot.is_file():
+        old_cards = instance_cards(snapshot.read_text())
+        new_cards = instance_cards(dut_text)
+        dut_line = (
+            f"- **DUT** (`{DESIGN_SCH.relative_to(REPO_ROOT)}`): the superseded "
+            f"record's snapshot `netlist-snapshots/{old_id}.spice` carries "
+            f"{len(old_cards)} instance cards; this run's DUT carries "
+            f"{len(new_cards)} instance cards; the instance-card sets "
+            + ("are identical." if old_cards == new_cards else "differ.")
+        )
+    else:
+        dut_line = (
+            f"- **DUT** (`{DESIGN_SCH.relative_to(REPO_ROOT)}`): no snapshot "
+            f"`netlist-snapshots/{old_id}.spice` exists, so the two DUTs are "
+            "not compared here."
+        )
+    if old_text is None:
+        dut_line += (
+            " No schematic revision is dated: there is no predecessor record."
+        )
+    else:
+        dut_line += (
+            " Commits touching the schematic with an author date after the "
+            "superseded record's mint date: " + _revision_list(schematic_revs)
+        )
+    stimulus_line = (
+        f"- **Stimulus** (`{FRAGMENT.relative_to(REPO_ROOT)}`, sha256 "
+        f"`{evidence.sha256_text(FRAGMENT.read_text())}` this run): "
+    )
+    if old_text is None:
+        stimulus_line += "no fragment revision is dated: there is no predecessor record."
+    else:
+        stimulus_line += (
+            "commits touching it with an author date after the superseded "
+            "record's mint date: " + _revision_list(stimulus_revs)
+        )
+    lines += [
+        "### Differences from the superseded record that bear on the comparison",
+        "",
+        "Each is uncontrolled between the two runs: a change in a figure below "
+        "is as readily one of these as it is the PDK pin, and none is "
+        "attributed by this record.",
+        "",
+        f"- **PDK**: {old_pdk or '(no PDK line in that record)'} there; "
+        f"`{info['worker_pdk']}` here (executing worker).",
+        f"- **Simulator**: {old_ng or '(no ngspice line in that record)'} there, "
+        "which records no binary digest; "
+        f"{info['worker_ngspice']} here. Here: {_digest_clause(report)}.",
+        "- **Execution route**: there "
+        + (
+            f"`{_writer_command(old_text)}` (that record's own footer); "
+            if old_text and _writer_command(old_text)
+            else "no writer named in that record's footer; "
+        )
+        + "here ONE `klt sim` request on the batch fleet"
+        + (
+            f" (job `{job.get('job_id')}`, client klt "
+            f"`{job.get('client_klt_version')}`, fleet runner klt "
+            f"`{job.get('runner_klt_version')}`, "
+            f"`{job.get('runner_compatibility')}`)."
+        ),
+        dut_line,
+        stimulus_line,
+        "- **Grading**: there the per-check table prints each node's raw "
+        "sample (V) and the writer named above applies the bit rule; here "
+        "each `.meas` samples a testbench-only signed half-rail margin source "
+        "and `klt sim` grades it against a static limit (the \"Deck "
+        "divergences\" above).",
+        "",
+    ]
+    return lines
+
+
+def worker_digest_line(report: dict) -> str:
+    """The record's one line on the executing worker's ngspice executable:
+    the sha256 `klt sim`'s collector reported, or an explicit statement that
+    none was -- which leaves the record's worker-hash provenance condition
+    unmet (issue #811). Never the submitting host's own binary standing in
+    for a worker that did not report one."""
+    info = klt_sim.run_info(report)
+    digest = info["worker_ngspice_binary_sha256"]
+    if digest is not None:
+        return f"- executing ngspice binary sha256 (worker): `{digest}`"
+    reason = info["worker_ngspice_binary_sha256_reason"]
+    return (
+        "- executing ngspice binary sha256 (worker): NOT REPORTED by the batch "
+        "report (`environment.engine_build.binary_sha256` is "
+        + (f"null, reason `{reason}`" if reason else "absent or null")
+        + ") -- the worker-hash provenance condition is NOT met"
+    )
+
+
+def client_digest_line(report: dict) -> str | None:
+    """The submitting client's OWN ngspice digest where the report preserves
+    it (`environment.client_engine_build`, kept apart from the worker's by
+    klayout-tools#7356), or None when it carries none. Labelled as the
+    non-executor: the submitting host's `Environment fallback` values would
+    describe THIS binary, never the one that ran the grid."""
+    build = (report.get("environment") or {}).get("client_engine_build")
+    digest = build.get("binary_sha256") if isinstance(build, dict) else None
+    if not (isinstance(digest, str) and klt_sim.SHA256_HEX.fullmatch(digest)):
+        return None
+    return f"- submitting client ngspice binary sha256 (not the executor): `{digest}`"
+
+
+def _claim_tail(supersedes: str) -> str:
+    """How the record's Claim sentence ends. Without `--supersedes` this is
+    issue #1023's machine-graded binding beside the campaign's own reference
+    chain and replaces none of it; with it, the same run is issue #811's
+    requalification of the record it names, and the Claim says so."""
+    if not supersedes:
+        return (
+            "A SEPARATE claim from "
+            "#811's baseline-agreement and supersession work -- this record "
+            "supersedes nothing and states nothing about #811's agreement gate."
+        )
+    match = _RECORD_ID_RE.search(supersedes)
+    old_id = match.group(0) if match else supersedes
+    return (
+        "Issue #811's requalification under the current `open_pdks` pin: this "
+        f"record supersedes `records/{old_id}.md` for the same claim, and the "
+        "section \"Comparison with the superseded record\" below states what "
+        "the two runs share and what differs between them."
+    )
+
+
 def run_row_evidence_campaign(
     record: bool, backend: str | None = None, quiet: bool = False, supersedes: str = ""
 ) -> int:
@@ -973,9 +1372,12 @@ def run_row_evidence_campaign(
     quantity is the margin helper each check samples, graded by `klt sim`
     against the limits the request declares. The committed report's
     `measurements[].spec_row` tags are what `klt signoff` derives the
-    `resolution_n` row's coverage from; this campaign is that row's
-    machine-graded binding, a SEPARATE claim from #811's
-    baseline-agreement and supersession work -- it supersedes no record."""
+    `resolution_n` row's coverage from; without `--supersedes` this
+    campaign is that row's machine-graded binding and supersedes no record.
+    With `--supersedes <record-id>` the same run is written as the
+    SUPERSEDING record of that earlier corner record (issue #811): the
+    comparison and the differences between the two are rendered into the
+    record -- see comparison_lines()."""
     gate = toolchain.preflight()
     if gate is not None:
         return gate
@@ -1048,10 +1450,8 @@ def run_row_evidence_campaign(
             "points as the September corner record "
             "(`records/20260912-004028-9aaf1ca.md`); the August record "
             "(`records/20260827-211956-e13bc1e.md`) graded an earlier DUT and "
-            "fragment and shares only the checks, expected codes and grid; a "
-            "SEPARATE claim from "
-            "#811's baseline-agreement and supersession work -- this record "
-            "supersedes nothing and states nothing about #811's agreement gate.",
+            "fragment and shares only the checks, expected codes and grid. "
+            + _claim_tail(supersedes),
             "- **Netlist provenance**: schematic (`design/sar_sequencer.sch`), "
             "netlisted fresh with `klt netlist` (see the divergence notes below)",
             corners_mod.corner_matrix_summary_line(
@@ -1065,8 +1465,9 @@ def run_row_evidence_campaign(
             "`.op`-only shared `.control` block cannot express) -- and, new "
             "here, the grid is ONE `klt sim` request on the batch fleet, not a "
             "local ngspice loop (CLAUDE.md's host rule).",
-            f"- **Stimulus**: unchanged `testbench/sar_sequencer_tb_fragment.spice` "
-            f"device cards, ideal comparator-decision (`COMP_OUT`) PWL, two "
+            f"- **Stimulus**: the committed `testbench/sar_sequencer_tb_fragment.spice` "
+            f"device cards, used verbatim; ideal comparator-decision "
+            f"(`COMP_OUT`) PWL, two "
             f"back-to-back conversions, CODE1(b9..b0)={''.join(str(b) for b in CODE1)}b, "
             f"CODE2(b9..b0)={''.join(str(b) for b in CODE2)}b, rail-referenced to each "
             "corner's own supply point through the fragment's own `{vdd_val}` "
@@ -1079,8 +1480,8 @@ def run_row_evidence_campaign(
             "(expected 0). The limit is inclusive at exactly zero and the "
             "runner's comparison is strict; "
             + (
-                f"no sample in this run sat within {binding['worst_margin_v']:.4f} V "
-                "of that boundary."
+                f"no sample in this run sat closer than {binding['worst_margin_v']:.4f} V "
+                "to that boundary."
                 if binding is not None and overall_ok
                 else "see the failing-check list for any sample that missed its limit."
             ),
@@ -1158,6 +1559,9 @@ def run_row_evidence_campaign(
                 + " -- reported as failing, per CLAUDE.md's 'no claim without a "
                 "testbench' / 'do not relax a spec line to make a result pass' rules.",
             ]
+        if supersedes:
+            lines.append("")
+            lines += comparison_lines(supersedes, points, overall_ok, report, dut_text)
         lines.append("")
         env_pdk, env_ng, env_notes = worker_environment(report, prov)
         pdk_line, ngspice_line = attributed_environment_lines(env_pdk, env_ng, env_notes)
