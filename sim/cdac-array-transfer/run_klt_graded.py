@@ -74,6 +74,10 @@ REQUEST = EXPERIMENT_DIR / "testbench" / "klt" / "request-graded.json"
 TB_BODY = EXPERIMENT_DIR / "testbench" / "klt" / "tb_body.spice"
 FRAGMENT = run_transfer.FRAGMENT
 CODES = run_transfer.CODES
+VREF_BOUNDS = {
+    "vref_ratio": ("ratio", {"min": 0.99999, "max": 1.00001}),
+    "v_vrefn": ("V", {"min": -1e-5, "max": 1e-5}),
+}
 
 #: Charge-equivalent switched-unit count for `q_vrefp`. For one array side
 #: whose `sw` of 512 unit positions step their bottom plates from VREFN to
@@ -114,6 +118,45 @@ def _baseline_cid(corner: dict) -> str:
     )
 
 
+def _vref_measurements(container: dict, source: str):
+    if not isinstance(container, dict) or not isinstance(container.get("measurements"), list):
+        raise ValueError(f"{source} requires a measurements list")
+    measurements = container["measurements"]
+    for name, (unit, limits) in VREF_BOUNDS.items():
+        matches = [m for m in measurements if isinstance(m, dict) and m.get("name") == name]
+        if len(matches) != 1:
+            raise ValueError(f"{source} must contain exactly one {name} measurement")
+        if matches[0].get("unit") != unit:
+            raise ValueError(f"{source} {name} must use unit {unit}")
+        yield name, limits, matches[0]
+
+
+def _check_vref_definitions(container: dict, source: str) -> None:
+    for name, limits, measurement in _vref_measurements(container, source):
+        if measurement.get("spec_row") != "v_ref" or measurement.get("limits") != limits:
+            raise ValueError(f"{source} {name} must grade spec_row v_ref with limits {limits}")
+
+
+def _graded_request_sha256() -> str:
+    text = REQUEST.read_text()
+    _check_vref_definitions(json.loads(text), "request")
+    return evidence.sha256_text(text)
+
+
+def _check_vref_results(corner: dict) -> None:
+    source = f"corner {corner.get('corner_id')}"
+    for name, limits, result in _vref_measurements(corner, source):
+        value = result.get("value")
+        if not klt_sim.finite(value) or not result.get("status"):
+            raise ValueError(f"{source} {name} requires a finite value and measurement status")
+        if result["status"] == "pass":
+            if not limits["min"] <= value <= limits["max"]:
+                raise ValueError(f"{source} {name} reports pass with value {value} outside {limits}")
+            margin = result.get("margin")
+            if not klt_sim.finite(margin) or margin < 0:
+                raise ValueError(f"{source} {name} reports pass without a finite nonnegative margin")
+
+
 def run(backend: str | None, request: Path, record_id: str, stderr_path: Path):
     """Submit the request and return (report, run_facts)."""
     outdir = EXPERIMENT_DIR / "klt-sim" / record_id / "out"
@@ -149,8 +192,14 @@ def write_record(
     worker_pdk = info.get("worker_pdk")
     worker_ng = info.get("worker_ngspice")
     problems: list[str] = []
-    if request_sha256 != evidence.sha256_file(REQUEST):
-        problems.append("graded request differs from the submission")
+    try:
+        if request_sha256 != _graded_request_sha256():
+            problems.append("graded request differs from the submission")
+        _check_vref_definitions(report, "report")
+        for corner in corners:
+            _check_vref_results(corner)
+    except ValueError as exc:
+        problems.append(str(exc))
     expected = corners_mod.ratified_oat_grid(
         run_transfer.NOMINAL_SUPPLY_V, run_transfer.SUPPLY_TOLERANCE,
         run_transfer.PROCESS_CORNERS, run_transfer.TEMPS_C,
@@ -228,6 +277,8 @@ def write_record(
         ))
 
     graded_ok = all(
+        m.get("status") == "pass" for _, _, m in _vref_measurements(report, "report")
+    ) and all(
         r["vref_ratio_status"] == "pass" and r["v_vrefn_status"] == "pass" for r in rows
     )
     functional_ok = all(r["monotonic"] and r["correct_sign"] for r in rows)
@@ -301,10 +352,11 @@ def write_record(
         f"{run_transfer.RATIFIED_ARRAY_SIZE_PER_SIDE}/side). This is the "
         "sampling-cap row's exact structural part; it is corner-invariant."
     )
+    graded_verdict = f"PASS at all {len(rows)} corners" if graded_ok else "FAIL"
     a(
         "- **Graded check (V_REF)**: envelope `vref_ratio` and `v_vrefn`, "
-        f"`spec_row: v_ref` -- {'PASS' if graded_ok else 'FAIL'} at all "
-        f"{len(rows)} corners. At six significant digits the print step just above "
+        f"`spec_row: v_ref` -- {graded_verdict}. "
+        "At six significant digits the print step just above "
         "unity is 1e-5 (1.00000 to 1.00001). The relative allowance of 1e-5 "
         "is twice the 5e-6 half-step and corresponds to >= 16x "
         "ngspice's default vntol=1e-6 V at the 1.62 V rail corner; it is a "
@@ -456,7 +508,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"REFUSING to mint full-grid evidence from {request}. "
               f"Use {REQUEST.name} for --record or klt sim for a debug request.")
         return 3
-    request_sha256 = evidence.sha256_file(request)
+    try:
+        request_sha256 = _graded_request_sha256()
+    except ValueError as exc:
+        print(f"REFUSING to submit {request}: {exc}")
+        return 3
     record_id = evidence.new_record_id()
     stderr_path = EXPERIMENT_DIR / "klt-sim" / record_id / "client-stderr.txt"
     stderr_path.parent.mkdir(parents=True, exist_ok=True)

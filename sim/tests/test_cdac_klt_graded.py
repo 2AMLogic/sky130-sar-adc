@@ -54,6 +54,84 @@ class GradedRecordTest(unittest.TestCase):
         self.assert_refused()
         submit.assert_not_called()
 
+    def test_edited_request_at_canonical_path_refused_before_submission(self):
+        request = self.work / "request-graded.json"
+        original = graded.REQUEST.read_text()
+        with patch.object(graded, "REQUEST", request):
+            for name in ("vref_ratio", "v_vrefn"):
+                for field in ("spec_row", "limits"):
+                    with self.subTest(name=name, field=field):
+                        data = json.loads(original)
+                        meas = next(m for m in data["measurements"] if m["name"] == name)
+                        del meas[field]
+                        request.write_text(json.dumps(data))
+                        submit = self.record()
+                        self.assert_refused()
+                        submit.assert_not_called()
+
+    def test_report_must_grade_both_references_with_the_documented_limits(self):
+        for name in ("vref_ratio", "v_vrefn"):
+            for fault in ("informational", "wrong tag", "widened limits", "duplicate"):
+                with self.subTest(name=name, fault=fault):
+                    self.report = json.loads(ARCHIVE.read_text())
+                    definitions = self.report["measurements"]
+                    meas = next(m for m in definitions if m["name"] == name)
+                    if fault == "informational":
+                        del meas["limits"], meas["spec_row"]
+                        for corner in self.report["corners"]:
+                            result = next(m for m in corner["measurements"] if m["name"] == name)
+                            result["margin"] = None  # klt still reports status "pass"
+                    elif fault == "wrong tag":
+                        meas["spec_row"] = "lsb"
+                    elif fault == "widened limits":
+                        meas["limits"]["min"] -= 0.1
+                    else:
+                        definitions.append(meas.copy())
+                    self.record()
+                    self.assert_refused()
+
+    def test_passing_corner_requires_finite_in_range_reference_measurements(self):
+        for name, value in (("vref_ratio", 0.9), ("vref_ratio", 1.00002),
+                            ("v_vrefn", -2e-5), ("v_vrefn", 2e-5),
+                            ("vref_ratio", True), ("v_vrefn", None),
+                            ("vref_ratio", float("nan")), ("v_vrefn", float("inf"))):
+            with self.subTest(name=name, value=value):
+                self.report = json.loads(ARCHIVE.read_text())
+                measurements = self.report["corners"][-1]["measurements"]
+                next(m for m in measurements if m["name"] == name)["value"] = value
+                self.record()
+                self.assert_refused()
+
+    def test_reference_limit_endpoints_pass(self):
+        for corner, ratio, vrefn in zip(self.report["corners"], (0.99999, 1.00001),
+                                        (-1e-5, 1e-5)):
+            measurements = {m["name"]: m for m in corner["measurements"]}
+            measurements["vref_ratio"].update(value=ratio, margin=0)
+            measurements["v_vrefn"].update(value=vrefn, margin=0)
+        self.record()
+        self.assertEqual(self.status, 0, self.stdout.getvalue())
+
+    def test_in_range_informational_corner_refused_even_with_graded_definitions(self):
+        results = self.report["corners"][-1]["measurements"]
+        next(m for m in results if m["name"] == "vref_ratio")["margin"] = None
+        self.record()
+        self.assert_refused()
+        self.assertIn("margin", self.stdout.getvalue())
+
+    def test_genuine_reference_failure_is_recorded(self):
+        self.report.update(status="fail", passed=8, failed=1)
+        corner = self.report["corners"][-1]
+        corner["status"] = "fail"
+        result = next(m for m in corner["measurements"] if m["name"] == "vref_ratio")
+        result.update(value=0.9, status="fail", margin=-0.09999)
+        definition = next(m for m in self.report["measurements"] if m["name"] == "vref_ratio")
+        definition["status"] = "fail"
+        self.record()
+        self.assertEqual(self.status, 1, self.stdout.getvalue())
+        record = (self.work / "records/test.md").read_text()
+        self.assertIn("**Overall**: FAIL", record)
+        self.assertNotIn("FAIL at all 9 corners", record)
+
     def test_missing_duplicate_and_wrong_corner_refused(self):
         for fault in ("subset", "duplicate", "wrong supply"):
             with self.subTest(fault=fault):
