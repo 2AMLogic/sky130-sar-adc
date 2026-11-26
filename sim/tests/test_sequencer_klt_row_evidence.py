@@ -11,15 +11,20 @@ envelope shape.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(SIM_DIR / "sar-sequencer-behavioral"))
 sys.path.insert(0, str(SIM_DIR.parent / "signoff"))
+sys.path.insert(0, str(SIM_DIR / "tests"))
 
 import importlib.util
 
@@ -30,6 +35,7 @@ m = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(m)
 
 import check_evidence_hashes  # noqa: E402
+import provenance_fixture  # noqa: E402
 
 FRAGMENT = m.FRAGMENT.read_text()
 
@@ -408,6 +414,104 @@ class TestWorkerEnvironment(unittest.TestCase):
         self.assertEqual((pdk, ng), ("sky130A @ hostpdk", "ngspice-47"))
         self.assertEqual(len(notes), 2)
         self.assertTrue(all("FALLBACK" in n for n in notes))
+
+
+# --------------------------------------------------------------------------
+# The record's Environment headlines (issue #1096)
+# --------------------------------------------------------------------------
+FROM_WORKER = " (executing worker)"
+FROM_SUBMITTING_HOST = (
+    " (submitting host; no single executing-worker value reported)"
+)
+
+
+def _batch_report(pdk: str | None, ng: str | None) -> dict:
+    """A passing nine-point row report from one batch job whose worker
+    reported `pdk` / `ng`; either may be None (not reported)."""
+    report = _fake_report(
+        [(proc, temp, vdd, _nominal_margins()) for proc, temp, vdd in oat_grid()]
+    )
+    worker = {}
+    if pdk:
+        worker["pdk"] = {"variant": "sky130A", "stamp_text": f"x {pdk}"}
+    if ng:
+        worker["simulator"] = {"version_banner": f"** {ng} : Circuit level"}
+    report["environment"] = {
+        "backend": "batch",
+        "remote": {"job_id": "j1", "worker_environment": worker},
+    }
+    return report
+
+
+def _headlines(record: str) -> list[str]:
+    return [
+        ln for ln in record.splitlines()
+        if ln.startswith(("- PDK: ", "- ngspice: "))
+    ]
+
+
+class TestRecordEnvironmentAttribution(unittest.TestCase):
+    """The record's `- PDK:` / `- ngspice:` lines say whose value each is.
+    `worker_environment()` falls back to the submitting host per FIELD, so
+    each line is labelled on its own -- asserted on the record the real
+    `--klt-row-evidence --record` writer writes, not on a helper."""
+
+    def _record(self, report: dict) -> str:
+        """Run the real writer over `report` -- toolchain preflight, DUT
+        netlisting and the `klt sim` submit stubbed, provenance under the
+        shared fixture -- and return the record it wrote."""
+        with tempfile.TemporaryDirectory() as tmp, \
+                provenance_fixture.fake_provenance(m, tmp), \
+                mock.patch.object(m.toolchain, "preflight", return_value=None), \
+                mock.patch.object(m, "netlist_dut_klt", return_value="* stub DUT\n"), \
+                mock.patch.object(m.klt_sim, "submit", return_value=report), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(m.run_row_evidence_campaign(record=True, quiet=True), 0)
+            return (Path(tmp) / "records"
+                    / f"{provenance_fixture.RECORD_ID}.md").read_text()
+
+    def test_worker_reported_both_lines_unchanged(self):
+        self.assertEqual(
+            _headlines(self._record(_batch_report("c6d73a3", "ngspice-46"))),
+            ["- PDK: sky130A @ c6d73a3" + FROM_WORKER,
+             "- ngspice: ngspice-46" + FROM_WORKER],
+        )
+
+    def test_worker_reported_neither_lines_are_the_submitting_hosts(self):
+        record = self._record(_batch_report(None, None))
+        self.assertEqual(
+            _headlines(record),
+            ["- PDK: " + provenance_fixture.PDK_LINE + FROM_SUBMITTING_HOST,
+             "- ngspice: " + provenance_fixture.NG_VERSION + FROM_SUBMITTING_HOST],
+        )
+        self.assertNotIn("(executing worker)", "\n".join(_headlines(record)))
+        self.assertIn("- Environment fallback: PDK: ", record)
+        self.assertIn(
+            f"FALLBACK to the submitting host's {provenance_fixture.PDK_LINE}", record
+        )
+
+    def test_worker_value_equal_to_the_hosts_is_still_the_workers(self):
+        self.assertEqual(
+            _headlines(self._record(_batch_report("testing", "ngspice-46"))),
+            ["- PDK: " + provenance_fixture.PDK_LINE + FROM_WORKER,
+             "- ngspice: " + provenance_fixture.NG_VERSION + FROM_WORKER],
+        )
+
+    def test_worker_reported_one_each_line_labelled_on_its_own(self):
+        host = provenance_fixture.PDK_LINE
+        ng = provenance_fixture.NG_VERSION
+        for pdk, sim, expected in [
+            ("c6d73a3", None,
+             ["- PDK: sky130A @ c6d73a3" + FROM_WORKER,
+              "- ngspice: " + ng + FROM_SUBMITTING_HOST]),
+            (None, "ngspice-46",
+             ["- PDK: " + host + FROM_SUBMITTING_HOST,
+              "- ngspice: ngspice-46" + FROM_WORKER]),
+        ]:
+            with self.subTest(pdk=pdk, ngspice=sim):
+                self.assertEqual(
+                    _headlines(self._record(_batch_report(pdk, sim))), expected
+                )
 
 
 # --------------------------------------------------------------------------

@@ -847,6 +847,25 @@ def worker_environment(report: dict, prov) -> tuple[str, str, list[str]]:
     return pdk or prov.pdk_line, ng or prov.ng_version, notes
 
 
+def attributed_environment_lines(
+    env_pdk: str, env_ng: str, env_notes: list[str]
+) -> tuple[str, str]:
+    """The Environment block's `- PDK:` / `- ngspice:` lines from
+    `worker_environment()`'s values and notes: `(executing worker)` only on
+    a value the worker reported, and a field that fell back keeps the
+    submitting host's value under a label saying so. Decided per field, on
+    that field's own note (`PDK: ...` / `ngspice: ...`), because the fallback
+    is per field -- never by comparing against the host's value, which a
+    worker is free to agree with (issue #1096)."""
+    pdk_fell_back = any(note.startswith("PDK:") for note in env_notes)
+    ng_fell_back = any(note.startswith("ngspice:") for note in env_notes)
+    fell_back_label = " (submitting host; no single executing-worker value reported)"
+    return (
+        env_pdk + (fell_back_label if pdk_fell_back else " (executing worker)"),
+        env_ng + (fell_back_label if ng_fell_back else " (executing worker)"),
+    )
+
+
 def _copy_corner_logs(report: dict, corners_dir: Path) -> list[str]:
     """Copy each unit's ngspice log out of the (scratch) artifacts dir into
     `corners_dir` as committed raw evidence, returning the basenames."""
@@ -1141,10 +1160,11 @@ def run_row_evidence_campaign(
             ]
         lines.append("")
         env_pdk, env_ng, env_notes = worker_environment(report, prov)
+        pdk_line, ngspice_line = attributed_environment_lines(env_pdk, env_ng, env_notes)
         lines.extend(
             evidence.environment_block(
-                pdk_line=f"{env_pdk} (executing worker)",
-                ngspice_line=f"{env_ng} (executing worker)",
+                pdk_line=pdk_line,
+                ngspice_line=ngspice_line,
                 netlist_sha256=net_sha,
                 extra={
                     "klt (client)": report.get("provenance", {}).get("klt_version", "unknown"),
