@@ -108,6 +108,11 @@ class TestEvidenceProvenance(unittest.TestCase):
                                  (decks / (source + ".spice")).read_bytes())
                 record = (self.experiment / "records" / (source + "-replay.md")).read_text()
                 self.assertIn(f"W = L = {side} um", record)
+                self.assertIn(f"The {side} um plate was sampled at this PVT point only", record)
+                if source == PILOT_RECORD_ID:
+                    self.assertIn("nominal C = 23.805 fF", record)
+                    self.assertIn("0.1362%", record)
+                    self.assertIn("remain unmeasured for that geometry", record)
 
     def test_rejected_requests_leave_no_artifacts(self):
         original = set(self.experiment.rglob("*"))

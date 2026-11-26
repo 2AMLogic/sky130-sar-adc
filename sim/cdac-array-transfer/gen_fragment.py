@@ -45,9 +45,8 @@ def gen_side(code: int, side: str, side_code: int, unit_side_um: float = 1.9000)
     `unit_side_um` is the MiM unit-cap plate side (DR-019's 1.9000 um by
     default, byte-identical to the hand-authored fragment). Issue #1016's
     closure study passes a candidate value to simulate a resized array
-    WITHOUT touching design/cdac -- the PDK's own Pelgrom mismatch term
-    (sigma ~ A_C/sqrt(W*L)) picks up the new plate automatically, which is
-    the point: the study rescales the mismatch, nothing else."""
+    without editing design/cdac. The card uses the new W and L for both
+    nominal capacitance and mismatch. The bit weights are unchanged."""
     bits = [(side_code >> i) & 1 for i in range(9)]
     side_label = "P" if side == "p" else "N"
     lines = [f"* ---- code={code} side={side_label} (side_code={side_code}, bits lsb-first={bits})"]
