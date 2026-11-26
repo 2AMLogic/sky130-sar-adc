@@ -623,7 +623,7 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
       "27 °C and 1.8 V. The separate five-code transfer sweeps used 1.8988 and 1.9000 um plates. "
       "The 3.3000 um acquisition and bit-trial settling results in #1033 concern different measurements. "
       "Candidate transfer monotonicity and mismatch yield across PVT remain open. "
-      "The pilot yield envelope (record 20261126-043733-91c2f129) reports empirical 1.000 with normal-fit cpk 0.93 (DNL) / 1.79 "
+      "The pilot yield envelope (record 20261126-051316-7e91374a) reports empirical 1.000 with normal-fit cpk 0.93 (DNL) / 1.79 "
       "(INL), a required N of 368 to CLAIM 0.99 at this pass rate, and its declared negative control "
       "(the as-built 1.9000 um campaign's committed draws) is not yet statistically distinguishable "
       "from the nominal at N=16 -- both are the pilot's stated size limits, resolved by the sized run.")
