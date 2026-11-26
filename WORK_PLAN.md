@@ -7,8 +7,6 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
-- **#1036**: sim(cdac): attribute DNL/INL spread and propose the 3.3000 um unit-cap closure (DR-027)
-- **#1049**: feat: grade the V_REF relation per corner and declare the LSB/sampling-cap tolerance gaps
 
 ## Very Important
 
@@ -62,8 +60,6 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 - **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
-- **#1036**: sim(cdac): attribute DNL/INL spread and propose the 3.3000 um unit-cap closure (DR-027)
-- **#1049**: feat: grade the V_REF relation per corner and declare the LSB/sampling-cap tolerance gaps
 
 ## Proposed
 
@@ -102,13 +98,13 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 4 |
+| Operator merge-risk holds | 2 |
 | Very important | 1 |
 | Important | 9 |
 | Ready (`loom:issue`) | 2 |
 | In Progress (`loom:building`) | 7 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 5 |
+| Approved PRs awaiting merge | 3 |
 | Curated | 15 |
 | Architect / Hermit proposals | 6 |
 | Active epics | 1 |
