@@ -45,11 +45,10 @@ inventing a tolerance (CLAUDE.md: agents do not choose spec tolerances):
 Usage:
     python3 sim/cdac-array-transfer/run_klt_graded.py --record
 
-The submit goes through `klt sim` (batch fleet on a dispatch host via
-$KLT_SIM_BACKEND), always with `--wait-for-capacity 600` (the shared
-harness's fleet-capacity policy, sim/harness/klt_sim.py). The report is
-cached beside the record, so a re-run after a crash resumes without
-re-spending fleet jobs.
+The record command selects the batch backend with `--wait-for-capacity 600`.
+Raw results are saved in `klt-sim/<record-id>/`. Rerunning after an
+interruption with a new timestamped record ID submits a new job, even if
+the previous report was saved.
 """
 
 from __future__ import annotations
@@ -284,7 +283,6 @@ def write_record(
     functional_ok = all(r["monotonic"] and r["correct_sign"] for r in rows)
     report_pass = report.get("status") == "pass" and passed == len(corners)
     overall_ok = report_pass and graded_ok and functional_ok and struct_ok
-    binding = max(rows, key=lambda r: abs(r["vref_ratio"] - 1.0))
 
     # ---- baseline-agreement probe (issue #564's comparator; #811's gate, informational here)
     from compare_klt_envelope import load_baseline, compare
@@ -396,11 +394,16 @@ def write_record(
     )
     if note:
         a(f"- **Note**: {note}")
-    a(
-        f"- **Binding corner**: `{binding['corner_id']}` (max |vref_ratio - 1| = "
-        f"{abs(binding['vref_ratio'] - 1.0):.3g}) -- recorded regardless of "
-        "pass/fail, per sim/README.md's per-row binding-corner convention."
-    )
+    binding_corners = []
+    for name, target, unit in (("vref_ratio", 1, ""), ("v_vrefn", 0, " V")):
+        errors = [(r["corner_id"], abs(r[name] - target)) for r in rows]
+        max_error = max(error for _, error in errors)
+        tied = [f"`{cid}`" for cid, error in errors if error == max_error]
+        locations = f"all {len(rows)} corners" if len(tied) == len(rows) else ", ".join(tied)
+        binding_corners.append(
+            f"`{name}` at {locations} (max deviation from {target}{unit} = {max_error:.6g}{unit})"
+        )
+    a("- **Binding corner**: " + ". ".join(binding_corners) + ".")
     a(
         f"- **Overall**: {'PASS' if overall_ok else 'FAIL'} (envelope status "
         f"{report.get('status')!r}, {report.get('passed')}/{report.get('corner_count')} "
@@ -489,8 +492,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--record", action="store_true",
                     help="submit the graded request and mint the evidence record")
-    ap.add_argument("--backend", default=None,
-                    help="klt sim backend (default: klt's own / $KLT_SIM_BACKEND)")
+    ap.add_argument("--backend", default="batch", help="klt sim backend (default: batch)")
     ap.add_argument("--request", default=str(REQUEST),
                     help="full-grid records require the committed request-graded.json")
     ap.add_argument("--note", default="")

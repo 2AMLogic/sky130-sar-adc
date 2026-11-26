@@ -63,8 +63,8 @@ between is **`sim/harness/klt_sim.py`**, not a per-campaign copy:
 - `submit(request, outdir, backend=..., capacity_wait_s=...)` writes the argv,
   runs `klt sim`, reads the JSON report off stdout (or off stderr, where the
   client writes its error envelope), refuses an error ENVELOPE rather than
-  reading it as zero corners, and caches `report.json` beside the request so a
-  campaign that died partway resumes without re-spending completed fleet jobs.
+  reading it as zero corners, and caches `report.json` beside the request by
+  default. A retry that uses the same report path reuses the saved result.
 - **One fleet-capacity policy.** `--wait-for-capacity` (default 600 s) is
   passed on every submit that is not explicitly `--backend local`, per
   `CLAUDE.md`'s host rule: the Spot fleet is vCPU-budgeted, so a burst is

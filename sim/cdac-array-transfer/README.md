@@ -181,12 +181,14 @@ python3 sim/cdac-array-transfer/run_klt_graded.py --record
 A `--dry-run` first (no simulation, schema/corner-grid validation):
 
 ```sh
-uvx --from "klayout-tools==0.9.0" klt sim sim/cdac-array-transfer/testbench/klt/request-graded.json --dry-run --format json   # expect unit_count: 9
+uvx --from "klayout-tools==0.9.0" klt sim sim/cdac-array-transfer/testbench/klt/request-graded.json --backend batch --wait-for-capacity 600 --dry-run --format json   # expect unit_count: 9
 ```
 
-The submit goes through `klt sim` (batch fleet via `$KLT_SIM_BACKEND`, with
-`--wait-for-capacity 600` per the shared harness's fleet-capacity policy);
-the runner refuses to mint a record whose worker PDK/ngspice stamps drift
+The record command selects the batch backend by default and passes
+`--wait-for-capacity 600`. It saves the raw report under
+`klt-sim/<record-id>/report.json`. Retrying after an interruption with a new
+record ID submits a new job, even if the previous report was saved.
+The runner refuses to mint a record whose worker PDK/ngspice stamps drift
 from `sim/pdk.json` / `sim/toolchain.json`. A full-grid record requires the
 committed graded request and one result for each ratified process, temperature
 and supply combination in the OAT grid. Run a subset request directly with

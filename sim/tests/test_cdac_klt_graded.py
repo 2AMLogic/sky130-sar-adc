@@ -44,6 +44,10 @@ class GradedRecordTest(unittest.TestCase):
         self.assertFalse((self.work / "records/test.md").exists())
         self.assertFalse((self.work / "netlist-snapshots").exists())
 
+    def test_record_defaults_to_batch(self):
+        submit = self.record()
+        self.assertEqual(submit.call_args.kwargs["backend"], "batch")
+
     def test_debug_request_refused_before_submission(self):
         quick = self.work / "quick.json"
         req = json.loads(graded.REQUEST.read_text())
@@ -119,18 +123,29 @@ class GradedRecordTest(unittest.TestCase):
         self.assertIn("margin", self.stdout.getvalue())
 
     def test_genuine_reference_failure_is_recorded(self):
-        self.report.update(status="fail", passed=8, failed=1)
-        corner = self.report["corners"][-1]
-        corner["status"] = "fail"
-        result = next(m for m in corner["measurements"] if m["name"] == "vref_ratio")
-        result.update(value=0.9, status="fail", margin=-0.09999)
-        definition = next(m for m in self.report["measurements"] if m["name"] == "vref_ratio")
-        definition["status"] = "fail"
-        self.record()
-        self.assertEqual(self.status, 1, self.stdout.getvalue())
-        record = (self.work / "records/test.md").read_text()
-        self.assertIn("**Overall**: FAIL", record)
-        self.assertNotIn("FAIL at all 9 corners", record)
+        for name, value, margin in (("vref_ratio", 0.9, -0.09999), ("v_vrefn", 2e-5, -1e-5)):
+            with self.subTest(name=name):
+                self.report = json.loads(ARCHIVE.read_text())
+                self.report.update(status="fail", passed=8, failed=1)
+                corner = next(
+                    c for c in self.report["corners"]
+                    if c["corner_id"] == "tt/novdd/27C/params:vdd_val=1.8"
+                )
+                corner["status"] = "fail"
+                result = next(m for m in corner["measurements"] if m["name"] == name)
+                result.update(value=value, status="fail", margin=margin)
+                definition = next(m for m in self.report["measurements"] if m["name"] == name)
+                definition["status"] = "fail"
+                self.record()
+                self.assertEqual(self.status, 1, self.stdout.getvalue())
+                record = (self.work / "records/test.md").read_text()
+                self.assertIn("**Overall**: FAIL", record)
+                self.assertIn("8/9 corners passed", record)
+                self.assertNotIn("FAIL at all 9 corners", record)
+                binding = next(line for line in record.splitlines() if "**Binding corner**" in line)
+                self.assertIn(f"`{name}` at `tt_27c_1.80v`", binding)
+                other = "vref_ratio" if name == "v_vrefn" else "v_vrefn"
+                self.assertIn(f"`{other}` at all 9 corners", binding)
 
     def test_missing_duplicate_and_wrong_corner_refused(self):
         for fault in ("subset", "duplicate", "wrong supply"):
