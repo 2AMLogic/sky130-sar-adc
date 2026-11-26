@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import json
 import sys
 import tempfile
 import unittest
@@ -37,9 +38,7 @@ class TestCandidateRecordExecutingEnvironment(unittest.TestCase):
     executing worker's PDK and simulator when the run reported both, and the
     SUBMITTING host's pair -- labelled as such -- when it did not.
 
-    Driven over an empty report: no corner completes, and the Environment
-    section reads the run info, not the numbers. Provenance is stubbed into a
-    temp dir, so nothing under sim/cdac-bit-trial-settling/ is written."""
+    Records are rendered in a temporary experiment directory."""
 
     @staticmethod
     def _info(**worker) -> dict:
@@ -78,6 +77,43 @@ class TestCandidateRecordExecutingEnvironment(unittest.TestCase):
                 self.assertNotIn("- ngspice: ngspice-47", text)
                 self.assertIn("- PDK / ngspice above: submitting host "
                               "(worker environment unknown)", text)
+
+    def test_archived_grid_and_local_unit_cap_probes(self):
+        archive = RUNNER.parent / "corners" / "20261123-000415-d1ce38af"
+        report = json.loads((archive / "report.json").read_text())
+
+        def replay_probe(deck, scratch, log_name):
+            wl = log_name.removeprefix("capprobe_")
+            return (archive / f"unit_cap_{wl}um.log").read_text()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            argv = ["run_bit_trial_settling.py", "--dr027-candidate", "--record",
+                    "--backend", "batch", "--workdir", str(Path(tmp) / "work")]
+            with (
+                provenance_fixture.fake_provenance(rt, tmp),
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.object(rt.toolchain, "preflight", return_value=None),
+                mock.patch.object(rt.pdk, "resolve_or_raise"),
+                mock.patch.object(rt.toolchain, "run_ngspice_with_retry", side_effect=replay_probe),
+                mock.patch.object(rt.klt_sim, "submit", return_value=report),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                self.assertEqual(rt.main(), 0)
+            text = (Path(tmp) / "records" / "REC.md").read_text()
+
+        probes = next((line for line in text.splitlines()
+                       if line.startswith("- **Unit-capacitance probes**")), "")
+        self.assertIn("submitting host", probes)
+        self.assertIn("sky130A @ testing", probes)
+        self.assertIn("ngspice-46", probes)
+        self.assertIn("1.9000 um -> 8.405 fF/unit", probes)
+        self.assertIn("3.3000 um -> 23.805 fF/unit", probes)
+        environment = text.split("## Environment\n", 1)[1]
+        self.assertIn("- PDK: sky130A @ f6eeac7d", environment)
+        self.assertIn("- ngspice: ngspice-47", environment)
+        self.assertIn("settling grid", environment)
+        self.assertNotIn("fF/unit", environment)
+        self.assertNotIn("this record was produced by the executing worker", text)
 
 
 class TestBuildTransient(unittest.TestCase):

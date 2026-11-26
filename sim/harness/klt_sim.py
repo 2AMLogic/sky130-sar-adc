@@ -437,9 +437,10 @@ def executing_environment(prov, info) -> dict:
     `pdk` is the worker's `worker_pdk` verbatim: `run_info()` already
     formats it `"{variant} @ {sha}"`, so no campaign re-prefixes it.
     `matches_host` compares the PDK commit (`pdk_commit_token()`) and the
-    whole ngspice version string, and is False whenever the worker's
-    environment is unknown -- "the same" is a statement about two known
-    values.
+    whole ngspice version string. It is true only for a confirmed match.
+    A difference in either known field proves a mismatch. If neither field
+    proves a mismatch and host provenance is incomplete, the note reports
+    that the comparison is undetermined.
 
     Returns `{known, pdk, ngspice, runner_klt, matches_host,
     attribution_extra, note}`: `pdk` / `ngspice` are the
@@ -466,18 +467,26 @@ def executing_environment(prov, info) -> dict:
          if job.get("runner_klt_version")),
         None,
     )
-    matches_host = bool(
-        known
-        and pdk_commit_token(prov.pdk_line) == pdk_commit_token(worker_pdk)
-        and str(prov.ng_version).strip() == str(worker_ng).strip()
-    )
+    matches_host = False
     if known:
+        host_commit = pdk_commit_token(prov.pdk_line)
+        pdk_match = None
+        # resolved_commit() can display the expected pin of an unverified install.
+        if host_commit not in ("", "unknown") and "(unverified" not in prov.pdk_line:
+            pdk_match = host_commit == pdk_commit_token(worker_pdk)
+        host_ng = (prov.ng_version or "").strip()
+        ng_match = host_ng == worker_ng.strip() if ngspice_from_banner(host_ng) else None
+        matches_host = pdk_match is True and ng_match is True
         note = ("The Environment block below names the PDK and ngspice of the "
-                "EXECUTING worker when it reported them; the submitting host "
-                f"resolved `{prov.pdk_line}` / `{prov.ng_version}`. ")
-        note += ("They are the same for this run." if matches_host else
-                 "**They differ for this run**, so no figure here is controlled "
-                 "for PDK or simulator version against a locally run record.")
+                "EXECUTING worker. The submitting host recorded "
+                f"`{prov.pdk_line}` / `{prov.ng_version}`. ")
+        if matches_host:
+            note += "They are the same for this run."
+        elif pdk_match is False or ng_match is False:
+            note += ("**They differ for this run**. A comparison with a run on the "
+                     "submitting host cannot isolate the effect of a design change.")
+        else:
+            note += "The host-to-worker comparison is undetermined."
     else:
         note = ("The worker reports do not establish a single PDK and simulator pair. "
                 "The Environment block below names the SUBMITTING host's PDK and ngspice.")

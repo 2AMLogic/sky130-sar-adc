@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 SIM_DIR = Path(__file__).resolve().parent.parent
@@ -19,6 +20,7 @@ sys.path.insert(0, str(SIM_DIR / "top-plate-cpar"))
 
 import provenance_fixture  # noqa: E402
 import run_top_plate_cpar as m  # noqa: E402
+from harness import pdk  # noqa: E402
 
 DUT = m.DUT_NETLIST.read_text()
 
@@ -147,7 +149,8 @@ class TestRecordExecutingEnvironment(unittest.TestCase):
         return {"job_id": "job-1", "status": "pass", "backend": "batch",
                 "worker_pdk": pdk, "worker_ngspice": ng}
 
-    def _record_text(self, **variant_overrides: dict) -> str:
+    def _record_text(self, *, pdk_line=provenance_fixture.PDK_LINE,
+                     ng_version=provenance_fixture.NG_VERSION, **variant_overrides) -> str:
         runs = {v: self._info() for v in m.VARIANTS}
         runs.update(variant_overrides)
         cids = m.corner_ids()
@@ -158,7 +161,7 @@ class TestRecordExecutingEnvironment(unittest.TestCase):
                 d.mkdir()
                 for name in ("report.json", "request.json", "tb.spice"):
                     (d / name).write_text("{}\n")
-            with provenance_fixture.fake_provenance(m, tmp):
+            with provenance_fixture.fake_provenance(m, tmp, pdk_line=pdk_line, ng_version=ng_version):
                 path = m.write_record(analysis, {"runs": runs}, cids, "(none)", Path(tmp))
                 return path.read_text()
 
@@ -172,6 +175,25 @@ class TestRecordExecutingEnvironment(unittest.TestCase):
         self.assertIn("names the PDK and ngspice of the EXECUTING worker", text)
         self.assertIn("**They differ for this run**", text)
         self.assertNotIn("resolved on the SUBMITTING host", text)
+
+    def test_partly_known_host_compared_to_the_grid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            install = replace(pdk.resolve(), variant_dir=Path(tmp), open_pdks_commit_expected="deadbeef")
+            unverified = f"sky130A @ {pdk.resolved_commit(install)}"
+        for host_pdk, host_ng, differs in (
+            (unverified, "ngspice-47", False),
+            ("sky130A @ deadbeef", "unknown", False),
+            (unverified, "unknown", False),
+            (unverified, "ngspice-46", True),
+            ("sky130A @ caffee", "unknown", True),
+        ):
+            with self.subTest(pdk=host_pdk, ngspice=host_ng):
+                text = self._record_text(pdk_line=host_pdk, ng_version=host_ng)
+                self.assertIn("- PDK: sky130A @ deadbeef\n- ngspice: ngspice-47", text)
+                self.assertIn(f"- submitting host PDK / ngspice: {host_pdk} / {host_ng}", text)
+                self.assertEqual("They differ for this run" in text, differs)
+                self.assertEqual("comparison is undetermined" in text, not differs)
+                self.assertNotIn("They are the same for this run", text)
 
     def test_one_variant_disagreeing_names_the_submitting_hosts_pair(self):
         text = self._record_text(**{m.VARIANTS[0]: self._info(pdk="sky130A @ caffee")})

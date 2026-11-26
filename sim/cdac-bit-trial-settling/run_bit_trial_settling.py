@@ -1629,8 +1629,11 @@ def write_candidate_record(
         f"pfet W={SWITCH_PFET_WL[0]:g}/L={SWITCH_PFET_WL[1]:g}), held bits "
         "as ideal fixed bottom plates, and supply-normalised control/"
         "threshold nodes so one numeric measurement set serves every "
-        "corner. Model-evaluated unit capacitance (this run's own tt/27C "
-        f"ramp probe, committed beside this record): {cu_txt} -- a "
+        "corner.",
+        "- **Unit-capacitance probes** at tt/27C on the submitting host "
+        f"(`{prov.pdk_line}` / `{prov.ng_version}`) measured {cu_txt}. "
+        "Both ramp-probe logs are committed beside this record. "
+        "The candidate plate gives a "
         f"{ratio_cu:.3f}x area-driven C_u growth, i.e. the same factor on "
         "every tau_i (C_u scales tau_i linearly). Issue #1033's nominal "
         "~12.4 pF/side (512 x 24.29 fF) is the same plate without the "
@@ -1768,21 +1771,22 @@ def write_candidate_record(
         "python3 sim/cdac-bit-trial-settling/run_bit_trial_settling.py --dr027-candidate --record --backend batch",
         "```",
         "",
-        "The grid is ONE `klt sim` request (six independent deck copies in "
-        "one circuit body, two analysis steps per corner = 18 units) "
-        "submitted to the batch fleet with `--wait-for-capacity 600`; no "
-        "ngspice loop runs on the submitting host. `--probe` runs the same "
-        "request at one corner on the local backend and is the only path "
-        "that simulates locally, beside the two single-run unit-cap probes. "
+        "This command submits the settling grid as one `klt sim` request "
+        "to the batch fleet with `--wait-for-capacity 600` (six independent "
+        "deck copies in one circuit body, two analysis steps per corner = "
+        "18 units). The two unit-capacitance "
+        "probes run on the submitting host. `--probe` runs the grid request "
+        "at one corner on the local backend. "
         "The request and body are committed under "
         f"`corners/{prov.record_id}/request/`, the raw report beside this "
         f"record under `corners/{prov.record_id}/report.json`.",
         "",
         "## `klt sim` run",
         "",
-        f"- job `{info.get('job_id')}`, status `{info.get('status')}`, backend "
-        f"`{info.get('backend')}`, executing PDK `{info.get('worker_pdk')}`, "
-        f"executing simulator `{info.get('worker_ngspice')}`"
+        f"- Settling grid job `{info.get('job_id')}`, status `{info.get('status')}`, backend "
+        f"`{info.get('resolved_backend') or info.get('backend')}`, "
+        f"executing PDK `{info.get('worker_pdk') or 'unknown'}`, "
+        f"executing simulator `{info.get('worker_ngspice') or 'unknown'}`"
         + (", sharded" if info.get("sharded") else "")
         + ".",
         "",
@@ -1790,13 +1794,11 @@ def write_candidate_record(
         f"record.** [`records/{CAND_BASELINE_RECORD}.md`]"
         f"({CAND_BASELINE_RECORD}.md) was minted on "
         "`sky130A @ c6d73a35f524070e85faff4a6a9eef49553ebc2b` / `ngspice-46` "
-        "by an in-process ngspice loop; this record was produced by the "
-        "executing worker named above. Where those differ, a change between "
-        "the two records is as readily a PDK or simulator-version difference "
-        "as a geometry one, and the C_u-ratio scaling "
-        f"({ratio_cu:.3f}x measured this run) is the controlled comparison "
-        "to make: the baseline's binding 13.2466 ns times that ratio is "
-        "the prediction this record tests.",
+        "by an in-process ngspice loop. A difference in PDK or simulator "
+        "between that run and the candidate settling grid can also affect the "
+        "settling times. Scaling the baseline's binding 13.2466 ns by the "
+        f"{ratio_cu:.3f}x C_u ratio measured on the submitting host gives the "
+        "prediction tested against the grid.",
         "",
     ]
     lines += evidence.environment_block(
@@ -1804,10 +1806,10 @@ def write_candidate_record(
         env["ngspice"],
         prov.netlist_sha,
         {
+            "PDK / ngspice scope": "bit-trial settling grid",
             "klt": klt_version,
             "candidate plate": f"{CANDIDATE_UNIT_CAP_WL_UM:.4f} um "
             "(EXPERIMENTAL; production draws 1.9000 um)",
-            "unit cap (model, this run)": cu_txt,
             "tran steps": (
                 f"fast {TRAN_STEP_PS:g} ps ceiling x {CAND_FAST_TRAN_STOP_NS:g} ns; "
                 f"slow {CAND_SLOW_TRAN_STEP_NS:g} ns ceiling x "
