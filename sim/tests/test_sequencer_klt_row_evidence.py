@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import shutil
 import sys
 import tempfile
 import unittest
@@ -560,7 +561,9 @@ CLIENT_DIGEST = (
 COMPARISON_HEADING = (
     f"## Comparison with the superseded record (`{OLD_RECORD}`, issue #811)"
 )
-REVISION = ("9aaf1ca2", "2026-09-11", "fix: SAR trial perturbation")
+FLEET_RECORD = "20261126-113902-4f1b0b9c"
+# A distinguishable archived input for tests that run in shallow CI checkouts.
+REPLAY_FRAGMENT = FRAGMENT.replace("1570.1n {vdd_val}", "1570.1n 0.00")
 
 
 def _flat_margins(margin: float) -> dict:
@@ -639,37 +642,24 @@ class TestParseCornerSummary(unittest.TestCase):
         )
 
 
-class TestRevisionsSince(unittest.TestCase):
-    """`revisions_since()` lists the commits whose AUTHOR date falls after the
-    superseded record's mint date and that touched a path -- read from git,
-    never asserted from memory."""
+class TestArchivedFragment(unittest.TestCase):
+    def test_reads_the_tree_that_added_the_record(self):
+        commit = "1234" * 10
+        with mock.patch.object(m.klt_sim, "default_runner", side_effect=[
+            (0, f"{commit} parent\n", ""), (0, REPLAY_FRAGMENT, "")
+        ]) as git:
+            fragment, source = m.archived_fragment(OLD_RECORD)
+        self.assertEqual(fragment, REPLAY_FRAGMENT)
+        lookup, show = (call.args[0] for call in git.call_args_list)
+        self.assertIn("--diff-filter=A", lookup)
+        self.assertEqual(lookup[-1], f"sim/sar-sequencer-behavioral/records/{OLD_RECORD}.md")
+        self.assertEqual(source, f"{commit}:sim/sar-sequencer-behavioral/testbench/{m.FRAGMENT.name}")
+        self.assertEqual(show[-2:], ["show", source])
 
-    LOG = (
-        "9aaf1ca2 2026-09-11 fix: SAR trial perturbation\n"
-        "0c70212a 2026-08-27 sim: run the full PVT corner campaign\n"
-        "fa89efbe 2026-08-24 feat: add SAR sequencer\n"
-    )
-
-    def test_only_revisions_after_the_mint_date(self):
-        seen = []
-
-        def runner(argv):
-            seen.append(argv)
-            return 0, self.LOG, ""
-
-        revs = m.revisions_since(Path("design/x.sch"), OLD_RECORD, runner=runner)
-        self.assertEqual(revs, [REVISION])
-        self.assertEqual(seen[0][:4], ["git", "-C", str(m.REPO_ROOT), "log"])
-        self.assertIn("--date=short", seen[0])
-        self.assertIn("--", seen[0])
-
-    def test_a_git_failure_is_unavailable_not_empty(self):
-        """None (git could not answer) must stay distinguishable from [] (no
-        revision): the record says which of the two it is."""
-        self.assertIsNone(
-            m.revisions_since(Path("design/x.sch"), OLD_RECORD,
-                              runner=lambda argv: (128, "", "fatal: not a repo"))
-        )
+    def test_shallow_boundary_cannot_identify_the_archived_fragment(self):
+        with mock.patch.object(m.klt_sim, "default_runner", return_value=(0, "abc\n", "")):
+            with self.assertRaisesRegex(ValueError, "fetch its git history"):
+                m.archived_fragment(OLD_RECORD)
 
 
 class TestSupersedingRecord(unittest.TestCase):
@@ -686,7 +676,7 @@ class TestSupersedingRecord(unittest.TestCase):
                 mock.patch.object(m.toolchain, "preflight", return_value=None), \
                 mock.patch.object(m, "netlist_dut_klt", return_value=self.STUB_DUT), \
                 mock.patch.object(m.klt_sim, "submit", return_value=report), \
-                mock.patch.object(m, "revisions_since", return_value=[REVISION]) as revs, \
+                mock.patch.object(m, "archived_fragment", return_value=(REPLAY_FRAGMENT, "test-revision:fragment")) as archive, \
                 contextlib.redirect_stdout(io.StringIO()):
             (Path(tmp) / "records").mkdir()
             (Path(tmp) / "netlist-snapshots").mkdir()
@@ -694,12 +684,22 @@ class TestSupersedingRecord(unittest.TestCase):
                 OLD_RECORD_PATH.read_bytes())
             (Path(tmp) / "netlist-snapshots" / f"{OLD_RECORD}.spice").write_bytes(
                 OLD_SNAPSHOT_PATH.read_bytes())
+            if supersedes == FLEET_RECORD:
+                for path in (f"records/{FLEET_RECORD}.md", f"netlist-snapshots/{FLEET_RECORD}.spice",
+                             f"corners/{FLEET_RECORD}/report.json", f"corners/{FLEET_RECORD}/request/tb.spice",
+                             f"corners/{FLEET_RECORD}/request/request.json"):
+                    dest = Path(tmp) / path
+                    dest.parent.mkdir(exist_ok=True, parents=True)
+                    shutil.copyfile(_OLD_FAMILY / path, dest)
             rc = m.run_row_evidence_campaign(
                 record=True, quiet=True, supersedes=supersedes
             )
+            inputs = Path(tmp) / "corners" / provenance_fixture.RECORD_ID / "request"
+            self.body = (inputs / "tb.spice").read_text()
+            self.request = json.loads((inputs / "request.json").read_text())
             record = (Path(tmp) / "records"
                       / f"{provenance_fixture.RECORD_ID}.md").read_text()
-            self.paths = [call.args[0] for call in revs.call_args_list]
+            self.fragment_reads = archive.call_count
             return record, rc
 
     def _comparison_rows(self, record: str) -> list[str]:
@@ -711,6 +711,13 @@ class TestSupersedingRecord(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn(f"- **Supersedes**: {OLD_RECORD}", record)
         self.assertNotIn("supersedes nothing", record)
+        self.assertIn(COMPARISON_HEADING, record)
+
+    def test_record_link_resolves_the_same_inputs(self):
+        link = f"[`records/{OLD_RECORD}.md`]({OLD_RECORD}.md)"
+        record, rc = self._record(_superseding_report(), supersedes=link)
+        self.assertEqual(rc, 0)
+        self.assertIn(f"- **Supersedes**: {link}", record)
         self.assertIn(COMPARISON_HEADING, record)
 
     def test_old_new_and_delta_per_corner_at_the_printed_precision(self):
@@ -763,19 +770,28 @@ class TestSupersedingRecord(unittest.TestCase):
         self.assertIn("sky130A @ f6eeac7", diffs)
         self.assertIn("ngspice-47", diffs)
         self.assertIn(f"`{WORKER_DIGEST}`", diffs)
-        self.assertIn("client klt `0.9.3.devtest`", diffs)
-        self.assertIn("runner klt `0.9.0`", diffs)
-        # DUT: the real August snapshot's 36 instance cards vs the stub's 2
-        self.assertIn("36 instance", diffs)
-        self.assertIn("2 instance", diffs)
-        self.assertIn("differ", diffs)
-        # design-side revisions since the August record, for the schematic
-        # and for the stimulus fragment alike
-        self.assertEqual(
-            sorted(str(p) for p in self.paths),
-            sorted([str(m.DESIGN_SCH), str(m.FRAGMENT)]),
-        )
-        self.assertEqual(diffs.count(REVISION[0]), 2)
+        self.assertIn("no binary digest recorded", diffs)
+        self.assertIn("half-rail bit rule to raw node samples", diffs)
+        self.assertIn("36 instance cards", diffs)
+        self.assertIn("test-revision:fragment", diffs)
+        self.assertNotIn("netlisted fresh", record)
+        self.assertEqual(m.instance_cards(self.body), m.instance_cards(OLD_SNAPSHOT_PATH.read_text()))
+        self.assertIn("1570.1n 0.00", self.body)
+        self.assertNotIn("1570.1n {vdd_val}", self.body)
+
+    def test_fleet_predecessor_replays_its_inputs_and_reports_its_own_worker(self):
+        record, rc = self._record(_superseding_report(), supersedes=FLEET_RECORD)
+        self.assertEqual(rc, 0)
+        archive = _OLD_FAMILY / "corners" / FLEET_RECORD
+        report = json.loads((archive / "report.json").read_text())
+        digest = report["environment"]["engine_build"]["binary_sha256"]
+        diffs = record.split("### Differences from the superseded record", 1)[1]
+        self.assertIn(f"there (executing ngspice binary sha256 (worker): `{digest}`)", diffs)
+        self.assertIn("previously klt sim graded signed half-rail margins", diffs)
+        self.assertNotIn("raw node samples", diffs)
+        self.assertEqual(self.body, (archive / "request/tb.spice").read_text())
+        self.assertEqual(self.request, json.loads((archive / "request/request.json").read_text()))
+        self.assertEqual(self.fragment_reads, 0)
 
     def test_a_missing_worker_digest_is_stated_as_unmet(self):
         record, _rc = self._record(_superseding_report(digest=None))
@@ -819,26 +835,39 @@ class TestSupersedingRecord(unittest.TestCase):
         )
         self.assertNotIn(COMPARISON_HEADING, record)
         self.assertIn("supersedes nothing", record)
-        self.assertEqual(self.paths, [], "no git archaeology without a predecessor")
+        self.assertEqual(self.fragment_reads, 0)
 
-    def test_an_absent_predecessor_file_is_stated_not_invented(self):
-        with tempfile.TemporaryDirectory() as tmp, \
-                provenance_fixture.fake_provenance(m, tmp), \
-                mock.patch.object(m.toolchain, "preflight", return_value=None), \
-                mock.patch.object(m, "netlist_dut_klt", return_value=self.STUB_DUT), \
-                mock.patch.object(m.klt_sim, "submit", return_value=_superseding_report()), \
-                mock.patch.object(m, "revisions_since", return_value=[REVISION]) as revs, \
-                contextlib.redirect_stdout(io.StringIO()):
-            rc = m.run_row_evidence_campaign(record=True, quiet=True,
-                                             supersedes=OLD_RECORD)
-            record = (Path(tmp) / "records"
-                      / f"{provenance_fixture.RECORD_ID}.md").read_text()
-        self.assertEqual(rc, 0)
-        self.assertIn(f"- **Supersedes**: {OLD_RECORD}", record)
-        comparison = record.split(COMPARISON_HEADING, 1)[1]
-        self.assertIn(f"no record `records/{OLD_RECORD}.md`", comparison)
-        self.assertEqual(revs.call_args_list, [], "nothing to date a revision against")
-        self.assertNotIn("| `tt_27c_1.80v` | PASS |", comparison)
+    def test_invalid_predecessor_fails_before_submission_and_publication(self):
+        for problem in ("missing", "bad summary", "missing corner", "bad snapshot", "missing stimulus", "typo"):
+            with self.subTest(problem=problem), tempfile.TemporaryDirectory() as tmp, \
+                    provenance_fixture.fake_provenance(m, tmp), \
+                    mock.patch.object(m.toolchain, "preflight", return_value=None), \
+                    mock.patch.object(m.klt_sim, "submit") as submit, \
+                    mock.patch.object(m, "archived_fragment", side_effect=ValueError("missing git history")), \
+                    contextlib.redirect_stderr(io.StringIO()) as error:
+                records = Path(tmp) / "records"
+                records.mkdir()
+                latest = records / "LATEST"
+                latest.write_text("previous.md\n")
+                snapshots = Path(tmp) / "netlist-snapshots"
+                snapshots.mkdir()
+                if problem != "missing":
+                    text = OLD_RECORD_PATH.read_text()
+                    if problem == "bad summary":
+                        text = text.replace("| PASS |", "| unreadable |")
+                    if problem == "missing corner":
+                        text = text.replace("tt_27c_1.62v", "tt_27c_1.44v")
+                    (records / OLD_RECORD_PATH.name).write_text(text)
+                    (snapshots / OLD_SNAPSHOT_PATH.name).write_text(
+                        "wrong DUT" if problem == "bad snapshot" else OLD_SNAPSHOT_PATH.read_text())
+                predecessor = f"{OLD_RECORD}-typo" if problem == "typo" else OLD_RECORD
+                rc = m.run_row_evidence_campaign(record=True, quiet=True, supersedes=predecessor)
+                self.assertNotEqual(rc, 0)
+                self.assertIn(predecessor, error.getvalue())
+                submit.assert_not_called()
+                self.assertFalse((Path(tmp) / "corners").exists())
+                self.assertFalse((records / f"{provenance_fixture.RECORD_ID}.md").exists())
+                self.assertEqual(latest.read_text(), "previous.md\n")
 
 
 if __name__ == "__main__":

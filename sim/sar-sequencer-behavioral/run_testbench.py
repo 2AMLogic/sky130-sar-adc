@@ -19,8 +19,8 @@ toolchain/PDK bootstrap this assumes):
         # one local single-corner `klt sim` unit (tt/27C/1.8V) validating the
         # request/deck mechanics before any fleet submit; writes no evidence
     python3 sim/sar-sequencer-behavioral/run_testbench.py --klt-row-evidence --record --supersedes 20260827-211956-e13bc1e
-        # the same batch run written as the record that replaces an earlier
-        # corner record of this campaign for the same claim (issue #811): the
+        # replay the archived stimulus and DUT for an earlier corner record
+        # of this campaign on batch (issue #811): the
         # old-vs-new comparison and the differences between the two runs are
         # rendered into the record -- see comparison_lines()
 
@@ -56,6 +56,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import NamedTuple
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
@@ -644,14 +645,14 @@ def build_row_request(
     return req
 
 
-def build_row_body(dut_text: str, fragment_text: str) -> str:
+def build_row_body(dut_text: str, fragment_text: str, *, replay: bool = False) -> str:
     """The circuit BODY `klt sim` wraps: no `.lib`, no `.temp`, no `.meas`,
     no `.tran`, no `.control`, no `.end` (docs/cli/sim.md, "Netlist
     convention"). The corner's `.lib`/`.temp` cards, the analysis and the
     `.meas` cards all come from the request; `vdd_val` is declared here
     because `corners.params` addresses an existing top-level `.param`.
 
-    The DUT section is the freshly `klt netlist`ed schematic with only its
+    The DUT section uses the supplied snapshot or freshly netlisted schematic with only its
     `.end` and its two checkout-path-bearing `**`-comment header lines
     removed -- device content byte-identical, and the inert `**.subckt`
     wrapper line left exactly as xschem writes it (every record of this
@@ -675,7 +676,8 @@ def build_row_body(dut_text: str, fragment_text: str) -> str:
         "* Circuit body only: klt sim supplies the .lib corner section, .temp,",
         "* the .meas cards, the .tran analysis and the .control wrapper. The DUT",
         "* and stimulus are this campaign's own (design/sar_sequencer.sch",
-        "* netlisted fresh; testbench/sar_sequencer_tb_fragment.spice devices",
+        ("* archived snapshot; historical testbench fragment devices" if replay else
+         "* netlisted fresh; testbench/sar_sequencer_tb_fragment.spice devices"),
         "* verbatim), plus the margin helpers named below.",
         "* One solver thread per unit: concurrent units on a shared runner must",
         "* not oversubscribe it (the same card sim/digital-partition/ carries).",
@@ -1038,269 +1040,166 @@ def instance_cards(netlist_text: str) -> list[str]:
     ]
 
 
-def revisions_since(
-    path: Path, record_id: str, runner=klt_sim.default_runner
-) -> list[tuple[str, str, str]] | None:
-    """`(sha, author date, subject)` of every commit that touched `path` and
-    whose AUTHOR date falls after the day `record_id` was minted (the id's
-    own `YYYYMMDD`), or None when git could not answer.
+class Predecessor(NamedTuple):
+    record_id: str
+    text: str
+    summary: dict[str, tuple[str, float]]
+    dut: str
+    body: str
+    request: dict
+    stimulus_source: str
+    simulator_digest: str
+    grading: str
 
-    Author date, not committer date: a squash merge re-stamps the committer
-    date, so the merge that CARRIED the superseded record's own tree would
-    otherwise read as a later revision of the very content it ran. None (no
-    answer) stays distinct from `[]` (no revision) so the record can say
-    which of the two it is.
+
+def archived_fragment(record_id: str) -> tuple[str, str]:
+    """Get the fragment from the tree that first committed the local record.
+
+    The run's footer can name a dirty checkout. The record ID's git suffix
+    therefore cannot identify the tree containing its final stimulus.
     """
-    minted = record_id[:8]
-    if not minted.isdigit():
-        return None
-    rc, out, _err = runner(
-        ["git", "-C", str(REPO_ROOT), "log", "--format=%h %ad %s",
-         "--date=short", "--", str(path)]
+    path = FRAGMENT.relative_to(REPO_ROOT)
+    record_path = path.parents[1] / "records" / f"{record_id}.md"
+    git = ["git", "-C", str(REPO_ROOT)]
+    rc, history, _ = klt_sim.default_runner(
+        [*git, "log", "--diff-filter=A", "--format=%H %P", "--", str(record_path)]
     )
-    if rc != 0:
-        return None
-    revisions = []
-    for line in out.splitlines():
-        sha, _sep, rest = line.partition(" ")
-        date, _sep, subject = rest.partition(" ")
-        day = date.replace("-", "")
-        if len(day) == 8 and day.isdigit() and day > minted:
-            revisions.append((sha, date, subject))
-    return revisions
+    # A shallow boundary looks like a root commit. Require a real parent to
+    # distinguish the introduction of this record from a truncated history.
+    if rc or len(history.splitlines()) != 1 or len(history.split()) < 2:
+        raise ValueError(f"cannot locate the commit adding {record_path}; fetch its git history")
+    commit = history.split()[0]
+    source = f"{commit}:{path}"
+    rc, fragment, error = klt_sim.default_runner([*git, "show", source])
+    if rc:
+        raise ValueError(f"cannot read historical fragment {source}: {error.strip()}")
+    return fragment, source
 
 
-def _revision_list(revisions: list[tuple[str, str, str]] | None) -> str:
-    if revisions is None:
-        return "unavailable (git could not answer)"
-    if not revisions:
-        return "none"
-    return "; ".join(f"`{sha}` ({date}) {subject}" for sha, date, subject in revisions)
+def load_predecessor(supersedes: str, grid) -> Predecessor:
+    """Resolve and validate all inputs before allocating an evidence ID or submitting."""
+    reference = supersedes.partition(" -- ")[0].strip()
+    link = re.fullmatch(r"\[`?records/([^/]+)\.md`?\]\((?:records/)?\1\.md\)", reference)
+    value = link.group(1) if link else reference.strip("`")
+    record_id = value.removeprefix("records/").removesuffix(".md")
+    if not _RECORD_ID_RE.fullmatch(record_id) or value not in (record_id, f"records/{record_id}.md"):
+        raise ValueError("expected a record ID or a records/<id>.md reference")
+    text = (EXPERIMENT_DIR / "records" / f"{record_id}.md").read_text()
+    if f"- **Record ID**: {record_id}" not in text.splitlines():
+        raise ValueError("record ID differs from the requested predecessor")
+    if not all(_environment_value(text, field) for field in ("PDK", "ngspice")):
+        raise ValueError("missing PDK or ngspice in the predecessor's Environment block")
+    section = text.partition("\n## Per-corner summary\n")[2].partition("\n## ")[0]
+    summary = parse_corner_summary(section)
+    expected_corners = {corners_mod.corner_id(*point) for point in grid}
+    if (set(summary) != expected_corners or len(_CORNER_ROW_RE.findall(section)) != len(grid)
+            or _overall_verdict(text) is None):
+        raise ValueError("expected a complete nine-corner summary and an overall verdict")
+    expected_bits = re.findall(r"^\| `(\w+)` \| ([01]) \|", text, re.M)
+    if len(expected_bits) != len(EXPECTED_BITS) or {n: int(b) for n, b in expected_bits} != EXPECTED_BITS:
+        raise ValueError("the predecessor's binding-corner checks differ from this campaign")
+    snapshot = EXPERIMENT_DIR / "netlist-snapshots" / f"{record_id}.spice"
+    dut = snapshot.read_text()
+    if _environment_value(text, "DUT netlist sha256") != f"`{evidence.sha256_text(dut)}`":
+        raise ValueError(f"DUT snapshot {snapshot.name} differs from its recorded SHA-256")
+    command = (_writer_command(text) or "").split()
+    if "--corners" in command:
+        fragment, source = archived_fragment(record_id)
+        body = build_row_body(dut, fragment, replay=True)
+        _, meas, tran = split_row_fragment(fragment)
+        request = build_row_request("tb.spice", tran, meas, grid)
+        stimulus = f"`{source}` (fragment SHA-256 `{evidence.sha256_text(fragment)}`)"
+        digest = _environment_value(text, "executing ngspice binary sha256 (worker)") or "no binary digest recorded"
+        grading = "the local corner writer applied the half-rail bit rule to raw node samples"
+    elif "--klt-row-evidence" in command:
+        # Fleet records carry the actual submitted inputs, including the
+        # waveform. A replay of a replay must keep those same inputs.
+        archive = EXPERIMENT_DIR / "corners" / record_id
+        body = (archive / "request" / "tb.spice").read_text()
+        request = json.loads((archive / "request" / "request.json").read_text())
+        report = json.loads((archive / "report.json").read_text())
+        body_hash = evidence.sha256_text(body)
+        if report["provenance"]["input"]["content_hash"] != f"sha256:{body_hash}":
+            raise ValueError("archived fleet deck differs from the batch report's input hash")
+        if instance_cards(body) != instance_cards(dut):
+            raise ValueError("archived fleet deck differs from its DUT snapshot")
+        # Recognize this campaign's signed half-rail grading from its actual
+        # measurement cards and limits before interpreting the old results.
+        cards = [m["spice"].replace(MARGIN_SUFFIX + ")", ")") for m in request["measurements"]]
+        meas = parse_meas_cards(cards)
+        if {name for name, *_ in meas} != set(EXPECTED_BITS) or len(meas) != len(EXPECTED_BITS):
+            raise ValueError("unexpected fleet measurement set")
+        expected = build_row_request("tb.spice", request["analysis"]["args"], meas, grid)
+        for key in ("netlist", "analysis", "measurements", "corners", "exclude"):
+            if request.get(key) != expected[key]:
+                raise ValueError(f"unexpected archived request field {key}")
+        helpers = {line for line in margin_helper_lines(meas) if line.startswith("Bm_")}
+        if not helpers.issubset(body.splitlines()):
+            raise ValueError("missing signed half-rail sources in archived fleet deck")
+        stimulus = f"`corners/{record_id}/request/tb.spice` (deck SHA-256 `{body_hash}`)"
+        digest = worker_digest_line(report)[2:]
+        grading = "klt sim graded signed half-rail margins against the archived request limits"
+    else:
+        raise ValueError("unrecognized predecessor grading method in the writer footer")
+    return Predecessor(record_id, text, summary, dut, body, request, stimulus, digest, grading)
 
 
-def _digest_clause(report: dict) -> str:
-    """`worker_digest_line()`'s line without its bullet."""
-    return worker_digest_line(report)[2:]
-
-
-def comparison_lines(
-    supersedes: str,
-    points: list[dict],
-    overall_ok: bool,
-    report: dict,
-    dut_text: str,
-) -> list[str]:
-    """The record's `## Comparison with the superseded record` section, or
-    `[]` when the record supersedes nothing.
-
-    The campaign's own verdict tolerance is stated, not invented: every check
-    must read its expected bit at every corner, and the campaign carries no
-    numeric tolerance for margin drift -- so the margin deltas are rendered
-    as informational and nothing is graded against them. Each `old` figure is
-    read from the superseded record's own text, each difference from the two
-    runs' own evidence; a predecessor whose record is absent is stated as
-    absent, never reconstructed."""
-    if not supersedes:
-        return []
-    match = _RECORD_ID_RE.search(supersedes)
-    old_id = match.group(0) if match else supersedes
-    old_path = EXPERIMENT_DIR / "records" / f"{old_id}.md"
-    old_text = old_path.read_text() if old_path.is_file() else None
-    old_pdk = _environment_value(old_text, "PDK") if old_text else None
-    old_ng = _environment_value(old_text, "ngspice") if old_text else None
-    info = klt_sim.run_info(report)
-    job = (info["jobs"] or [{}])[0]
+def comparison_lines(old: Predecessor, points: list[dict], overall_ok: bool, report: dict) -> list[str]:
+    """Compare the measured verdicts at the precision published by the predecessor."""
     lines = [
-        f"## Comparison with the superseded record (`{old_id}`, issue #811)",
+        f"## Comparison with the superseded record (`{old.record_id}`, issue #811)",
         "",
-        "This record replaces that one for the same claim: the same "
-        f"{len(EXPECTED_BITS)} checks, expected codes and PVT grid, re-run "
-        "under the current `open_pdks` pin through `klt sim` on the batch "
-        "fleet. The campaign's own verdict tolerance is binary -- every check "
-        "must read its expected bit at every corner, each sample judged "
-        "against half its corner's rail -- and it carries no numeric "
-        "tolerance for margin drift, so the margin columns below are "
-        "informational and no threshold is applied to them. `old` is the "
-        f"superseded record's own printed figure and `delta` = new - old at "
-        f"{_MARGIN_DP} d.p.",
+        f"All {len(EXPECTED_BITS)} checks must read the expected bit at each corner's "
+        "half-rail threshold. Worst-margin deltas are informational and use the "
+        f"{_MARGIN_DP} decimal places printed by the predecessor.",
         "",
+        "| corner-id | old verdict | new verdict | old worst margin (V) | new worst margin (V) | delta (V) |",
+        "|---|---|---|---|---|---|",
     ]
-    old = parse_corner_summary(old_text) if old_text is not None else None
-    if old is None:
-        lines += [
-            f"No comparison table: no record `records/{old_id}.md` exists under "
-            "this experiment, so there is no old figure to read. The "
-            "`Supersedes` link in the footer is written as given.",
-            "",
-        ]
-    elif not old:
-        lines += [
-            "No comparison table: the superseded record carries no per-corner "
-            "summary row this reader recognises.",
-            "",
-        ]
-    else:
-        new_by_id = {p["corner_id"]: p for p in points}
-        lines += [
-            "| corner-id | old verdict | new verdict | old worst margin (V) | "
-            "new worst margin (V) | delta (V) |",
-            "|---|---|---|---|---|---|",
-        ]
-        deltas: list[tuple[float, str]] = []
-        changed: list[str] = []
-        agreed = 0
-        for cid, p in new_by_id.items():
-            new_verdict = "PASS" if p["all_pass"] else "FAIL"
-            new_margin = p["worst_margin_v"]
-            if cid not in old:
-                lines.append(
-                    f"| `{cid}` | -- | {new_verdict} | -- | {new_margin:.4f} | -- |"
-                )
-                continue
-            old_verdict, old_margin = old[cid]
-            if new_margin == new_margin:
-                delta = round(new_margin, _MARGIN_DP) - old_margin
-                deltas.append((abs(delta), cid))
-                lines.append(
-                    f"| `{cid}` | {old_verdict} | {new_verdict} | {old_margin:.4f} | "
-                    f"{new_margin:.4f} | {delta:+.4f} |"
-                )
-            else:
-                lines.append(
-                    f"| `{cid}` | {old_verdict} | {new_verdict} | {old_margin:.4f} | "
-                    "-- | -- |"
-                )
-            if old_verdict == new_verdict:
-                agreed += 1
-            else:
-                changed.append(f"`{cid}` ({old_verdict} there, {new_verdict} here)")
-        only_old = [cid for cid in old if cid not in new_by_id]
-        for cid in only_old:
-            old_verdict, old_margin = old[cid]
-            lines.append(f"| `{cid}` | {old_verdict} | -- | {old_margin:.4f} | -- | -- |")
-        lines.append("")
-        old_overall = _overall_verdict(old_text or "")
-        new_overall = "PASS" if overall_ok else "FAIL"
-        lines.append(
-            f"- **Verdict agreement**: {agreed}/{len(old) - len(only_old)} corners "
-            "read the same verdict in both records"
-            + (
-                f" ({old_overall} there, {new_overall} here)."
-                if old_overall
-                else f" (new record {new_overall})."
-            )
-            + (
-                " Verdict changed at " + ", ".join(changed) + "."
-                if changed
-                else ""
-            )
-        )
-        if not overall_ok:
-            lines.append(
-                "- **Past-tolerance result**: this record's verdict is FAIL. An "
-                "issue must be filed and linked here before this record is "
-                "cited (issue #811's acceptance criterion); the failing "
-                "verdict stands, no threshold is adjusted."
-            )
-        if deltas:
-            largest, where = max(deltas)
-            lines.append(
-                f"- **Margin delta** (informational): largest |delta| "
-                f"{largest:.4f} V at `{where}`."
-            )
-        lines += [
-            (
-                "- **Corner sets**: "
-                + (
-                    f"identical, {len(old)} corners."
-                    if not only_old and set(new_by_id) == set(old)
-                    else "only there: "
-                    + (", ".join(f"`{c}`" for c in only_old) or "none")
-                    + "; only here: "
-                    + (
-                        ", ".join(f"`{c}`" for c in new_by_id if c not in old)
-                        or "none"
-                    )
-                    + "."
-                )
-            ),
-            "",
-        ]
-    snapshot = EXPERIMENT_DIR / "netlist-snapshots" / f"{old_id}.spice"
-    # With no predecessor record there is nothing to date a revision against
-    # and no DUT of record: git is not asked, and the two lines say so.
-    schematic_revs = stimulus_revs = None
-    if old_text is not None:
-        schematic_revs = revisions_since(DESIGN_SCH, old_id)
-        stimulus_revs = revisions_since(FRAGMENT, old_id)
-    if snapshot.is_file():
-        old_cards = instance_cards(snapshot.read_text())
-        new_cards = instance_cards(dut_text)
-        dut_line = (
-            f"- **DUT** (`{DESIGN_SCH.relative_to(REPO_ROOT)}`): the superseded "
-            f"record's snapshot `netlist-snapshots/{old_id}.spice` carries "
-            f"{len(old_cards)} instance cards; this run's DUT carries "
-            f"{len(new_cards)} instance cards; the instance-card sets "
-            + ("are identical." if old_cards == new_cards else "differ.")
-        )
-    else:
-        dut_line = (
-            f"- **DUT** (`{DESIGN_SCH.relative_to(REPO_ROOT)}`): no snapshot "
-            f"`netlist-snapshots/{old_id}.spice` exists, so the two DUTs are "
-            "not compared here."
-        )
-    if old_text is None:
-        dut_line += (
-            " No schematic revision is dated: there is no predecessor record."
-        )
-    else:
-        dut_line += (
-            " Commits touching the schematic with an author date after the "
-            "superseded record's mint date: " + _revision_list(schematic_revs)
-        )
-    stimulus_line = (
-        f"- **Stimulus** (`{FRAGMENT.relative_to(REPO_ROOT)}`, sha256 "
-        f"`{evidence.sha256_text(FRAGMENT.read_text())}` this run): "
-    )
-    if old_text is None:
-        stimulus_line += "no fragment revision is dated: there is no predecessor record."
-    else:
-        stimulus_line += (
-            "commits touching it with an author date after the superseded "
-            "record's mint date: " + _revision_list(stimulus_revs)
-        )
+    deltas = []
+    changed = []
+    for point in points:
+        cid = point["corner_id"]
+        old_verdict, old_margin = old.summary[cid]
+        verdict = "PASS" if point["all_pass"] else "FAIL"
+        new_margin = point["worst_margin_v"]
+        values = "-- | --"
+        if klt_sim.finite(new_margin):
+            delta = round(new_margin, _MARGIN_DP) - old_margin
+            deltas.append((abs(delta), cid))
+            values = f"{new_margin:.4f} | {delta:+.4f}"
+        lines.append(f"| `{cid}` | {old_verdict} | {verdict} | {old_margin:.4f} | {values} |")
+        if old_verdict != verdict:
+            changed.append(f"`{cid}` ({old_verdict} there, {verdict} here)")
+    n = len(points)
+    verdict = "PASS" if overall_ok else "FAIL"
     lines += [
+        "",
+        f"- **Verdict agreement**: {n - len(changed)}/{n} corners read the same verdict "
+        f"in both records ({_overall_verdict(old.text)} there, {verdict} here)."
+        + (" Verdict changed at " + ", ".join(changed) + "." if changed else ""),
+    ]
+    if not overall_ok:
+        lines.append("- **Past-tolerance result**: FAIL. Issue #811 requires a linked issue for this result.")
+    if deltas:
+        largest, where = max(deltas)
+        lines.append(f"- **Margin delta** (informational): largest |delta| {largest:.4f} V at `{where}`.")
+    info = klt_sim.run_info(report)
+    lines += [
+        f"- **Corner sets**: identical, {n} corners.",
+        "",
         "### Differences from the superseded record that bear on the comparison",
         "",
-        "Each is uncontrolled between the two runs: a change in a figure below "
-        "is as readily one of these as it is the PDK pin, and none is "
-        "attributed by this record.",
-        "",
-        f"- **PDK**: {old_pdk or '(no PDK line in that record)'} there; "
-        f"`{info['worker_pdk']}` here (executing worker).",
-        f"- **Simulator**: {old_ng or '(no ngspice line in that record)'} there, "
-        "which records no binary digest; "
-        f"{info['worker_ngspice']} here. Here: {_digest_clause(report)}.",
-        "- **Execution route**: there "
-        + (
-            f"`{_writer_command(old_text)}` (that record's own footer); "
-            if old_text and _writer_command(old_text)
-            else "no writer named in that record's footer; "
-        )
-        + "here ONE `klt sim` request on the batch fleet"
-        + (
-            f" (job `{job.get('job_id')}`, client klt "
-            f"`{job.get('client_klt_version')}`, fleet runner klt "
-            f"`{job.get('runner_klt_version')}`, "
-            f"`{job.get('runner_compatibility')}`)."
-        ),
-        dut_line,
-        stimulus_line,
-        "- **Grading**: there the per-check table prints each node's raw "
-        "sample (V) and the writer named above applies the bit rule; here "
-        "each `.meas` samples a testbench-only signed half-rail margin source "
-        "and `klt sim` grades it against a static limit (the \"Deck "
-        "divergences\" above).",
+        f"- **PDK**: {_environment_value(old.text, 'PDK')} there, `{info['worker_pdk']}` here.",
+        f"- **Simulator**: {_environment_value(old.text, 'ngspice')} there ({old.simulator_digest}). "
+        f"Here: {info['worker_ngspice']}, {worker_digest_line(report)[2:]}.",
+        f"- **Execution**: the predecessor names `{_writer_command(old.text)}`. "
+        "See the batch job and tool versions in this record's klt run block.",
+        f"- **DUT**: replay of `netlist-snapshots/{old.record_id}.spice` "
+        f"({len(instance_cards(old.dut))} instance cards, snapshot SHA-256 `{evidence.sha256_text(old.dut)}`).",
+        f"- **Stimulus**: replayed from {old.stimulus_source}.",
+        f"- **Grading**: previously {old.grading}. This run samples signed half-rail "
+        "margins and applies the batch request limits and the strict bit rule.",
         "",
     ]
     return lines
@@ -1345,7 +1244,9 @@ def _claim_tail(supersedes: str) -> str:
     requalification of the record it names, and the Claim says so."""
     if not supersedes:
         return (
-            "A SEPARATE claim from "
+            "Machine-graded binding for the digital partition's T1 item-5 row set "
+            "(issue #1023), using the revised sequencer and stimulus from the September "
+            "corner record (`records/20260912-004028-9aaf1ca.md`). A SEPARATE claim from "
             "#811's baseline-agreement and supersession work -- this record "
             "supersedes nothing and states nothing about #811's agreement gate."
         )
@@ -1364,9 +1265,9 @@ def run_row_evidence_campaign(
 ) -> int:
     """The nine-point OAT sweep as ONE `klt sim` request (issue #1023).
 
-    Same DUT, same committed fragment, same 35 named checks and same
-    nine ratified PVT points as run_corner_campaign() -- different
-    execution: the grid goes to the batch fleet as a single `klt sim`
+    With no predecessor, use the current DUT and fragment. The 35 named
+    checks and nine ratified PVT points match run_corner_campaign(). The
+    grid goes to the batch fleet as a single `klt sim`
     request through sim/harness/klt_sim.py (which passes
     `--wait-for-capacity 600` on every non-local submit), and the pass/fail
     quantity is the margin helper each check samples, graded by `klt sim`
@@ -1374,25 +1275,36 @@ def run_row_evidence_campaign(
     `measurements[].spec_row` tags are what `klt signoff` derives the
     `resolution_n` row's coverage from; without `--supersedes` this
     campaign is that row's machine-graded binding and supersedes no record.
-    With `--supersedes <record-id>` the same run is written as the
-    SUPERSEDING record of that earlier corner record (issue #811): the
-    comparison and the differences between the two are rendered into the
-    record -- see comparison_lines()."""
+    With `--supersedes <record-id>` the runner replays that corner
+    record (issue #811). It validates the predecessor's snapshot, waveform and
+    comparison inputs before submitting, then renders the measured deltas."""
     gate = toolchain.preflight()
     if gate is not None:
         return gate
 
     with tempfile.TemporaryDirectory(prefix="sar-sequencer-klt-") as scratch:
         scratch_dir = Path(scratch)
-        dut_text = netlist_dut_klt(scratch_dir)
-        fragment_text = FRAGMENT.read_text()
-        body = build_row_body(dut_text, fragment_text)
-        _frag_body, meas, tran_args = split_row_fragment(fragment_text)
-
         grid = corners_mod.ratified_oat_grid(
             NOMINAL_SUPPLY_V, SUPPLY_TOLERANCE, PROCESS_CORNERS, TEMPS_C
         )
-        request = build_row_request("tb.spice", tran_args, meas, grid)
+        old = None
+        if supersedes:
+            try:
+                old = load_predecessor(supersedes, grid)
+            except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+                print(f"Cannot replay predecessor {supersedes!r}: {exc}", file=sys.stderr)
+                return 1
+            if backend not in (None, "batch"):
+                print("A superseding grid requires the batch backend.", file=sys.stderr)
+                return 1
+            backend = "batch"
+            dut_text, body, request = old.dut, old.body, old.request
+        else:
+            dut_text = netlist_dut_klt(scratch_dir)
+            fragment_text = FRAGMENT.read_text()
+            body = build_row_body(dut_text, fragment_text)
+            _, meas, tran_args = split_row_fragment(fragment_text)
+            request = build_row_request("tb.spice", tran_args, meas, grid)
 
         prov = evidence.resolve_provenance(EXPERIMENT_DIR, dut_text)
         record_id = prov.record_id
@@ -1402,13 +1314,17 @@ def run_row_evidence_campaign(
         (request_dir / "tb.spice").write_text(body)
         (request_dir / "request.json").write_text(json.dumps(request, indent=1) + "\n")
 
-        report = klt_sim.submit(
-            request_dir / "request.json",
-            scratch_dir / "out",
-            backend=backend,
-            label="sar-sequencer-behavioral row evidence",
-            report_path=corners_dir / "report.json",
-        )
+        try:
+            report = klt_sim.submit(
+                request_dir / "request.json",
+                scratch_dir / "out",
+                backend=backend,
+                label="sar-sequencer-behavioral row evidence",
+                report_path=corners_dir / "report.json",
+            )
+        except klt_sim.SubmitError as exc:
+            print(f"Submission failed for {request_dir}: {exc}", file=sys.stderr)
+            return 1
         logs = _copy_corner_logs(report, corners_dir)
 
     points, overall_ok = decode_row_report(report)
@@ -1437,23 +1353,12 @@ def run_row_evidence_campaign(
             "",
             f"- **Record ID**: {record_id}",
             "- **Claim**: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- "
-            "Resolution `N = 10 bit` (RATIFIED, DR-003 via #27), machine-graded "
-            "binding for the digital partition's T1 item-5 row set (issue #1023): "
-            "correct MSB-first bit-by-bit successive-approximation capture of all "
-            "10 output bits, correct clock/phase sequencing, and the ring "
-            "sequencer's auto-restart, at every bound corner of the ratified "
-            "corner set, expressed as `klt sim` measurements tagged "
-            f"`{SPEC_ROW_ID}` with limits, so `klt signoff` derives the row's "
-            "coverage from the envelope instead of a manifest assertion. Same "
-            "DUT (the revised sequencer with `COMP_EFF` and per-conversion "
-            "gating), same fragment, same 35 named checks and same nine PVT "
-            "points as the September corner record "
-            "(`records/20260912-004028-9aaf1ca.md`); the August record "
-            "(`records/20260827-211956-e13bc1e.md`) graded an earlier DUT and "
-            "fragment and shares only the checks, expected codes and grid. "
+            "Resolution `N = 10 bit` (RATIFIED, DR-003 via #27). The 35 checks cover "
+            "MSB-first capture, clock/phase sequencing and auto-restart at nine PVT points. "
             + _claim_tail(supersedes),
-            "- **Netlist provenance**: schematic (`design/sar_sequencer.sch`), "
-            "netlisted fresh with `klt netlist` (see the divergence notes below)",
+            (f"- **Netlist provenance**: archived DUT `netlist-snapshots/{old.record_id}.spice`"
+             if old else "- **Netlist provenance**: schematic (`design/sar_sequencer.sch`), "
+             "netlisted fresh with `klt netlist`"),
             corners_mod.corner_matrix_summary_line(
                 sorted({p["process_corner"] for p in points}),
                 sorted({p["temp_c"] for p in points}),
@@ -1465,7 +1370,7 @@ def run_row_evidence_campaign(
             "`.op`-only shared `.control` block cannot express) -- and, new "
             "here, the grid is ONE `klt sim` request on the batch fleet, not a "
             "local ngspice loop (CLAUDE.md's host rule).",
-            f"- **Stimulus**: the committed `testbench/sar_sequencer_tb_fragment.spice` "
+            f"- **Stimulus**: {old.stimulus_source if old else '`testbench/sar_sequencer_tb_fragment.spice`'} "
             f"device cards, used verbatim; ideal comparator-decision "
             f"(`COMP_OUT`) PWL, two "
             f"back-to-back conversions, CODE1(b9..b0)={''.join(str(b) for b in CODE1)}b, "
@@ -1549,6 +1454,8 @@ def run_row_evidence_campaign(
             "",
         ]
         for title, note in ROW_PORT_NOTES:
+            if old and title == "Netlisting via `klt netlist`":
+                continue  # A replay uses the archived DUT named in Netlist provenance.
             lines.append(f"- **{title}.** {note}")
         if not overall_ok:
             failing = [p["corner_id"] for p in points if not p["all_pass"]]
@@ -1559,9 +1466,9 @@ def run_row_evidence_campaign(
                 + " -- reported as failing, per CLAUDE.md's 'no claim without a "
                 "testbench' / 'do not relax a spec line to make a result pass' rules.",
             ]
-        if supersedes:
+        if old:
             lines.append("")
-            lines += comparison_lines(supersedes, points, overall_ok, report, dut_text)
+            lines += comparison_lines(old, points, overall_ok, report)
         lines.append("")
         env_pdk, env_ng, env_notes = worker_environment(report, prov)
         pdk_line, ngspice_line = attributed_environment_lines(env_pdk, env_ng, env_notes)
