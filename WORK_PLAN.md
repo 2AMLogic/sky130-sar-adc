@@ -7,6 +7,7 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
+- **#1036**: sim(cdac): attribute DNL/INL spread and propose the 3.3000 um unit-cap closure (DR-027)
 
 ## Very Important
 
@@ -34,6 +35,8 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
+- **#811**: Re-run multi-corner/MC sim records via klt sim under open_pdks f6eeac7 as superseding records (#709 split)
+- **#1094**: Consolidate executing-worker environment resolution across the 7 klt sim drivers onto klt_sim.py
 
 ## In Progress
 
@@ -60,6 +63,7 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 - **#798**: sim: re-mint digital-partition campaign for met2 re-routed sar_sequencer
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
+- **#1036**: sim(cdac): attribute DNL/INL spread and propose the 3.3000 um unit-cap closure (DR-027)
 
 ## Proposed
 
@@ -98,13 +102,13 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 2 |
+| Operator merge-risk holds | 3 |
 | Very important | 1 |
 | Important | 9 |
-| Ready (`loom:issue`) | 2 |
+| Ready (`loom:issue`) | 4 |
 | In Progress (`loom:building`) | 7 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 3 |
+| Approved PRs awaiting merge | 4 |
 | Curated | 15 |
 | Architect / Hermit proposals | 6 |
 | Active epics | 1 |
