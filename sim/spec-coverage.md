@@ -32,9 +32,9 @@ followed by the per-bench command in the table below. Each of those commands is 
 | Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/input-drive-budget`<br>`sim/reference-drive-budget`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient` | `20261001-140017-7487784.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261113-110421-e03343e.md`<br>`20261113-113808-6b72b9f3.md`<br>`20261011-112119-188e94c.md`<br>`20261001-105439-c324f80.md`<br>`20261011-064547-a6dcdd7.md`<br>`20261115-084232-ad7393c6.md` |
 | ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient` | `20260828-005033-0c70212.md`<br>`20261011-110009-320dbc6.md`<br>`20261010-070734-f968286.md`<br>`20261010-204225-57a55c1.md`<br>`20261011-021527-8d0c19a.md`<br>`20261011-022915-877794b.md`<br>`20261011-023419-877794b.md`<br>`20261011-064924-ad4bfff.md`<br>`20261011-064408-ad4bfff.md` |
 | INL / DNL | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-array-transfer` | `20261001-124049-5207381.md` |
-| `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer`<br>`sim/cdac-array-transfer` | `20261001-120402-d24f700.md`<br>`20261122-103440-000e61e7.md` |
-| LSB (differential) | RATIFIED | ratified-gap | `sim/cdac-array-transfer`<br>`sim/cdac-array-transfer` | `20261001-120402-d24f700.md`<br>`20261122-103440-000e61e7.md` |
-| Sampling cap (CDAC unit × array) | RATIFIED | ratified-gap | `sim/cdac-array-transfer`<br>`sim/cdac-array-transfer` | `20261001-120402-d24f700.md`<br>`20261122-103440-000e61e7.md` |
+| `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer`<br>`sim/cdac-array-transfer` | `20261001-120402-d24f700.md`<br>`20261126-040720-de9c8405.md` |
+| LSB (differential) | RATIFIED | ratified-gap | `sim/cdac-array-transfer`<br>`sim/cdac-array-transfer` | `20261001-120402-d24f700.md`<br>`20261126-040720-de9c8405.md` |
+| Sampling cap (CDAC unit × array) | RATIFIED | ratified-gap | `sim/cdac-array-transfer`<br>`sim/cdac-array-transfer` | `20261001-120402-d24f700.md`<br>`20261126-040720-de9c8405.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
 | Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20261106-190623-7bdf8c4.md` |
 | Gain error, systematic | DRAFT | NOT benched -- deliberately, see reason | — | — |
@@ -289,13 +289,13 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_klt_graded.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_klt_graded.py --record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md`
+- Evidence: `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md`
 
 ### LSB (differential)
 
 - **Status**: RATIFIED
 - **Claim class**: `ratified-gap`
-- **Note**: LSB = 2*V_REF/2^N = 3.5156 mV, RATIFIED (DR-003 via #27). GAP (declared by issue #1021): no ratified tolerance exists for the measured differential step's deviation from the ideal value, so no committed record grades the row's magnitude -- the 5-code spot check's max |error| (1.1656 mV ~= 0.33 LSB) and the graded envelope's per-corner step deviation (0.61-0.97% of the 128-code step) are informational only, and the envelope deliberately leaves its LSB observables untagged so nothing reads as coverage. The tolerance decision is owned by spec/decision-records/DR-026-cdac-row-tolerance-decisions.md (proposed); until it is ratified (or superseded), this row must not be read as a full PASS.
+- **Note**: LSB = 2*V_REF/2^N = 3.5156 mV, RATIFIED (DR-003 via #27). GAP (declared by issue #1021): no ratified tolerance exists for the measured differential step's deviation from the ideal value, so no committed record grades the row's magnitude -- the largest sampled voltage-level error is 1.1656 mV in the baseline and 1.1556 mV in the graded run (about 0.33 nominal LSB). Across the nine corners, the largest relative interval error per corner ranges from 0.012% to 0.191%, using code spans of 128, 128, 128 and 127. These LSB observables are informational and untagged. The tolerance decision is owned by spec/decision-records/DR-026-cdac-row-tolerance-decisions.md (proposed); until it is ratified (or superseded), this row must not be read as a full PASS.
 
 **`sim/cdac-array-transfer`** — Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).
 
@@ -311,7 +311,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_klt_graded.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_klt_graded.py --record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md`
+- Evidence: `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md`
 
 ### Sampling cap (CDAC unit × array)
 
@@ -333,7 +333,7 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Runner: `sim/cdac-array-transfer/run_klt_graded.py`
 - Cold start: `python3 sim/cdac-array-transfer/run_klt_graded.py --record`
 - Documented in: `sim/cdac-array-transfer/README.md`
-- Evidence: `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md`
+- Evidence: `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md`
 
 ### Comparator input-referred noise
 

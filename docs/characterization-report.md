@@ -132,7 +132,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md` (Record ID `20261122-103440-000e61e7`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md` (Record ID `20261126-040720-de9c8405`, Supersedes: 20261122-103440-000e61e7)
   - Overall: PASS (envelope status 'pass', 9/9 corners passed; graded V_REF relation + structural census + functional monotonicity all as stated above)
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- grades the RATIFIED `V_REF = V_DD` row's own content as a machine-evaluated relation at every corner of the ratified corner set: the applied reference at the CD…
@@ -144,13 +144,13 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 ### LSB (differential)
 
 - **Status**: RATIFIED
-- **Conditions**: Full ratified corner set, 9 OAT points. GAP declared by issue #1021: no ratified tolerance exists for the measured differential step's deviation from `2*V_REF/2^N = 3.5156 mV`, so no committed record grades the row's magnitude. The structural/functional campaign and the graded `klt sim` envelope both report the deviation informationally (max |error| 1.1656 mV ~= 0.33 LSB at the 5-code spot check; 0.61-0.97% per-corner 128-code step deviation); the envelope deliberately leaves its LSB observables untagged so nothing reads as coverage.
+- **Conditions**: Full ratified corner set, 9 OAT points. GAP declared by issue #1021: no ratified tolerance exists for the measured differential step's deviation from `2*V_REF/2^N = 3.5156 mV`, so no committed record grades the row's magnitude. At five sampled codes, the largest voltage-level error is 1.1656 mV in the baseline and 1.1556 mV in the graded run (about 0.33 nominal LSB). Across the nine corners, the largest relative interval error per corner ranges from 0.012% to 0.191%, using code spans of 128, 128, 128 and 127. Both measurements are informational.
 - **Verdict**: GAP (measurement not graded: no ratified tolerance; decision owned by spec/decision-records/DR-026-cdac-row-tolerance-decisions.md, proposed). Functional monotonicity/polarity PASSes at every corner in both cited records; the magnitude figure above is informational only and is not a full PASS of this row.
 - **Notes**: 3.5156 mV differential; used as the reporting unit for the INL/DNL row above and the ENOB row's quantization-noise term. sim/spec-coverage.json indexes this row as claim_class `ratified-gap` naming DR-026.
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md` (Record ID `20261122-103440-000e61e7`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md` (Record ID `20261126-040720-de9c8405`, Supersedes: 20261122-103440-000e61e7)
   - Overall: PASS (envelope status 'pass', 9/9 corners passed; graded V_REF relation + structural census + functional monotonicity all as stated above)
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- grades the RATIFIED `V_REF = V_DD` row's own content as a machine-evaluated relation at every corner of the ratified corner set: the applied reference at the CD…
@@ -168,7 +168,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md` (Record ID `20261122-103440-000e61e7`, Supersedes: (none))
+- `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md` (Record ID `20261126-040720-de9c8405`, Supersedes: 20261122-103440-000e61e7)
   - Overall: PASS (envelope status 'pass', 9/9 corners passed; graded V_REF relation + structural census + functional monotonicity all as stated above)
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
   - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- grades the RATIFIED `V_REF = V_DD` row's own content as a machine-evaluated relation at every corner of the ratified corner set: the applied reference at the CD…

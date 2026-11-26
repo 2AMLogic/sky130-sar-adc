@@ -1559,7 +1559,7 @@ What can drift unnoticed is not that either set exists but its *size and
 membership*, so that is gated (check 18), in the same shape check 6 gates the
 pointer-claim census below:
 
-> of the **32** (spec row, evidence flow) citation pairs in Section 4's table, **23** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**12** records), `sim/comparator-decision` (**19** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
+> of the **32** (spec row, evidence flow) citation pairs in Section 4's table, **23** name a flow that publishes a `LATEST` pointer and are therefore freshness-checked by check 3; the remaining **9** name a flow that publishes none, whose current record nothing grades: `sim/cdac-array-transfer` (**13** records), `sim/comparator-decision` (**19** records), `sim/harness-corner-smoke` (**1** record), `sim/mc-smoke` (**1** record), `sim/sampling-frontend` (**4** records).
 
 (30 → **31** pairs and 21 → **22** freshness-checked on 2026-11-13,
 issue #841: the **Sample rate** row's new `sim/reference-drive-budget`
@@ -1576,8 +1576,9 @@ distinct claim beside the campaign record — that flow still publishes no
 `LATEST` pointer, so it stays in the pointerless list with one more record.
 Issue #1021 adds the graded V_REF record
 `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md`, bringing
-the CDAC flow from 11 to **12** records. It still publishes no `LATEST`
-pointer.)
+the CDAC flow from 11 to **12** records. Its append-only interval-error
+correction, `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md`,
+brings the count to **13**. The flow has no `LATEST` pointer.)
 
 `python3 docs/chipalooza/check_proposal_citations.py --stats` prints that
 sentence live, to be pasted back in when it moves. It is graded in both
@@ -5767,7 +5768,7 @@ tracker already owns.
      snapshot of the renamed DUT netlist that check 25 *does* see, which is
      why the deck count below still moves by one):
 
-     > across the **261** SPICE decks under `sim/`, **0** carry an inductor
+     > across the **262** SPICE decks under `sim/`, **0** carry an inductor
      > card
 
      (164 → **165** on 2026-10-03: issue #525's PR #533 added
@@ -5822,7 +5823,8 @@ tracker already owns.
 
      Issue #1021 brings the deck count from 260 to **261**. Its frozen CDAC
      netlist snapshot (`sim/cdac-array-transfer/netlist-snapshots/20261122-103440-000e61e7.spice`)
-     contains no inductor card and models no ground-return impedance.
+     contains no inductor card and models no ground-return impedance. The
+     correction snapshots the same fragment, bringing the deck count to **262**.
 
      Read this census the way it already reads itself: **a floor on the gap,
      not a proof of it, and it never claimed to be the thing that retires
@@ -6356,7 +6358,7 @@ and is not claimed to be met.
   [citation gate](check_proposal_citations.py), whose rationale is in
   [`docs/citation-gate.md`](../citation-gate.md) — is what replaces it:
 
-  > **126** of the **131** records under `sim/*/records/` name both an `ngspice`
+  > **127** of the **132** records under `sim/*/records/` name both an `ngspice`
   > version and a 40-hex `open_pdks` commit, while of the **117** records under
   > `layout/*/reports/` and `layout/*/erc-reports/` **116** name a `klt`
   > version and **79** name the `open_pdks` commit
@@ -6393,7 +6395,9 @@ and is not claimed to be met.
   `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md` grades
   `V_REF = V_DD` at each corner. It records the batch worker's `ngspice-47`
   and its `open_pdks` commit `f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7`,
-  bringing the pinned count from 125 of 130 to **126** of **131**.
+  bringing the pinned count from 125 of 130 to **126** of **131**. The
+  correction cites the same batch environment, bringing the total to **127**
+  of **132**.
 
   **Update (2026-11-15, merge of issue #912's PR #938):** merging origin/main
   into this branch brings in

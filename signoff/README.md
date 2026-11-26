@@ -388,7 +388,7 @@ additional rows.
 | Evidence | Where | Verdict |
 |---|---|---|
 | Comparator input-referred noise, reduced sub-model, 1 kHz–1 GHz, `sqrt(2) × inoise_total` | `sim/comparator-decision/klt-sim/20261121-010219-75b91e8/report.json` (cited; record `sim/comparator-decision/records/20261121-010219-75b91e8.md`) | 9/9 corners PASS vs the ratified baseline ≤ 1.0148 mV rms; binding `tt_125c_1.80v` at 0.9051 mV rms (10.8 % under). The stretch threshold (≤ 0.5859 mV rms) is met at **no** corner of this run and grades nothing — recorded as found, not relaxed. |
-| Applied CDAC reference, `(VREFP − VREFN) / VDD` and `VREFN` | [Batch report](../sim/cdac-array-transfer/klt-sim/20261122-103440-000e61e7/report.json) and [run record](../sim/cdac-array-transfer/records/20261122-103440-000e61e7.md) | 9/9 corners PASS. Each reports `vref_ratio = 1` and `v_vrefn = 0 V`. The limits of 1 ± 1e-5 on the ratio and ±1e-5 V on VREFN allow for solver and print precision on the ratified relation `V_REF = V_DD`. |
+| Applied CDAC reference, `(VREFP − VREFN) / VDD` and `VREFN` | [Batch report](../sim/cdac-array-transfer/klt-sim/20261122-103440-000e61e7/report.json) and [run record](../sim/cdac-array-transfer/records/20261126-040720-de9c8405.md) | 9/9 corners PASS. Each reports `vref_ratio = 1` and `v_vrefn = 0 V`. The limits of 1 ± 1e-5 on the ratio and ±1e-5 V on VREFN allow for solver and print precision on the ratified relation `V_REF = V_DD`. |
 
 Disclosures the grader cannot make:
 
@@ -407,7 +407,7 @@ Disclosures the grader cannot make:
 - **Tool versions.** Both batch reports used a `klt 0.9.0` client and runner.
   The signoff grader is pinned to `0.8.0` in `signoff/requirements.txt`.
 - **LSB and sampling cap are declared gaps.** The CDAC record reports the
-  differential step deviation at five codes. It also checks the 1.9000 µm
+  sampled voltage-level errors at five codes and interval errors over their four spans. It also checks the 1.9000 µm
   plate side and 512 positions per side, and reports the unit capacitance
   derived from reference charge. The step deviation and electrical
   capacitance have no ratified tolerance. The proposed decision covers the

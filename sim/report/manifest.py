@@ -529,7 +529,7 @@ ROWS: tuple[Row, ...] = (
         ),
         notes="See spec/decision-records/DR-003-numeric-spec-derivation.md for the full derivation.",
         sim_citations=(
-            "sim/cdac-array-transfer/records/20261122-103440-000e61e7.md",
+            "sim/cdac-array-transfer/records/20261126-040720-de9c8405.md",
             "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
         ),
     ),
@@ -541,13 +541,12 @@ ROWS: tuple[Row, ...] = (
             "Full ratified corner set, 9 OAT points. GAP declared by issue "
             "#1021: no ratified tolerance exists for the measured "
             "differential step's deviation from `2*V_REF/2^N = 3.5156 mV`, "
-            "so no committed record grades the row's magnitude. The "
-            "structural/functional campaign and the graded `klt sim` "
-            "envelope both report the deviation informationally (max "
-            "|error| 1.1656 mV ~= 0.33 LSB at the 5-code spot check; "
-            "0.61-0.97% per-corner 128-code step deviation); the envelope "
-            "deliberately leaves its LSB observables untagged so nothing "
-            "reads as coverage."
+            "so no committed record grades the row's magnitude. At five sampled "
+            "codes, the largest voltage-level error is 1.1656 mV in the baseline "
+            "and 1.1556 mV in the graded run (about 0.33 nominal LSB). Across "
+            "the nine corners, the largest relative interval error per corner "
+            "ranges from 0.012% to 0.191%, using code spans of 128, 128, 128 "
+            "and 127. Both measurements are informational."
         ),
         verdict=(
             "GAP (measurement not graded: no ratified tolerance; decision "
@@ -564,7 +563,7 @@ ROWS: tuple[Row, ...] = (
             "`ratified-gap` naming DR-026."
         ),
         sim_citations=(
-            "sim/cdac-array-transfer/records/20261122-103440-000e61e7.md",
+            "sim/cdac-array-transfer/records/20261126-040720-de9c8405.md",
             "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
         ),
     ),
@@ -615,7 +614,7 @@ ROWS: tuple[Row, ...] = (
             "naming DR-026 until the tolerance decision lands."
         ),
         sim_citations=(
-            "sim/cdac-array-transfer/records/20261122-103440-000e61e7.md",
+            "sim/cdac-array-transfer/records/20261126-040720-de9c8405.md",
             "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
         ),
         layout_citations=("layout/cdac-array/reports/20261001-133221-7487784/record.md",),

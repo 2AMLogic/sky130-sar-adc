@@ -159,7 +159,7 @@ and what is deliberately not:
 
 | Row | Observable in the envelope | Pass condition | Status |
 |---|---|---|---|
-| `V_REF` | `vref_ratio = (v(vrefp)-v(vrefn))/v(vdd)` and `v_vrefn`, both `spec_row: v_ref`-tagged, limits-bearing | Ratified relation `V_REF = V_DD` per corner (DR-003): ratio within `1 ± 1e-5` relative, VREFN within `±1e-5 V` of 0. The slack is solver/print precision ONLY -- `1e-5` rel is ≥ 20x the 6-significant-digit `.meas` print half-ULP (5e-7 rel) and ≥ 16x ngspice's default `vntol` = 1e-6 V at the 1.62 V rail corner -- not a design tolerance | **Graded** (record `records/20261122-103440-000e61e7.md`, PASS 9/9 corners) |
+| `V_REF` | `vref_ratio = (v(vrefp)-v(vrefn))/v(vdd)` and `v_vrefn`, both `spec_row: v_ref`-tagged, limits-bearing | Ratified relation `V_REF = V_DD` per corner (DR-003): ratio within `1 ± 1e-5` relative, VREFN within `±1e-5 V` of 0. The slack is solver/print precision ONLY -- `1e-5` rel is twice the six-significant-digit `.meas` print half-step just above unity (print step `1.00001 − 1.00000 = 1e-5`, half-step `5e-6`) and ≥ 16x ngspice's default `vntol` = 1e-6 V at the 1.62 V rail corner -- not a design tolerance | **Graded** (record `records/20261126-040720-de9c8405.md`, PASS 9/9 corners) |
 | LSB (differential) | vdiff values + four untagged `mono_step_*` limits-bearing checks; per-corner derived LSB computed in the record | **No ratified tolerance exists** for the step's deviation from `2*V_REF/2^N = 3.5156 mV` -- none is invented here (CLAUDE.md). The monotonicity/polarity checks carry limits but NO `spec_row` tag, so they can never be read as the row's coverage | **Gap** -- tolerance decision owned by `spec/decision-records/DR-026-cdac-row-tolerance-decisions.md` (proposed); `sim/spec-coverage.json` keeps the row in the `ratified-gap` class naming it |
 | Sampling cap | Structural census (`run_transfer.check_structural_sizing()`, exact values) + untagged `q_vrefp` reference-charge integral -> per-corner `cu_elec` in the record | Structural: plate side exactly `1.9000 um`, per-side weights `1,2,4,...,256` + termination = `512`/side (ratified, DR-003/DR-019; corner-invariant). Electrical `cu_elec` (8.59-9.54 fF over the 9 corners vs the ratified "≈ 8.66 fF" estimate): **no ratified tolerance** -> informational only, no tag, no limits | **Structural graded; electrical gap** -- same DR-026 decision; row stays `ratified-gap` |
 
@@ -187,8 +187,11 @@ uvx --from "klayout-tools==0.9.0" klt sim sim/cdac-array-transfer/testbench/klt/
 The submit goes through `klt sim` (batch fleet via `$KLT_SIM_BACKEND`, with
 `--wait-for-capacity 600` per the shared harness's fleet-capacity policy);
 the runner refuses to mint a record whose worker PDK/ngspice stamps drift
-from `sim/pdk.json` / `sim/toolchain.json`. Result: record
-`records/20261122-103440-000e61e7.md` (PASS; raw report under
+from `sim/pdk.json` / `sim/toolchain.json`. A full-grid record requires the
+committed graded request and one result for each ratified process, temperature
+and supply combination in the OAT grid. Run a subset request directly with
+`klt sim` for debugging. The corrected record is
+`records/20261126-040720-de9c8405.md` (PASS; raw report under
 `klt-sim/20261122-103440-000e61e7/`). The #811 baseline-agreement probe
 (`compare_klt_envelope.py`) is reported inside that record informationally:
 it FAILs the pilot's `|delta| <= 2e-5 V` rule across uncontrolled

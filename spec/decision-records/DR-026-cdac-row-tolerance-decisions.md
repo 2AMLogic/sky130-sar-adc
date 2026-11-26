@@ -5,7 +5,7 @@
 - **Decided by**: proposed via issue #1021; no option chosen yet; ratification pending a separate operator decision recorded in this file's `## Decision` section (merging the PR that proposes this record does not ratify it; DR-003 standing policy)
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands)
-- **Related**: issue #1021; DR-003 (ratified the rows and their values); DR-019 (resized the unit-cap plate); `sim/cdac-array-transfer/records/20261122-103440-000e61e7.md` (the graded `klt sim` envelope whose informational columns are this record's evidence); `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (the structural + functional baseline); `sim/spec-coverage.json` rows `LSB (differential)` and `Sampling cap (CDAC unit × array)` (declared gaps naming this record until it is ratified)
+- **Related**: issue #1021; DR-003 (ratified the rows and their values); DR-019 (resized the unit-cap plate); `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md` (the graded `klt sim` envelope whose informational columns are this record's evidence); `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (the structural + functional baseline); `sim/spec-coverage.json` rows `LSB (differential)` and `Sampling cap (CDAC unit × array)` (declared gaps naming this record until it is ratified)
 
 ## Context
 
@@ -16,7 +16,7 @@ exists — a verdict that does not grade the named quantities. The `V_REF` row
 needed no new number: its entire content is the exact relation
 `V_REF = V_DD`, now machine-graded per corner by the envelope's
 `spec_row`-tagged `vref_ratio`/`v_vrefn` measurements
-(`sim/cdac-array-transfer/records/20261122-103440-000e61e7.md`, PASS 9/9).
+(`sim/cdac-array-transfer/records/20261126-040720-de9c8405.md`, PASS 9/9).
 
 The other two rows cannot be graded without a tolerance that does not exist
 anywhere in the ratified spec, and CLAUDE.md forbids an agent from choosing
@@ -28,14 +28,14 @@ observables informationally with no `spec_row` tag.
 **Verified facts this record rests on** (all from committed evidence, full
 9-point ratified corner set unless stated):
 
-- The array's differential step deviates from the ideal charge-redistribution
-  value by at most 1.1656 mV ≈ 0.33 LSB across corners/codes at the 5-code
-  spot check (baseline `20261001-120402-d24f700.md`; the graded envelope's
-  independent run reads 1.1556 mV), and the 128-code step deviates from its
-  ideal by 0.61–0.97 % per corner (envelope record's `max step dev %`
-  column). These deviations are systematic (switch charge injection,
-  parasitic capacitance), not mismatch — the mismatch half is the DNL/INL
-  campaign's own rows.
+- At the five sampled codes the largest absolute voltage-level error
+  (measured minus ideal differential voltage) is 1.1656 mV in the baseline
+  and 1.1556 mV in the graded run, both about 0.33 nominal LSB. For each
+  corner the corrected record compares the measured voltage change over
+  each of the four intervals with its ideal change at that supply. The
+  first three intervals span 128 codes each and the last spans 127 codes
+  (384 to 511). The largest relative interval error per corner ranges from
+  0.012% to 0.191%. The model uses no mismatch draws.
 - An electrical unit-cap observable exists: the reference charge integral
   `q_vrefp` divided by the exact switched-unit equivalent of the five-code
   set (641.990234375 positions; derivation in
@@ -52,13 +52,14 @@ observables informationally with no `spec_row` tag.
 Nothing is decided by this record yet — it is the proposal the two gap
 declarations name. For each row, the ranked options are:
 
-**LSB row — tolerance on the measured differential step's deviation from
+**LSB row — tolerance for the five-code spot check, in units of
 `2·V_REF/2^N`:**
 
 1. *Recommended:* **±0.5 LSB on the 5-code spot check, graded per corner**
    (the envelope gains a `spec_row: lsb`-tagged deviation measurement once
-   this is ratified). ~1.5× headroom over the observed 0.33 LSB systematic
-   deviation; consistent in form with the INL/DNL rows' LSB-unit framing.
+   this is ratified). A band on sampled voltage-level error gives
+   ~1.5× headroom over the observed 0.33 nominal LSB. The INL/DNL rows
+   also express deviations in LSB.
 2. **Defer to the DNL/INL statistical rows**: declare the LSB row graded by
    its exact relation only (as `V_REF` now is) and let accuracy live in the
    DRAFT INL/DNL rows. Cost: the ratified LSB row then never has its own
