@@ -180,7 +180,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -1251,18 +1250,6 @@ def build_candidate_body(copies: list[tuple[int, str]] | None = None) -> str:
     return "\n".join(L).rstrip("\n") + "\n"
 
 
-def _candidate_meas_names() -> dict[str, list[str]]:
-    """Every measurement name the two analysis steps emit, by step name."""
-    names: dict[str, list[str]] = {"fast": [], "slow": []}
-    for test_bit, direction in candidate_copies():
-        tag = candidate_tag(test_bit, direction)
-        names["fast"] += [
-            f"t50_{tag}", f"t90_{tag}", f"t99_{tag}", f"pend_fast_{tag}"
-        ]
-        names["slow"] += [f"pend_slow_{tag}", f"plate_{tag}"]
-    return names
-
-
 def candidate_analysis_steps() -> list[dict]:
     """Two `tran` steps per corner. `fast` re-runs the baseline convention
     (5 ps ceiling) over a window sized to the candidate's ~2.83x-slower
@@ -1604,9 +1591,7 @@ def write_candidate_record(
     worker_pdk = info.get("worker_pdk")
     worker_ng = info.get("worker_ngspice")
     exec_known = bool(worker_pdk and worker_ng)
-    klt_version = subprocess.run(
-        ["klt", "--version"], capture_output=True, text=True, check=False
-    ).stdout.strip()
+    klt_version = klt_sim.client_version()
 
     cu_txt = "; ".join(
         f"{wl:.4f} um -> {c:.3f} fF/unit" for wl, c in sorted(c_u_ff.items())

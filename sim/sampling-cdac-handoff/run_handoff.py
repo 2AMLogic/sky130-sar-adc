@@ -81,7 +81,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -1357,16 +1356,6 @@ def build_candidate_body(code_name: str = CORNERS_CODE_STATE) -> str:
     return "\n".join(L) + "\n"
 
 
-#: Measurement names the two candidate analysis steps emit (prefixed, never
-#: a bare node name -- the ngspice measurement-name/node collision,
-#: 2AMLogic/klayout-tools#5446).
-CAND_MEAS_FAST = [f"acq_{stat}_{side}" for side in SIDES for stat in ("fast",)]
-CAND_MEAS_SLOW = [
-    f"acq_{stat}_{side}" for side in SIDES for stat in ("slow", "late")
-]
-CAND_MEAS_TSET = ["acq_tset"]
-
-
 def candidate_analysis_steps() -> list[dict]:
     """Two `tran` steps per corner. `fast` (0.2 ns ceiling, the baseline
     grid's own documented ceiling) covers the 12 MHz deadline read at
@@ -1548,27 +1537,6 @@ def candidate_corner_row(values: dict[str, float | None], code_name: str) -> dic
                 SIDES, key=lambda s, st=stat: abs(row[f"{st}_{s}_err_mv"])
             )
     return row
-
-
-def read_candidate_report(report: dict) -> dict[str, dict]:
-    """`{corner_id: row}` over the report's corners (error envelope refused
-    by the shared reader, never read as numbers)."""
-    # null_error_corners=False: same choice as the companion bit-trial
-    # reader -- a single failed measurement must not void the corner's
-    # solved reads (the fixed-time probes this campaign grades on).
-    results, _info = klt_sim.measurements_by_corner(
-        report, CAND_SUPPLY_KEY, null_error_corners=False
-    )
-    return {
-        cid: candidate_corner_row(vals or {}, _CODE_OF[cid] if cid in _CODE_OF else CORNERS_CODE_STATE)
-        for cid, vals in results.items()
-    }
-
-
-#: Filled by candidate_main(): which previous-code state each submitted
-#: report's corners belong to (the grid submit and the two control submits
-#: are separate requests with separate bodies).
-_CODE_OF: dict[str, str] = {}
 
 
 def _report_backend(rep: dict) -> str:
@@ -1758,9 +1726,7 @@ def write_candidate_record(
     worker_pdk = info.get("worker_pdk")
     worker_ng = info.get("worker_ngspice")
     exec_known = bool(worker_pdk and worker_ng)
-    klt_version = subprocess.run(
-        ["klt", "--version"], capture_output=True, text=True, check=False
-    ).stdout.strip()
+    klt_version = klt_sim.client_version()
     complete = [c for c in cids if grid.get(c, {}).get("complete")]
 
     lines[0] = (
@@ -2147,7 +2113,6 @@ def candidate_main(args: argparse.Namespace) -> int:
     grid_info: dict = {}
     grid: dict[str, dict] = {}
     control: dict[str, dict] = {}
-    _CODE_OF.clear()
     for name, code_name, sub_cids in [
         ("grid", CORNERS_CODE_STATE, cids),
         ("code_zero", "prev_code_zero", [baseline_cid]),
@@ -2161,7 +2126,6 @@ def candidate_main(args: argparse.Namespace) -> int:
             report, CAND_SUPPLY_KEY, null_error_corners=False
         )
         for cid in results:
-            _CODE_OF[cid] = code_name
             row = candidate_corner_row(results[cid] or {}, code_name)
             if name == "grid":
                 grid[cid] = row

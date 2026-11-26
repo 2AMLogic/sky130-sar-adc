@@ -12,15 +12,22 @@ corner whose control row is unusable and a sweep where every value passes.
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-SIM_DIR = Path(__file__).resolve().parent.parent
+TESTS_DIR = Path(__file__).resolve().parent
+SIM_DIR = TESTS_DIR.parent
+sys.path.insert(0, str(TESTS_DIR))
 sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(SIM_DIR / "full-conversion-transient"))
 sys.path.insert(0, str(SIM_DIR / "reference-drive-budget"))
 
+import provenance_fixture  # noqa: E402
 import run_reference_drive_budget as m  # noqa: E402
 
 FRAGMENT = m.tb.FRAGMENT_PATH.read_text()
@@ -957,6 +964,76 @@ class TestCrossCheckUncontrolledDifference(unittest.TestCase):
         self.assertIn("NOT controlled for PDK commit", text)
         # and the one-corner claim the review rejected is gone
         self.assertNotIn("for that corner exactly", text)
+
+
+class TestWriteRecordWithMissingKltClient(unittest.TestCase):
+    """Issue #1086: a missing local `klt` client must never abort record
+    rendering after a simulation report already exists."""
+
+    SAVED_RECORD_ID = "20261113-113808-6b72b9f3"
+
+    @staticmethod
+    def _section(text: str, heading: str) -> str:
+        """Extract one `## <heading>` section up to the next `## ` heading."""
+        marker = f"## {heading}\n"
+        start = text.index(marker)
+        rest = text[start + len(marker):]
+        end = rest.find("\n## ")
+        return marker + (rest if end == -1 else rest[:end])
+
+    def test_saved_report_renders_with_placeholder_and_same_decoded_results(self):
+        saved_dir = m.EXPERIMENT_DIR / "corners" / self.SAVED_RECORD_ID
+        committed_md = (
+            m.EXPERIMENT_DIR / "records" / f"{self.SAVED_RECORD_ID}.md"
+        ).read_text()
+
+        report = json.loads((saved_dir / "report.json").read_text())
+        req = json.loads((saved_dir / "request.json").read_text())
+        points = m.ratified_points()
+        r_values = list(m.DEFAULT_R_OHM)
+
+        units, info = m.read_report(report)
+        self.assertEqual(len(units), len(points) * len(r_values))
+        analysis = m.analyze(units, points, r_values)
+
+        tmp_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        bare_path = tmp_dir / "bare-path"
+        bare_path.mkdir()
+        git = shutil.which("git")
+        self.assertIsNotNone(git)
+        (bare_path / "git").symlink_to(git)
+
+        workdir = tmp_dir / "work"
+        tag_dir = workdir / "grid"
+        tag_dir.mkdir(parents=True)
+        for name in ("report.json", "request.json", "tb.spice"):
+            shutil.copy2(saved_dir / name, tag_dir / name)
+
+        out_dir = tmp_dir / "experiment"
+        with provenance_fixture.fake_provenance(m, out_dir), \
+                mock.patch.dict(os.environ, {"PATH": str(bare_path)}):
+            record_path = m.write_record(
+                analysis, points, r_values, info, req, workdir,
+                supersedes="(none)",
+            )
+
+        rendered = record_path.read_text()
+        self.assertIn("- klt: (klt --version unavailable)", rendered)
+        # Worker-reported metadata from report.json stays intact
+        self.assertIn("| `0.9.0` |", rendered)
+        self.assertIn("- PDK: sky130A @ f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7", rendered)
+        self.assertIn("- ngspice: ngspice-47", rendered)
+        # Decoded results match the committed record section-for-section
+        for heading in (
+            "Tolerable reference source resistance per corner",
+            "Captured codes and movement from the control, per corner and swept value",
+        ):
+            with self.subTest(heading=heading):
+                self.assertEqual(
+                    self._section(rendered, heading),
+                    self._section(committed_md, heading),
+                )
 
 
 if __name__ == "__main__":

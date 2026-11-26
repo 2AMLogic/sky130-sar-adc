@@ -2,7 +2,7 @@
   "schema_version": 1,
   "note": "Staleness manifest for the summary plots (issue #835). Written by `python3 sim/report/plots.py --render` and checked by `--check`, which `python3 sim/report/generate.py --check` (npm run check:report, part of npm run check:ci) calls. The SVGs beside this file are a regenerable DERIVED VIEW of committed evidence, never evidence themselves: nothing here is cited by signoff/block-manifest.json, and docs/plots/ is outside every path sim/check_append_only.py and signoff/check_evidence_hashes.py protect. Hashes are SHA-256 over raw bytes. The check does not re-render and compare bytes -- SVG output is not expected to be stable across matplotlib and font versions -- so rendering needs no CI dependency; see sim/report/plots-requirements.txt and sim/README.md 'Summary plots'.",
   "generator": "sim/report/plots.py",
-  "generator_sha256": "538920cc473f8b5b14e1a092b6b329ef25ec5d3420128334016a1a82227f8f73",
+  "generator_sha256": "5412ff1ba62b9fcc952c51f81eec6787c0ad196aca9239e9e5043c4b948a411b",
   "plots": {
     "enob-distribution": {
       "file": "docs/plots/enob-distribution.svg",

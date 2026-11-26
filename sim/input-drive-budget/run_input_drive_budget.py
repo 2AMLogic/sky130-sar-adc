@@ -115,7 +115,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -971,9 +970,7 @@ def write_record(
         "",
     ]
 
-    klt_version = subprocess.run(
-        ["klt", "--version"], capture_output=True, text=True, check=False
-    ).stdout.strip()
+    klt_version = klt_sim.client_version()
     lines += evidence.environment_block(
         executing_pdk,
         executing_ngspice,

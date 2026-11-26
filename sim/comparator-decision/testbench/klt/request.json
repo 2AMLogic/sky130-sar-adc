@@ -1,0 +1,171 @@
+{
+  "netlist": "tb_body.spice",
+  "engine": "ngspice",
+  "models": {
+    "pdk": "sky130A",
+    "lib": "libs.tech/combined/sky130.lib.spice"
+  },
+  "analysis": {
+    "kind": "noise",
+    "args": "v(dip,din) Vinp dec 20 1e3 1e9 20"
+  },
+  "corners": {
+    "process": [
+      "tt",
+      "ss",
+      "ff",
+      "sf",
+      "fs"
+    ],
+    "temperature_c": [
+      -40,
+      27,
+      125
+    ],
+    "params": {
+      "vdd_val": [
+        1.62,
+        1.8,
+        1.98
+      ]
+    }
+  },
+  "exclude": [
+    {
+      "temperature_c": -40,
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "temperature_c": -40,
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "temperature_c": 125,
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "temperature_c": 125,
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "process": "ss",
+      "temperature_c": -40
+    },
+    {
+      "process": "ss",
+      "temperature_c": 125
+    },
+    {
+      "process": "ss",
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "process": "ss",
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "process": "ff",
+      "temperature_c": -40
+    },
+    {
+      "process": "ff",
+      "temperature_c": 125
+    },
+    {
+      "process": "ff",
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "process": "ff",
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "process": "sf",
+      "temperature_c": -40
+    },
+    {
+      "process": "sf",
+      "temperature_c": 125
+    },
+    {
+      "process": "sf",
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "process": "sf",
+      "params": {
+        "vdd_val": 1.98
+      }
+    },
+    {
+      "process": "fs",
+      "temperature_c": -40
+    },
+    {
+      "process": "fs",
+      "temperature_c": 125
+    },
+    {
+      "process": "fs",
+      "params": {
+        "vdd_val": 1.62
+      }
+    },
+    {
+      "process": "fs",
+      "params": {
+        "vdd_val": 1.98
+      }
+    }
+  ],
+  "measurements": [
+    {
+      "name": "inoise_se_rms",
+      "noise": {
+        "quantity": "inoise",
+        "band_hz": [
+          1000,
+          1e9
+        ]
+      },
+      "unit": "V"
+    },
+    {
+      "name": "inoise_diff_rms",
+      "expr": "inoise_se_rms * sqrt(2)",
+      "unit": "V",
+      "limits": {
+        "max": 1.0148e-3
+      },
+      "spec_row": "comparator_noise"
+    }
+  ],
+  "options": {
+    "keep_artifacts": true,
+    "ngspice_init": [
+      "set ngbehavior=hsa",
+      "set skywaterpdk",
+      "set ng_nomodcheck",
+      "option noinit",
+      "option sparse"
+    ]
+  }
+}

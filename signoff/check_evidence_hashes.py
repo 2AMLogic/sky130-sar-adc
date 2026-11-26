@@ -66,6 +66,17 @@ WHAT IT CHECKS, per file-backed citation in signoff/block-manifest.json:
      design/sar_adc_top.spice, the netlist's provenance header must also name
      each source schematic's CURRENT sha256 -- the headless half of
      `design/regen_netlist.sh --check`, which needs xschem.
+  6. For every `klt sim` citation (item 5 analog, issue #1014): the report's
+      `netlist` is a scoped path OBJECT (`{"path": ..., "scope": "repo"}`),
+      not the plain string leg 3's field lookup assumes, and the run's actual
+      input is the CLOSURE of that deck: `environment.netlist_closure[]`
+      names every file the assembled circuit included -- the deck itself plus
+      each `.include`d fragment. The deck is re-hashed against the envelope's
+      recorded `provenance.input.content_hash`, and every closure entry
+      against its own recorded `sha256`, so an edited deck OR an edited
+      included DUT turns this red. A closure entry that does not resolve
+      inside this checkout is a citation whose input bytes are not committed
+      -- the same unacceptable shape as the pre-#1015 `/tmp` yield samples.
 """
 
 from __future__ import annotations
@@ -88,6 +99,10 @@ ARTIFACT_FIELD = {
     "drc": "file",
     "extract": "file",
     "lvs": "layout",
+    # `sim` is handled by the dedicated closure leg (2c) in check_citation --
+    # its `netlist` is a scoped path object, not a plain string -- so this
+    # entry is never consulted; it stays to mirror klayout-tools#2196's kind
+    # table for anything that reads it.
     "sim": "netlist",
     "pex": "layout",
     "generic": "source",
@@ -143,12 +158,15 @@ def classify(envelope: dict) -> str:
         return "drc"
     if "mismatches" in envelope and "reference" in envelope:
         return "lvs"
-    # `klt sim` (item 5, issues #564/#881/#1023): a `measurements` list plus
-    # `corner_count`, checked BEFORE `yield` (which also carries a
-    # `measurements` list) exactly as the grader checks it. ARTIFACT_FIELD
-    # names its `netlist` -- which a `klt sim` report records as a
-    # `{"path", "scope"}` object, so the artifact-name reader below accepts
-    # both that object's `path` and a plain string.
+    # `klt sim` (item 5, issues #564/#881/#1014/#1023): a `measurements` list
+    # plus `corner_count`, detected by the same structural pair `klt signoff`
+    # uses and checked BEFORE `yield` (whose own rule excludes `corner_count`
+    # for exactly this reason: a yield envelope carries `measurement_count`,
+    # never `corner_count`), so the pair ordering mirrors the grader's and the
+    # two tests cannot collide. ARTIFACT_FIELD names its `netlist` -- which a
+    # `klt sim` report records as a `{"path", "scope"}` object, so the
+    # artifact-name reader below accepts both that object's `path` and a plain
+    # string.
     if isinstance(envelope.get("measurements"), list) and "corner_count" in envelope:
         return "sim"
     # `klt yield` (item 6, issue #1015), detected by the same structural
@@ -449,6 +467,109 @@ def check_citation(item_key: str, entry, failures: list[str], notes: list[str]) 
                 f"provenance.input.content_hash {recorded}"
             )
             return
+
+    # 2c. A `klt sim` citation (item 5 analog, issue #1014). The report's
+    #     `netlist` is a scoped path OBJECT ({path, scope}), not the plain
+    #     string leg 3's ARTIFACT_FIELD lookup assumes, and the run's real
+    #     input is the deck's CLOSURE: `environment.netlist_closure[]` names
+    #     every file the assembled circuit included -- the deck itself plus
+    #     each `.include`d fragment. The grader compares the manifest pin
+    #     against the envelope's own recorded input hash (leg 2, already run
+    #     above); this leg re-derives the freshness the grader cannot: the
+    #     deck is re-hashed against that recorded hash, and every closure
+    #     entry against its own recorded `sha256`, so an edited deck OR an
+    #     edited included DUT turns the build red. A closure entry (or a
+    #     recorded input hash) that does not resolve inside this checkout is
+    #     a citation whose input bytes are not committed -- the same
+    #     unacceptable shape as the pre-#1015 `/tmp` yield samples.
+    if kind == "sim":
+        netlist_named = envelope.get("netlist")
+        if isinstance(netlist_named, dict):
+            netlist_scope = netlist_named.get("scope")
+            netlist_named = netlist_named.get("path")
+        else:
+            netlist_scope = None
+        if recorded is not None:
+            if not isinstance(netlist_named, str):
+                failures.append(
+                    f"item {item_key}: {named_file} (kind=sim) records an input hash "
+                    "but no usable 'netlist' path naming the deck it describes "
+                    "(expected the scoped path object klt sim writes)"
+                )
+                return
+            artifact = resolve_artifact(netlist_named, envelope_path)
+            if artifact is None:
+                failures.append(
+                    f"item {item_key}: {named_file} names netlist '{netlist_named}' "
+                    "which does not resolve to a committed file -- its recorded hash "
+                    "describes nothing this repo contains"
+                )
+                return
+            actual = sha256_file(artifact)
+            if actual != recorded:
+                failures.append(
+                    f"item {item_key}: {artifact.relative_to(REPO_ROOT)} hashes to {actual}, "
+                    f"but {named_file} claims {recorded}. The deck changed under the "
+                    "evidence: re-run the request that mints the report, then re-render "
+                    "signoff/t1-report.json."
+                )
+                return
+            notes.append(
+                f"item {item_key}: sim deck {artifact.relative_to(REPO_ROOT)} verified "
+                f"({recorded[:23]}...)"
+            )
+        closure = (envelope.get("environment") or {}).get("netlist_closure")
+        entries = [e for e in closure if isinstance(e, dict)] if isinstance(closure, list) else []
+        verified = 0
+        skipped_unhashed = 0
+        for entry in entries:
+            entry_path = entry.get("path")
+            entry_sha = entry.get("sha256")
+            if entry_sha is None and isinstance(entry.get("unhashed_reason"), str):
+                # klt sim itself declares this entry unhashable (e.g. a
+                # `$PDK_ROOT/...` target, `unhashed_reason: env_var`): it names
+                # no committed file and records no hash, so there is nothing to
+                # re-hash. Skipped, not failed; a hashed entry below still is.
+                skipped_unhashed += 1
+                continue
+            if not isinstance(entry_path, str) or not isinstance(entry_sha, str):
+                failures.append(
+                    f"item {item_key}: {named_file} carries a netlist_closure entry "
+                    f"{entry!r} without a usable 'path'/'sha256' -- the closure is the "
+                    "run's actual input and must be verifiable"
+                )
+                return
+            artifact = resolve_artifact(entry_path, envelope_path)
+            if artifact is None:
+                failures.append(
+                    f"item {item_key}: {named_file}'s netlist_closure names "
+                    f"'{entry_path}' (scope {entry.get('scope')!r}) which does not "
+                    "resolve to a committed file -- the run's inputs are not all in "
+                    "this repo"
+                )
+                return
+            actual = sha256_file(artifact)
+            if actual != "sha256:" + entry_sha:
+                failures.append(
+                    f"item {item_key}: {artifact.relative_to(REPO_ROOT)} hashes to {actual}, "
+                    f"but {named_file}'s netlist_closure claims sha256:{entry_sha}. The "
+                    "deck or an .included DUT changed under the evidence: re-run the "
+                    "request that mints the report, then re-render signoff/t1-report.json."
+                )
+                return
+            verified += 1
+        if recorded is None and not entries:
+            notes.append(
+                f"item {item_key}: {named_file} (kind=sim) records no input hash and no "
+                "netlist_closure; nothing to verify"
+            )
+        elif entries:
+            notes.append(
+                f"item {item_key}: sim closure {verified} input(s) re-hashed"
+                + (f", {skipped_unhashed} declared unhashed (skipped)" if skipped_unhashed else "")
+                + ("" if netlist_scope is None else f" (netlist scope {netlist_scope!r})")
+            )
+        return
 
     # 3. the envelope's recorded hash vs. the artifact it describes.
     if recorded is not None:

@@ -42,11 +42,9 @@ scratch subtree).
 
 from __future__ import annotations
 
-import argparse
 import json
 import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 PEX_DIR = Path(__file__).resolve().parent
@@ -174,15 +172,11 @@ def run(work_dir: Path, backend: str, pilot: bool, record: bool, quiet: bool = F
         (work_dir / f"pex_request_{tag}.json").write_text(json.dumps(request, indent=2) + "\n")
         (work_dir / ".klt").mkdir(exist_ok=True)
         pex_json = pex_flow.run_klt(
-            [
-                "pex", gds_abs, f"pex_request_{tag}.json",
-                "--deck", "sky130",
-                "--pdk", info.variant,
-                "--pdk-root", str(info.root),
-                "-o", str((work_dir / ".klt" / f"pex-extracted-{tag}.spice").resolve()),
-                "--outdir", str((work_dir / ".klt" / f"pex-{tag}").resolve()),
-                "--backend", backend,
-            ],
+            pex_flow.klt_pex_argv(
+                gds_abs, f"pex_request_{tag}.json", info, work_dir,
+                extracted_name=f"pex-extracted-{tag}.spice", outdir_name=f"pex-{tag}",
+                backend=backend,
+            ),
             cwd=work_dir,
             backend=backend,
             quiet=quiet,
@@ -482,44 +476,15 @@ def write_record(
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="comparator PEX flow (issues #112/#1017)")
-    ap.add_argument("--check-env", action="store_true")
-    ap.add_argument("--pilot", action="store_true", help="one corner (tt/27C/1.8V), local backend")
-    ap.add_argument("--record", action="store_true", help="write an evidence record under reports/")
-    ap.add_argument("--backend", default=None, help="override klt pex backend (default: local for --pilot, batch otherwise)")
-    ap.add_argument("--quiet", action="store_true")
-    args = ap.parse_args(argv)
-
-    if args.check_env:
-        import subprocess
-
-        info = pex_flow.resolve_pdk()
-        gds, latest = pex_flow.latest_layout(BLOCK_DIR, GDS_NAME)
-        ver = subprocess.run(
-            [str(pex_flow.klt_bin()), "--version"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-        print(f"klt: {pex_flow.klt_bin()} ({ver})")
-        print(f"PDK: variant={info.variant} root={info.root} found={info.found}")
-        if not info.found:
-            print(f"  error: {info.error}")
-            return 3
-        print(f"layout: reports/{latest}/{GDS_NAME}")
-        return 0
-
-    if args.pilot and args.record:
-        print("--pilot and --record are separate invocations", file=sys.stderr)
-        return 2
-    if args.pilot:
-        with tempfile.TemporaryDirectory(prefix="cmp-pex-pilot-") as td:
-            return run(Path(td), "local", pilot=True, record=False, quiet=args.quiet)
-    if args.record:
-        backend = args.backend or "batch"
-        return run(
-            REPORTS_DIR / evidence.new_record_id(), backend, pilot=False, record=True,
-            quiet=args.quiet,
-        )
-    ap.print_help()
-    return 2
+    return pex_flow.pex_main(
+        BLOCK_DIR,
+        GDS_NAME,
+        REPORTS_DIR,
+        run,
+        tmp_prefix="cmp-pex-pilot-",
+        description="comparator PEX flow (issues #112/#1017)",
+        argv=argv,
+    )
 
 
 if __name__ == "__main__":

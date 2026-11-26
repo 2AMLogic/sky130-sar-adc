@@ -1122,5 +1122,87 @@ class TestNoCampaignModuleKeepsItsOwnOatExpansion(unittest.TestCase):
                 self.assertEqual(_oat_axis_dicts(decoy), [], decoy)
 
 
+class TestClientVersion(unittest.TestCase):
+    """Issue #1086: one local `klt --version` probe for record metadata."""
+
+    def test_returns_stripped_version_string_when_available(self):
+        calls = []
+        ver = klt_sim.client_version(runner=_runner(rc=0, out="  klt 0.9.3\n", calls=calls))
+        self.assertEqual(ver, "klt 0.9.3")
+        self.assertEqual(calls, [["klt", "--version"]])
+
+    def test_returns_placeholder_when_executable_is_missing(self):
+        def missing(argv):
+            raise FileNotFoundError(argv[0])
+
+        self.assertEqual(
+            klt_sim.client_version(runner=missing),
+            "(klt --version unavailable)",
+        )
+        self.assertEqual(
+            klt_sim.CLIENT_VERSION_UNAVAILABLE,
+            "(klt --version unavailable)",
+        )
+
+    def test_returns_placeholder_on_other_os_errors(self):
+        def denied(argv):
+            raise PermissionError(argv[0])
+
+        self.assertEqual(
+            klt_sim.client_version(runner=denied),
+            klt_sim.CLIENT_VERSION_UNAVAILABLE,
+        )
+
+    def test_returns_placeholder_when_stdout_is_empty_or_whitespace(self):
+        for out in ("", "   \n\t "):
+            with self.subTest(out=out):
+                self.assertEqual(
+                    klt_sim.client_version(runner=_runner(rc=0, out=out)),
+                    klt_sim.CLIENT_VERSION_UNAVAILABLE,
+                )
+
+    def test_returns_placeholder_when_probe_exits_nonzero(self):
+        self.assertEqual(
+            klt_sim.client_version(runner=_runner(rc=1, out="klt: usage error\n")),
+            klt_sim.CLIENT_VERSION_UNAVAILABLE,
+        )
+
+
+class TestNoConsolidatedWriterProbesKltVersionDirectly(unittest.TestCase):
+    """Issue #1086: record writers read local `klt --version` through
+    `harness.klt_sim.client_version()` rather than probing `klt` inline."""
+
+    CONSOLIDATED = (
+        "vcm-drive-budget/run_vcm_drive_budget.py",
+        "full-conversion-transient/full_conversion_campaigns/input_sweep.py",
+        "reference-drive-budget/run_reference_drive_budget.py",
+        "input-drive-budget/run_input_drive_budget.py",
+        "top-plate-cpar/run_top_plate_cpar.py",
+        "sampling-cdac-handoff/run_handoff.py",
+        "cdac-bit-trial-settling/run_bit_trial_settling.py",
+        "digital-partition/run_digital_partition.py",
+    )
+
+    def test_every_consolidated_writer_delegates_to_klt_sim_client_version(self):
+        for rel in self.CONSOLIDATED:
+            text = (SIM_DIR / rel).read_text()
+            with self.subTest(module=rel):
+                self.assertIn(
+                    "klt_sim.client_version(",
+                    text,
+                    f"{rel} must call klt_sim.client_version() (issue #1086)",
+                )
+                self.assertNotIn(
+                    '"klt", "--version"',
+                    text,
+                    f"{rel} still probes klt --version directly (issue #1086)",
+                )
+                self.assertNotIn(
+                    "def klt_client_version",
+                    text,
+                    f"{rel} still defines a private klt_client_version() helper",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
