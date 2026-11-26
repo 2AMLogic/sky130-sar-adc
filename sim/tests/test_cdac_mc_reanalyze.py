@@ -14,6 +14,7 @@ different numbers than the original run, undermining DR-007's evidence."""
 
 from __future__ import annotations
 
+import re
 import shutil
 import statistics
 import subprocess
@@ -29,6 +30,7 @@ sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(CDAC_DIR))
 
 import run_mc  # noqa: E402
+from analysis import attribute_1016 as study  # noqa: E402
 from run_mc import (  # noqa: E402
     DRAFT_INL_DNL_TARGET_LSB,
     reanalysis_prose_line,
@@ -114,6 +116,17 @@ class TestEvidenceProvenance(unittest.TestCase):
                     self.assertIn("0.1362%", record)
                     self.assertIn("remain unmeasured for that geometry", record)
 
+    def test_fresh_candidate_claim_identifies_simulated_dut_and_target(self):
+        result = reanalyze_from_logs(PILOT_RECORD_ID)
+        result.source_record_id = None
+        with patch.object(run_mc.evidence, "run_klt_yield", return_value={"measurements": []}):
+            path, ok = run_mc.write_evidence(result)
+        self.assertTrue(ok)
+        claim = next(line for line in path.read_text().splitlines() if line.startswith("- **Claim**"))
+        self.assertIn("generated CDAC study variant with 3.3000 um square unit plates", claim)
+        self.assertIn("original DRAFT INL/DNL limit (±1 LSB)", claim)
+        self.assertIn("#1016", claim)
+
     def test_rejected_requests_leave_no_artifacts(self):
         original = set(self.experiment.rglob("*"))
         for args, error, message in (
@@ -126,6 +139,47 @@ class TestEvidenceProvenance(unittest.TestCase):
                 with self.assertRaisesRegex(error, message):
                     self.replay(PILOT_RECORD_ID, *args)
                 self.assertEqual(set(self.experiment.rglob("*")), original)
+
+
+class TestCapsOnlyProbe(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.experiment = Path(temp.name)
+        self.analysis = self.experiment / "analysis"
+        self.probe = self.analysis / study.PROBE_DIR_NAME
+        self.probe.mkdir(parents=True)
+        for log in (CDAC_DIR / "analysis" / study.PROBE_DIR_NAME).glob("*.log"):
+            shutil.copy(log, self.probe / log.name)
+        self.enterContext(patch.object(study, "EXPERIMENT_DIR", self.experiment))
+        self.enterContext(patch.object(sys, "argv", ["attribute_1016.py", "--record"]))
+
+    def test_later_probe_does_not_change_the_study(self):
+        later = self.analysis / "probe-caps-only-99999999"
+        later.mkdir()
+        shutil.copy(self.probe / "capsonly_seed1.log", later)
+        self.assertEqual(study.main(), 0)
+        (record,) = self.analysis.glob("*.md")
+        report = record.read_text()
+        self.assertIn(f"`{self.probe.name}/` (caps-only isolation probe, N=8, seeds 1..8)", report)
+        self.assertIn("| 255 | 1596.7 | 1459.8 |", report)
+        self.assertNotIn(later.name, report)
+
+    def test_invalid_probe_cannot_mint_a_record(self):
+        log = self.probe / "capsonly_seed1.log"
+        original = log.read_text()
+        for bad_log in (None, "", original.replace("seed=1 ", "seed=2 "),
+                        re.sub(r"^vtop_p_0 .*", "", original, flags=re.M),
+                        re.sub(r"^vtop_n_511 .*", "vtop_n_511 = 1e999", original, flags=re.M)):
+            with self.subTest(case=None if bad_log is None else len(bad_log)):
+                if bad_log is None:
+                    log.unlink()
+                else:
+                    log.write_text(bad_log)
+                with self.assertRaises(SystemExit) as failure:
+                    study.main()
+                self.assertEqual(failure.exception.code, 2)
+                self.assertEqual(list(self.analysis.glob("*.md")), [])
 
 
 class TestPilotSizing(unittest.TestCase):
@@ -144,6 +198,11 @@ class TestPilotSizing(unittest.TestCase):
         self.assertIn("option B t=3: dnl yield 0.975 margin +0.141", output)
         self.assertIn("option D t=2: plate 2.370 area x1.56 dnl yield 0.975", output)
         self.assertIn("option D t=3: plate 2.370 area x1.56 dnl yield 1.000", output)
+        for option, spreads in (("B", ("0.3120/0.2085", "0.2290/0.2085", "0.1755/0.2085")),
+                                ("D", ("0.1953/0.1721", "0.1494/0.1721"))):
+            lines = [line for line in output.splitlines() if line.startswith(f"option {option} t=")]
+            self.assertEqual([line.split("DNL/INL sd ")[1] for line in lines],
+                             [f"{pair} LSB" for pair in spreads])
 
     def test_stdev_precision_at_pilot_and_target_boundary(self):
         for n, expected in (
@@ -261,22 +320,12 @@ class TestFreshClaimProse(unittest.TestCase):
                 self.assertNotIn(term, body, f"limit {limit}: body {term!r}")
                 self.assertNotIn(term, desc, f"limit {limit}: desc {term!r}")
 
-    def test_default_limit_body_is_byte_identical_to_pre_change_literal(self):
-        # At the CLI default the fresh-branch mint must be unchanged: pin
-        # the pre-#948 hardcoded string exactly.
+    def test_archived_and_fresh_targets_name_the_original_limit(self):
         provenance = target_provenance_prose(DRAFT_INL_DNL_TARGET_LSB, 0.99)
-        self.assertEqual(
-            provenance.fresh_claim_body,
-            "`spec/target-spec.md#target-table` -- DNL/INL DRAFT target row "
-            "(`<= +-1 LSB`, target value, NOT ratified: target-spec.md's own \"Not "
-            "ratified by this record\" list names ENOB/INL-DNL target values as still "
-            "open pending this Monte-Carlo campaign, issue #29). This record supplies "
-            "that campaign's DNL/INL evidence: mismatch-driven Monte Carlo statistics "
-            "of design/cdac/cdac_array.sch's own DAC transfer characteristic, in "
-            "isolation from the sampling front end, comparator, and SAR logic -- "
-            "informs, but (per #53's own precedent) does not by itself substantiate a "
-            "full end-to-end ADC DNL/INL claim (see the UNITS/scope note below).",
-        )
+        for text in (provenance.claim_body, provenance.fresh_claim_body, provenance.target_desc):
+            self.assertIn("original DRAFT INL/DNL limit (±1 LSB)", text)
+            self.assertIn("#1016", text)
+            self.assertIn("earlier value", text)
 
     def test_explicit_default_float_takes_draft_branch(self):
         # A float equal-but-not-identical to the constant (e.g. from
@@ -287,16 +336,11 @@ class TestFreshClaimProse(unittest.TestCase):
         self.assertNotIn("dr-007", lowered)
         self.assertNotIn("candidate revised", lowered)
 
-    def test_intermediate_limit_takes_dr007_branch_verbatim(self):
-        # A limit between the two spec values must take the DR-007 branch
-        # and state its OWN limit -- not silently round to either row.
+    def test_intermediate_limit_names_the_requested_value(self):
         provenance = target_provenance_prose(1.5, 0.99)
-        body = provenance.fresh_claim_body
-        self.assertIn("1.5 LSB", body)
-        lowered = body.lower()
-        self.assertIn("dr-007", lowered)
-        self.assertNotIn("1 lsb", lowered)
-        self.assertNotIn("2 lsb", lowered)
+        for text in provenance:
+            self.assertIn("user-specified INL/DNL study limit (±1.5 LSB)", text)
+            self.assertNotIn("DR-007", text)
 
 
 class TestReanalysisProseLine(unittest.TestCase):

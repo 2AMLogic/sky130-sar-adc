@@ -11,9 +11,8 @@ uses for its own reanalysis records, so every number below re-derives from
 committed bytes:
 
 - source campaign : sim/cdac-array-transfer/mc-draws/20261001-124049-5207381/
-- caps-only probe : sim/cdac-array-transfer/analysis/probe-caps-only-*/
-- pilot campaign  : sim/cdac-array-transfer/mc-draws/<pilot-id>/ (found by
-  --pilot-record, default the 3.3000 um-plate N=16 seed-101 campaign)
+- caps-only probe : sim/cdac-array-transfer/analysis/probe-caps-only-20261121-075648-75b91e85/
+- pilot campaign  : sim/cdac-array-transfer/mc-draws/20261121-075027-75b91e85/ (3.3000 um, N=16, seed 101)
 
 Usage:
     python3 sim/cdac-array-transfer/analysis/attribute_1016.py             # print only
@@ -25,6 +24,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import math
+import re
 import statistics
 import subprocess
 import sys
@@ -36,11 +36,14 @@ sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(EXPERIMENT_DIR))
 
 import run_mc  # noqa: E402
+from analysis.probe_caps_only import PROBE_CODES  # noqa: E402
 from gen_fragment import WEIGHTS  # noqa: E402
-from harness import evidence as evidence_mod  # noqa: E402
+from harness import evidence as evidence_mod, measure  # noqa: E402
 
 SOURCE_RECORD = "20261001-124049-5207381"  # the committed campaign the issue cites
 PILOT_RECORD = "20261121-075027-75b91e85"  # candidate 3.3000 um plate, N=16, seed 101 (issue #1016 step 3)
+PROBE_DIR_NAME = "probe-caps-only-20261121-075648-75b91e85"
+PROBE_SEEDS = range(1, 9)
 PILOT_PLATE_UM = 3.3000
 LIMIT_LSB = 1.0  # the ORIGINAL DRAFT row -- the limit this issue works against (NOT DR-007's 2.0 candidate)
 TARGET_YIELD = 0.99
@@ -176,28 +179,32 @@ def fit_sigma_u(measured: dict, coeff_sq: dict) -> dict:
     return {"pearson_r": _pearson(xs, ys), "sigma_pct": implied * 100}
 
 
-def load_probe_levels() -> tuple[dict[int, list[float]], Path] | tuple[None, None]:
-    """Per-code vdiff levels across seeds from the committed caps-only probe."""
-    probe_dirs = sorted((EXPERIMENT_DIR / "analysis").glob("probe-caps-only-*"))
-    if not probe_dirs:
-        return None, None
-    d = probe_dirs[-1]
-    codes = [0, 1, 127, 128, 255, 256, 383, 384, 385, 510, 511]
-    levels: dict[int, list[float]] = {c: [] for c in codes}
-    n_seeds = 0
-    for log in sorted(d.glob("capsonly_seed*.log")):
-        vals: dict[tuple[str, int], float] = {}
-        for ln in log.read_text().splitlines():
-            parts = ln.split()
-            if len(parts) >= 3 and parts[0].startswith("vtop_") and parts[1] == "=":
-                side, code = parts[0][5], int(parts[0][7:])
-                if code in levels:
-                    vals[(side, code)] = float(parts[2])
-        if vals:
-            n_seeds += 1
-            for c in codes:
-                levels[c].append(vals[("p", c)] - vals[("n", c)])
-    return (levels if n_seeds else None), (d if n_seeds else None)
+def load_probe_levels(probe_dir: Path) -> dict[int, list[float]]:
+    """Read the cited probe's seed population and both finite voltages for each code."""
+    logs = {f"capsonly_seed{seed}.log": seed for seed in PROBE_SEEDS}
+    actual = {path.name for path in probe_dir.glob("capsonly_seed*.log")}
+    if actual != logs.keys():
+        raise ValueError(f"{probe_dir}: missing logs {sorted(logs.keys() - actual)}, "
+                         f"unexpected logs {sorted(actual - logs.keys())}")
+
+    names = [f"vtop_{side}_{code}" for code in PROBE_CODES for side in ("p", "n")]
+    levels: dict[int, list[float]] = {code: [] for code in PROBE_CODES}
+    for filename, seed in logs.items():
+        path = probe_dir / filename
+        log = path.read_text()
+        header = re.search(r"^Circuit: .*?\bseed=(\d+)\b", log, re.MULTILINE)
+        if header is None or int(header.group(1)) != seed:
+            raise ValueError(f"{path}: expected circuit header for seed {seed}")
+        values = measure.parse(log, names)
+        missing = measure.missing(values, names)
+        if missing:
+            raise ValueError(f"{path}: missing finite measurements for {', '.join(missing)}")
+        for code in PROBE_CODES:
+            level = values[f"vtop_p_{code}"] - values[f"vtop_n_{code}"]
+            if not math.isfinite(level):
+                raise ValueError(f"{path}: non-finite differential level at code {code}")
+            levels[code].append(level)
+    return levels
 
 
 def main() -> int:
@@ -215,7 +222,11 @@ def main() -> int:
     fit_dnl = fit_sigma_u(D["sd_dnl"], coeff_sq_dnl)
     fit_inl = fit_sigma_u(D["sd_inl"], coeff_sq_inl)
 
-    probe_levels, probe_dir = load_probe_levels()
+    probe_dir = EXPERIMENT_DIR / "analysis" / PROBE_DIR_NAME
+    try:
+        probe_levels = load_probe_levels(probe_dir)
+    except (OSError, ValueError) as exc:
+        ap.error(str(exc))
 
     # ---- closure model ------------------------------------------------------
     def predict_draws(scale_dnl: float, scale_inl: float):
@@ -274,6 +285,7 @@ def main() -> int:
         s_dnl = math.sqrt(var_ratio)
         dnl_pred, inl_pred = predict_draws(s_dnl, 1.0)
         seg_rows.append({
+            "dnl_sd": statistics.stdev(dnl_pred), "inl_sd": statistics.stdev(inl_pred),
             "t": t, "max_switched": max_switched[t], "dnl_scale": s_dnl,
             "dnl_yield": yield_at(dnl_pred), "dnl_margin": margin(dnl_pred),
             "inl_yield": yield_at(inl_pred), "inl_margin": margin(inl_pred),
@@ -287,6 +299,7 @@ def main() -> int:
             dnl_margin, inl_margin = margin(dnl_pred), margin(inl_pred)
             if dnl_margin >= 0 and inl_margin >= 0:
                 return {
+                    "dnl_sd": statistics.stdev(dnl_pred), "inl_sd": statistics.stdev(inl_pred),
                     "t": t, "plate": p, "area_x": (p / PLATE_UM) ** 2,
                     "dnl_yield": yield_at(dnl_pred), "inl_yield": yield_at(inl_pred),
                     "dnl_margin": dnl_margin, "inl_margin": inl_margin,
@@ -328,11 +341,13 @@ def main() -> int:
           f"INL mean {pilot_stats['inl_mean']:.3f} sd {pilot_stats['inl_sd']:.3f} max {pilot_stats['inl_max']:.3f}")
     for r in seg_rows:
         print(f"option B t={r['t']}: dnl yield {r['dnl_yield']:.3f} margin {r['dnl_margin']:+.3f}; "
-              f"inl yield {r['inl_yield']:.3f} margin {r['inl_margin']:+.3f}")
+              f"inl yield {r['inl_yield']:.3f} margin {r['inl_margin']:+.3f}; "
+              f"DNL/INL sd {r['dnl_sd']:.4f}/{r['inl_sd']:.4f} LSB")
     for od in optD:
         if od:
             print(f"option D t={od['t']}: plate {od['plate']:.3f} area x{od['area_x']:.2f} "
-                  f"dnl yield {od['dnl_yield']:.3f} inl yield {od['inl_yield']:.3f}")
+                  f"dnl yield {od['dnl_yield']:.3f} inl yield {od['inl_yield']:.3f}; "
+                  f"DNL/INL sd {od['dnl_sd']:.4f}/{od['inl_sd']:.4f} LSB")
 
     if args.record:
         write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir,
@@ -355,6 +370,7 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
     path = EXPERIMENT_DIR / "analysis" / f"{rec_id}.md"
 
     n, pairs, codes = D["n"], D["pairs"], D["codes"]
+    probe_n = len(probe_levels[0])
     L: list[str] = []
     a = L.append
     a(f"# CDAC DNL/INL attribution and closure study {rec_id}")
@@ -369,8 +385,8 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
     a(f"- **Inputs (all committed, no new ngspice run by this script)**: `mc-draws/{SOURCE_RECORD}/` "
       f"(N={n} `tt_mm` + {n} `tt` controls, seeds {res.seed}..{res.seed + n - 1}); "
       f"`mc-draws/{PILOT_RECORD}/` (candidate {PILOT_PLATE_UM:.4f} um-plate study, N={pilot_stats['n']}, "
-      f"seed {pilot_stats['seed']}); " + (f"`{probe_dir.name}/` (caps-only isolation probe)."
-      if probe_dir else "(caps-only probe logs not found)."))
+      f"seed {pilot_stats['seed']}); `{probe_dir.name}/` (caps-only isolation probe, "
+      f"N={probe_n}, seeds {PROBE_SEEDS.start}..{PROBE_SEEDS[-1]}).")
     a("- **Method**: per adjacent-code transition and per sampled code, the systematic part is the "
       "mismatch-disabled (negative-control) value (verified identical across all same-seed controls) "
       "and the random part is `draw - control` per seed; sigmas are sample stdev over N. The closure "
@@ -438,20 +454,21 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
       f"the campaign gives effective coefficients of {fit_dnl['sigma_pct']:.4f} % (DNL) and "
       f"{fit_inl['sigma_pct']:.4f} % (INL). The fitted shapes assume independent units. Each coefficient summarizes campaign spread under that assumption.")
     a("")
-    a(f"**(b) Caps-only isolation probe.** Rebuilding the seed-1 campaign netlist with "
-      "every nfet/pfet replaced by an ideal drive (bit=0: 1 ohm tie to VREFN; bit=1: PWL source "
-      "stepping to VREFP at 2.1n, after the reset switch opens) leaves ONLY the caps' AGAUSS mismatch, "
-      "and reproduces the committed campaign's per-code level spread in pattern AND magnitude "
-      "(probe logs committed under `" + (probe_dir.name if probe_dir else "probe-caps-only-*") + "`):")
+    a(f"**(b) Caps-only isolation probe.** In `{probe_dir.name}/`, ideal drives replace the "
+      "nfet/pfet switches. The MiM capacitors retain their mismatch model. The table compares "
+      "the sample standard deviation of each differential level across seeds.")
     a("")
-    a("| code | committed campaign level sd (uV, N=40) | caps-only probe level sd (uV, N=8) |")
+    a(f"| code | committed campaign level sd (uV, N={n}) | caps-only probe level sd (uV, N={probe_n}) |")
     a("|---|---|---|")
-    for c in (0, 1, 127, 128, 255, 256, 383, 384, 385, 510, 511):
-        probe_sd = statistics.stdev(probe_levels[c]) * 1e6 if probe_levels else float("nan")
-        a(f"| {c} | {D['level_rnd_sd'][c] * 1e6:.1f} | {probe_sd:.1f} |")
+    probe_sd = {c: statistics.stdev(samples) for c, samples in probe_levels.items()}
+    for c in PROBE_CODES:
+        a(f"| {c} | {D['level_rnd_sd'][c] * 1e6:.1f} | {probe_sd[c] * 1e6:.1f} |")
     a("")
-    a("The mid-split codes carry 1.0-1.7 mV of level jitter in both experiments and the endpoints "
-      "are quiet in both. Weighted MiM mismatch reproduces the observed pattern and magnitude.")
+    a(f"At codes 255 and 256 the caps-only probe gives {probe_sd[255] * 1e3:.2f} and "
+      f"{probe_sd[256] * 1e3:.2f} mV of level jitter. The full campaign gives "
+      f"{D['level_rnd_sd'][255] * 1e3:.2f} and {D['level_rnd_sd'][256] * 1e3:.2f} mV. "
+      f"Across the {len(PROBE_CODES)} tabulated codes the two sets of standard deviations have "
+      f"Pearson r = {_pearson([D['level_rnd_sd'][c] for c in PROBE_CODES], [probe_sd[c] for c in PROBE_CODES]):.3f}.")
     a("")
     a("**(c) The harness measures cross-copy DNL.** Each code uses an independent array copy. "
       "On a shared array, the variance of the step includes the covariance between its two levels. "
@@ -533,14 +550,14 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
       "worst within-array switched-unit count divided by the binary maximum (511 units per side). "
       "The count is enumerated over all 511 adjacent pairs. With one thermometer MSB the array is "
       "still binary. Independent copies also contribute level errors from unchanged bits, so this "
-      "uniform carry scaling cannot predict segmented cross-copy yield. Both B and D use this assumption.")
+      "uniform carry scaling cannot predict segmented cross-copy yield. Both B and D use this assumption. Their SDs are sample standard deviations of the per-draw maxima.")
     a("")
-    a("| t | max switched per side | DNL random scale | DNL emp | DNL bound (LSB) | DNL margin | INL emp | INL margin |")
-    a("|---|---|---|---|---|---|---|---|")
+    a("| t | max switched per side | DNL random scale | DNL sd (LSB) | DNL emp | DNL bound (LSB) | DNL margin | INL sd (LSB) | INL emp | INL margin |")
+    a("|---|---|---|---|---|---|---|---|---|---|")
     for r in seg_rows:
-        a(f"| {r['t']} | {r['max_switched']} | {r['dnl_scale']:.4f} | {r['dnl_yield']:.3f} | "
+        a(f"| {r['t']} | {r['max_switched']} | {r['dnl_scale']:.4f} | {r['dnl_sd']:.4f} | {r['dnl_yield']:.3f} | "
           f"{LIMIT_LSB * (1 - r['dnl_margin']):.3f} | {r['dnl_margin']:+.3f} | "
-          f"{r['inl_yield']:.3f} | {r['inl_margin']:+.3f} |")
+          f"{r['inl_sd']:.4f} | {r['inl_yield']:.3f} | {r['inl_margin']:+.3f} |")
     a("")
     a(f"With INL held fixed at constant total capacitance, its margin stays "
       f"{seg_rows[0]['inl_margin']:+.3f} at every t. B alone misses the INL criterion in this model.")
@@ -550,8 +567,8 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
     for od in optD:
         if od:
             a(f"- t={od['t']}: plate {od['plate']:.3f} um (unit area x{od['area_x']:.2f}), "
-              f"DNL emp {od['dnl_yield']:.3f} (margin {od['dnl_margin']:+.3f}), "
-              f"INL emp {od['inl_yield']:.3f} (margin {od['inl_margin']:+.3f}).")
+              f"DNL sd {od['dnl_sd']:.4f} LSB, emp {od['dnl_yield']:.3f} (margin {od['dnl_margin']:+.3f}), "
+              f"INL sd {od['inl_sd']:.4f} LSB, emp {od['inl_yield']:.3f} (margin {od['inl_margin']:+.3f}).")
     a("")
     a(f"At the model sizes D uses less unit-cap area than A (x{optD[0]['area_x']:.2f} vs x{cand['area_x']:.2f}). It "
       "reopens the Sampling-cap row (C_u still moves), adds a thermometer decoder to the SAR "
