@@ -16,7 +16,7 @@
 - **Superseded by**: (none while this record stands)
 - **Related**: #1016 (this decision), #29 / PR #130 and #912 (the source
   Monte-Carlo campaign and its freshness-pinnable re-mint),
-  `sim/cdac-array-transfer/analysis/20261121-081033-75b91e85-dirty.md`
+  `sim/cdac-array-transfer/analysis/20261126-034329-5a2e0198.md`
   (the attribution + closure study every number below comes from — the
   "design memo" this record cites, per TEMPLATE.md's decision-vs-derivation
   split),
@@ -27,6 +27,8 @@
   `sim/cdac-array-transfer/records/20261123-153432-fe3e3dcf.md` (supersedes
   the envelope record above: same draws and verdicts, the generated
   negative-control sentence corrected to a declaration),
+  `sim/cdac-array-transfer/records/20261126-034358-5a2e0198.md` (current
+  pilot envelope, with the precision statement corrected from the same draws),
   [DR-003](DR-003-numeric-spec-derivation.md) Item 3 (the matching floor
   this record moves), [DR-005](DR-005-cdac-array-design.md),
   [DR-007](DR-007-revised-enob-inl-dnl-targets.md) (the target-value
@@ -83,7 +85,8 @@ ratification remains the operator's and is not argued.
 4. **Closure comparison** (predicted by the decomposition model:
    systematic fixed, random × 1.9/p Pelgrom; "margin" = mean + 2.326σ vs
    the 1 LSB limit):
-   - **A — larger unit cap**: minimum 3.095 µm meets both margins;
+   - **A — larger unit cap**: 3.100 µm (×2.66 unit area) is the first
+     5 nm grid point that meets both margins.
      **3.300 µm** carries ~5 % headroom on the binding (DNL) statistic.
    - **B — unary segmentation at constant total C**: fixes DNL only; INL
      margin stays −0.203 at every t. B alone cannot close the row.
@@ -101,7 +104,9 @@ ratification remains the operator's and is not argued.
    for the model): measured max|DNL| 0.493±0.182 / max|INL| 0.399±0.112 LSB
    vs model-predicted 0.499±0.196 / 0.450±0.126; all 16 draws clear ±1 LSB
    on both; `klt yield` envelope cpk 0.93 (DNL) / 1.79 (INL), required
-   N = 368 to claim 0.99 at this pass rate. The batch fleet run is parked
+   N = 368 to claim 0.99 at this pass rate. At N=16 the estimated standard
+   deviation has 18.3% relative standard error, above the 10% precision
+   target. The batch fleet run is parked
    by #811, so this pilot is the smallest local run the host rules allow
    and the sized run is the stated next step (follow-up issue filed).
 
@@ -172,7 +177,7 @@ them (each gets its own re-derivation in the follow-ups):
    seed, declared negative control) is the citable-envelope step for T1
    item 6 and is filed as its own issue, blocked by #811's park.
 3. **The worst-draw caveat is stated, not hidden.** Sizing to make all 40
-   source-campaign draws pass would need 4.315 µm (×5.16 area), dominated
+   source-campaign draws pass would need 4.320 µm (×5.17 unit area), dominated
    by one 3–4σ tail draw (seed 7). This record sizes on the normal-fit
    margin with ~5 % headroom instead — the same reasoning DR-007 itself
    used to reject zero-headroom targets — and names the sized run as the
