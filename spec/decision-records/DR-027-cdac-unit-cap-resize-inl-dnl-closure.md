@@ -16,7 +16,7 @@
 - **Superseded by**: (none while this record stands)
 - **Related**: #1016 (this decision), #29 / PR #130 and #912 (the source
   Monte-Carlo campaign and its freshness-pinnable re-mint),
-  `sim/cdac-array-transfer/analysis/20261126-034329-5a2e0198.md`
+  `sim/cdac-array-transfer/analysis/20261126-041316-5c858a41.md`
   (the attribution + closure study every number below comes from — the
   "design memo" this record cites, per TEMPLATE.md's decision-vs-derivation
   split),
