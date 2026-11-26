@@ -48,7 +48,8 @@ Z_99 = 2.3263478740408408  # Phi^-1(0.99), one-sided normal quantile for the 0.9
 # sky130 MiM mismatch, DR-019's own figures (PDK model card, transcribed in
 # spec/dr-003-support/calc.py): sigma(dC/C)[%] = A_C / sqrt(area[um^2])
 A_C_PCT_UM = 2.8
-PLATE_UM = 1.9000
+PLATE_NM = 1900
+PLATE_UM = PLATE_NM / 1000
 SIGMA_U_PCT = A_C_PCT_UM / PLATE_UM  # 1.4737 % -- DR-019's own printed figure
 
 CANDIDATE_PLATE_UM = 3.3000  # the closure option A size this study lands on (5 nm-grid-legal)
@@ -243,25 +244,23 @@ def main() -> int:
         }
 
     # minimum plate meeting BOTH normal margins on the 5 nm grid
-    p = PLATE_UM
     p_min = None
-    while p <= 6.0 + 1e-9:
+    for plate_nm in range(PLATE_NM, 6001, 5):
+        p = plate_nm / 1000
         s = PLATE_UM / p
         dnl_pred, inl_pred = predict_draws(s, s)
         if margin(dnl_pred) >= 0 and margin(inl_pred) >= 0:
-            p_min = math.floor(p / 0.005) * 0.005
+            p_min = p
             break
-        p += 0.005
     # all-40-pass bound (dominated by the single worst draw; reported, not used)
-    p = PLATE_UM
     p_allpass = None
-    while p <= 8.0 + 1e-9:
+    for plate_nm in range(PLATE_NM, 8001, 5):
+        p = plate_nm / 1000
         s = PLATE_UM / p
         dnl_pred, inl_pred = predict_draws(s, s)
         if max(dnl_pred) <= LIMIT_LSB and max(inl_pred) <= LIMIT_LSB:
-            p_allpass = math.floor(p / 0.005) * 0.005
+            p_allpass = p
             break
-        p += 0.005
 
     cand = eval_plate(CANDIDATE_PLATE_UM)
 
@@ -276,27 +275,23 @@ def main() -> int:
             "inl_yield": yield_at(inl_pred), "inl_margin": margin(inl_pred),
         })
 
-    def scan_plate_inl_only(t: int):
+    def scan_segmented_plate(t: int):
         var_ratio = (2 ** (10 - t) - 1) / (2 ** 10 - 1)
         s_seg = math.sqrt(var_ratio)
-        p = PLATE_UM
-        while p <= 8.0 + 1e-9:
+        for plate_nm in range(PLATE_NM, 8001, 5):
+            p = plate_nm / 1000
             s = PLATE_UM / p
-            _, inl_pred = predict_draws(s_seg * s, s)
-            if margin(inl_pred) >= 0:
-                p_grid = math.floor(p / 0.005) * 0.005
-                s_grid = PLATE_UM / p_grid
-                dnl_g, inl_g = predict_draws(s_seg * s_grid, s_grid)
-                if margin(dnl_g) >= 0 and margin(inl_g) >= 0:
-                    return {
-                        "t": t, "plate": p_grid, "area_x": (p_grid / PLATE_UM) ** 2,
-                        "dnl_yield": yield_at(dnl_g), "inl_yield": yield_at(inl_g),
-                        "dnl_margin": margin(dnl_g), "inl_margin": margin(inl_g),
-                    }
-            p += 0.005
+            dnl_pred, inl_pred = predict_draws(s_seg * s, s)
+            dnl_margin, inl_margin = margin(dnl_pred), margin(inl_pred)
+            if dnl_margin >= 0 and inl_margin >= 0:
+                return {
+                    "t": t, "plate": p, "area_x": (p / PLATE_UM) ** 2,
+                    "dnl_yield": yield_at(dnl_pred), "inl_yield": yield_at(inl_pred),
+                    "dnl_margin": dnl_margin, "inl_margin": inl_margin,
+                }
         return None
 
-    optD = [scan_plate_inl_only(t) for t in (2, 3)]
+    optD = [scan_segmented_plate(t) for t in (2, 3)]
 
     # ---- pilot confirmation --------------------------------------------------
     pilot = run_mc.reanalyze_from_logs(PILOT_RECORD)

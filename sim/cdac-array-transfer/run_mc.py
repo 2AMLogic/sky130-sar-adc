@@ -458,6 +458,15 @@ def reanalysis_prose_line(source_record_id: str) -> str:
     )
 
 
+def stdev_precision_prose(n: int) -> str:
+    """Evaluate the campaign's precision target for its estimated standard deviation."""
+    if n < 2:
+        return f"N={n} is too small to estimate the standard deviation."
+    rel_se_pct = 100.0 / (2 * (n - 1)) ** 0.5
+    verdict = "meeting" if rel_se_pct <= 10 else "exceeding"
+    return f"N={n} gives {rel_se_pct:.1f}%, {verdict} the 10% relative standard error limit."
+
+
 def _negative_control_measurements(negctrl_record: str) -> dict[str, list[float]] | None:
     """Per-measurement known-bad sample lists for the `klt yield` envelope's
     `negative_control` declaration (issue #1016), re-derived from a PRIOR
@@ -519,7 +528,6 @@ def write_evidence(
     positive_ok = dnl_stdev > 0 and inl_stdev > 0
 
     n = result.n
-    rel_se_pct = 100.0 / (2 * (n - 1)) ** 0.5 if n > 1 else float("inf")
 
     yield_json_path = EXPERIMENT_DIR / "yield-reports" / f"{record_id}.json"
     negctrl_samples = _negative_control_measurements(negctrl_record) if negctrl_record else None
@@ -624,14 +632,9 @@ def write_evidence(
         "axis at the nominal corner rather than re-deriving both simultaneously."
     )
     a(
-        f"- **N justification**: target relative standard error on the estimated stdev <= 10%, "
-        f"via the standard result SE(s)/s ~= 1/sqrt(2(N-1)) for an approximately-Gaussian "
-        f"per-draw statistic; N={n} gives {rel_se_pct:.1f}%, meeting that target. This is NOT a "
-        "sample size adequate for a tight (+-1 percentage point) yield-fraction claim at 95% "
-        "confidence (that needs O(100s), see the klt yield sample-size verdict below) -- N is "
-        "sized for the distribution-shape claim this record makes, not chosen for runtime "
-        "convenience (stated honestly per sim/README.md, matching the sim/comparator-decision/ "
-        "offset record's own convention)."
+        "- **N justification**: for an approximately Gaussian per-draw statistic, the relative "
+        "standard error of the estimated standard deviation is SE(s)/s ~= 1/sqrt(2(N-1)). "
+        f"{stdev_precision_prose(n)} Yield confidence is assessed separately by `klt yield`."
     )
     a(
         "- **Linearity methodology**: `reduced-code-set-major-carry`, extended Monte Carlo "

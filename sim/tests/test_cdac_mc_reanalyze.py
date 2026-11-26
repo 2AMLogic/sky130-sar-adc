@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import shutil
 import statistics
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -73,6 +74,28 @@ class TestReanalyzeFromLogs(unittest.TestCase):
     def test_missing_source_record_raises(self):
         with self.assertRaises(FileNotFoundError):
             reanalyze_from_logs("no-such-record-id")
+
+
+class TestPilotSizing(unittest.TestCase):
+    def test_reported_bounds_on_committed_draws(self):
+        output = subprocess.check_output(
+            [sys.executable, str(CDAC_DIR / "analysis" / "attribute_1016.py")], text=True
+        )
+        self.assertIn("option A minimum plate (both margins met): 3.100 um", output)
+        self.assertRegex(output, r"all-40-draws-pass bound .*: 4\.320 um")
+        for depth in (2, 3):
+            self.assertIn(f"option D t={depth}: plate 2.335", output)
+
+    def test_stdev_precision_at_pilot_and_target_boundary(self):
+        for n, expected in (
+            (1, "too small"),
+            (16, "18.3%, exceeding"),
+            (50, "10.1%, exceeding"),
+            (51, "10.0%, meeting"),
+            (52, "9.9%, meeting"),
+        ):
+            with self.subTest(n=n):
+                self.assertIn(expected, run_mc.stdev_precision_prose(n))
 
 
 class TestTargetProvenanceProse(unittest.TestCase):
