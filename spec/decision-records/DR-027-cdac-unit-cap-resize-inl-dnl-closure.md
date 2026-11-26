@@ -16,13 +16,13 @@
 - **Superseded by**: (none while this record stands)
 - **Related**: #1016 (this decision), #29 / PR #130 and #912 (the source
   Monte-Carlo campaign and its freshness-pinnable re-mint),
-  `sim/cdac-array-transfer/analysis/20261126-043923-a7da04a5.md`
+  `sim/cdac-array-transfer/analysis/20261126-051351-2daeef14.md`
   (the attribution + closure study every number below comes from — the
   "design memo" this record cites, per TEMPLATE.md's decision-vs-derivation
   split),
   `sim/cdac-array-transfer/records/20261121-075027-75b91e85.md` (the
   step-3 pilot: fresh MC of the candidate array, N=16, seed 101),
-  `sim/cdac-array-transfer/records/20261126-043733-91c2f129.md` (current
+  `sim/cdac-array-transfer/records/20261126-051316-7e91374a.md` (current
   pilot envelope, replayed from the archived draws with the as-built control,
   corrected MiM model and geometry-specific PVT scope),
   [DR-003](DR-003-numeric-spec-derivation.md) Item 3 (the matching floor
@@ -55,11 +55,13 @@ ratification remains the operator's and is not argued.
 **Study results from the archived draws, the combined MiM card and the
 DR-019 design reference**
 
-1. **Attribution.** A caps-only isolation probe (every FET replaced by an ideal drive, caps
-   keeping their `tt_mm` AGAUSS; committed under `analysis/probe-caps-only-*`)
-   reproduces the committed campaign's per-code level jitter in pattern and
-   magnitude (mid-split codes 1.0–1.7 mV rms in both; endpoints quiet). The
-   DNL sigmas correlate with the square root of switched units (r = 0.859).
+1. **Attribution.** The eight-seed caps-only probe replaces the FETs with
+   ideal drives and retains the capacitors’ `tt_mm` mismatch. Its logs are in
+   `analysis/probe-caps-only-20261121-075648-75b91e85/`. At codes 255 and 256,
+   the probe gives 1.46 and 1.66 mV of level jitter. The 40-draw campaign
+   gives 1.60 mV at both. Across all 11 probe codes the level standard deviations
+   correlate with r = 0.979. The DNL sigmas correlate with the square root
+   of switched units (r = 0.859).
    INL sigmas correlate with the code-level model (r = 0.955). The
    combined `tt_mm` MiM card gives relative mismatch `0.0047/(W + 0.150)`
    for square plates at `mult=1` (W in µm), or 0.2293% at 1.900 µm and
@@ -94,13 +96,16 @@ DR-019 design reference**
      three thermometer MSBs. One thermometer MSB is the existing binary MSB.
      Uniformly scaling measured random DNL by the square root of the count
      ratio gives fitted DNL bounds of 1.509, 1.116 and 0.859 LSB for one,
-     two and three MSBs. The model holds INL fixed (margin −0.203).
+     two and three MSBs. The corresponding sample standard deviations of max|DNL|
+     are 0.3120, 0.2290 and 0.1755 LSB. The max|INL| standard deviation stays
+     at 0.2085 LSB (margin −0.203).
      This sensitivity calculation cannot establish segmented cross-copy
      yield because independent copies also contribute unchanged-bit errors.
    - **D — segmentation (t=2/3) + 2.370 µm plate**. Under the same
      assumption both depths meet the fitted limits. The DNL margins are
      +0.048 and +0.257, respectively, with INL just at the limit on the
-     5 nm grid. The projected unit area is ×1.56 vs ×3.02. D adds a
+     5 nm grid. The max|DNL| standard deviations are 0.1953 and 0.1494 LSB.
+     Both depths give 0.1721 LSB for max|INL|. The projected unit area is ×1.56 vs ×3.02. D adds a
      thermometer decoder to the sequencer
      (digital re-composition, DR-006 re-verification), splits the MSB
      column routing, and STILL reopens the Sampling-cap row.
