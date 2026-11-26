@@ -6,6 +6,13 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-26
+
+- **PR #1097**: fix(sim): share executing-worker environment in klt_sim
+- **Issue #1094** (closed): Consolidate executing-worker environment resolution across the 7 klt sim drivers onto klt_sim.py
+- **PR #1098**: fix(sim): label fallback PDK/ngspice lines as the submitting host's
+- **Issue #1096** (closed): run_testbench.py stamps "(executing worker)" on the submitting host's fallback PDK/ngspice lines
+
 ### 2026-11-25
 
 - **PR #1090**: fix(sim): use the shared klt version probe for digital partition
