@@ -22,10 +22,12 @@ plausible-looking record rather than an error:
 
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 HANDOFF_DIR = SIM_DIR / "sampling-cdac-handoff"
@@ -42,49 +44,89 @@ import run_acquisition_settling as ras  # noqa: E402
 
 
 class TestCandidateRecordExecutingEnvironment(unittest.TestCase):
-    """Issue #1094: `write_candidate_record()` renders the Environment block
-    through `klt_sim.executing_environment()`, so the block names the
-    executing worker's PDK and simulator when the run reported both, and the
-    SUBMITTING host's pair -- labelled as such -- when it did not.
+    """The Environment block covers the grid and both code-state controls."""
 
-    Driven over an empty grid: no corner completes, and the Environment
-    section reads the run info, not the numbers. Provenance is stubbed into a
-    temp dir, so nothing under sim/sampling-cdac-handoff/ is written."""
+    REPORT_NAMES = ("report", "report_code_zero", "report_code_alt")
 
     @staticmethod
-    def _info(**worker) -> dict:
-        return dict({"status": "pass", "backend": "batch", "job_id": "job-42",
-                     "jobs": [{"job_id": "job-42", "runner_klt_version": "klt 9.9.9"}],
-                     "worker_pdk": "sky130A @ deadbeef",
-                     "worker_ngspice": "ngspice-47"}, **worker)
+    def _report(stamp="deadbeef", banner="ngspice-47") -> dict:
+        return {"status": "pass", "environment": {
+            "backend": {"resolved": "batch"},
+            "remote": {"worker_environment": {
+                "pdk": {"variant": "sky130A", "stamp_text": stamp},
+                "simulator": {"version_banner": banner},
+            }},
+        }}
 
-    def _record_text(self, **worker) -> str:
+    def _record_text(self, reports) -> str:
         with tempfile.TemporaryDirectory() as tmp:
             with provenance_fixture.fake_provenance(rh, tmp):
                 path = rh.write_candidate_record(
-                    {}, {}, ["tt_27c_1.80v"], self._info(**worker),
-                    reports={}, workdirs={}, bt_record=None, bt_by_corner=None,
+                    {}, {}, ["tt_27c_1.80v"],
+                    reports=reports, workdirs={}, bt_record=None, bt_by_corner=None,
                     bt_complete=None, regen_note="(none)")
                 return path.read_text()
 
-    def test_the_block_names_the_executing_worker(self):
-        text = self._record_text()
+    def test_the_block_names_the_workers_pair_when_all_three_agree(self):
+        text = self._record_text({name: self._report() for name in self.REPORT_NAMES})
         self.assertIn("- PDK: sky130A @ deadbeef", text)
         self.assertIn("- ngspice: ngspice-47", text)
         self.assertIn("- PDK / ngspice above: as run by the executing worker", text)
         self.assertIn(
             "- submitting host PDK / ngspice: sky130A @ testing / ngspice-46", text)
 
-    def test_a_run_reporting_only_one_of_the_two_names_the_submitting_hosts_pair(self):
-        for half in ({"worker_ngspice": None}, {"worker_pdk": None}):
-            with self.subTest(worker=half):
-                text = self._record_text(**half)
+    def test_each_control_must_report_the_same_complete_pair_as_the_grid(self):
+        for name, changed in (
+            ("report_code_zero", {"banner": None}),
+            ("report_code_alt", {"stamp": None}),
+            ("report_code_alt", {"banner": "ngspice-48"}),
+        ):
+            with self.subTest(report=name, changed=changed):
+                reports = {key: self._report() for key in self.REPORT_NAMES}
+                reports[name] = self._report(**changed)
+                text = self._record_text(reports)
                 self.assertIn("- PDK: sky130A @ testing", text)
                 self.assertIn("- ngspice: ngspice-46", text)
                 self.assertNotIn("- PDK: sky130A @ deadbeef", text)
                 self.assertNotIn("- ngspice: ngspice-47", text)
                 self.assertIn("- PDK / ngspice above: submitting host "
                               "(worker environment unknown)", text)
+
+    def test_archived_batch_grid_and_local_controls(self):
+        archive = HANDOFF_DIR / "corners" / "20261123-002026-730a33ea"
+
+        def replay(request_path, out_dir, **kwargs):
+            name = request_path.parent.name
+            filename = "report.json" if name == "grid" else f"report_{name}.json"
+            return json.loads((archive / filename).read_text())
+
+        with tempfile.TemporaryDirectory() as tmp:
+            argv = ["run_handoff.py", "--dr027-candidate", "--record",
+                    "--backend", "batch", "--workdir", str(Path(tmp) / "work")]
+            with (
+                provenance_fixture.fake_provenance(rh, tmp),
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.object(rh.toolchain, "preflight", return_value=None),
+                mock.patch.object(rh.pdk, "resolve_or_raise"),
+                mock.patch.object(rh, "assert_fragments_current", return_value="verified"),
+                mock.patch.object(rh.klt_sim, "submit", side_effect=replay),
+            ):
+                self.assertEqual(rh.main(), 0)
+            text = (Path(tmp) / "records" / "REC.md").read_text()
+
+        for code in ("prev_code_one", "prev_code_zero", "prev_code_alt"):
+            self.assertRegex(text, rf"\| `{code}` \| [+-]\d")
+        self.assertIn("- PDK: sky130A @ testing", text)
+        self.assertIn("- ngspice: ngspice-46", text)
+        self.assertIn("- PDK / ngspice above: submitting host (worker environment unknown)", text)
+        self.assertRegex(text, r"report\.json.*backend `batch`.*sky130A @ f6eeac7d.*ngspice-47")
+        for name in ("report_code_zero", "report_code_alt"):
+            self.assertRegex(
+                text, rf"{name}\.json.*backend `local`.*worker PDK `unknown`.*"
+                r"worker simulator `unknown`",
+            )
+        self.assertNotIn("only path that simulates locally", text)
+        self.assertNotIn("this record was produced by the executing worker", text)
 
 
 class TestCornerGridIsTheSharedRatifiedGrid(unittest.TestCase):
