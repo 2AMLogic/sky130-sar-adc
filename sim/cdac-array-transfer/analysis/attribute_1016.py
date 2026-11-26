@@ -36,6 +36,7 @@ sys.path.insert(0, str(SIM_DIR))
 sys.path.insert(0, str(EXPERIMENT_DIR))
 
 import run_mc  # noqa: E402
+from gen_fragment import WEIGHTS  # noqa: E402
 from harness import evidence as evidence_mod  # noqa: E402
 
 SOURCE_RECORD = "20261001-124049-5207381"  # the committed campaign the issue cites
@@ -45,12 +46,9 @@ LIMIT_LSB = 1.0  # the ORIGINAL DRAFT row -- the limit this issue works against 
 TARGET_YIELD = 0.99
 Z_99 = 2.3263478740408408  # Phi^-1(0.99), one-sided normal quantile for the 0.99-yield margin
 
-# sky130 MiM mismatch, DR-019's own figures (PDK model card, transcribed in
-# spec/dr-003-support/calc.py): sigma(dC/C)[%] = A_C / sqrt(area[um^2])
-A_C_PCT_UM = 2.8
 PLATE_NM = 1900
 PLATE_UM = PLATE_NM / 1000
-SIGMA_U_PCT = A_C_PCT_UM / PLATE_UM  # 1.4737 % -- DR-019's own printed figure
+SOURCE_SIGMA = run_mc.tt_mim_sigma(PLATE_UM)
 
 CANDIDATE_PLATE_UM = 3.3000  # the closure option A size this study lands on (5 nm-grid-legal)
 
@@ -61,6 +59,24 @@ PITCH_GAP_UM = 3.400 - PLATE_UM
 
 # Each side steps Vref/512 per unit. Independent P/N errors add in variance.
 DIFF_ADC_LSB = math.sqrt(2) * (run_mc.ARRAY_IDEAL_STEP_V / 2) / run_mc.RATIFIED_LSB_V
+
+
+def design_cap_ff(side_um: float) -> float:
+    """DR-019 drawn area and perimeter convention for the proposed spec row."""
+    return 2.0 * side_um**2 + 0.19 * 4 * side_um
+
+
+def weighted_step_sigma(c1: int, c2: int) -> float:
+    """First-order ideal divider, one independent fractional error per weighted instance."""
+    variance = 0.0
+    for code in (c1, 511 - c1, c2, 511 - c2):
+        fraction = code / 512
+        variance += fraction**2  # the unit termination stays at VREFN
+        for weight in WEIGHTS:
+            selected = bool(code & weight)
+            variance += (weight * (selected - fraction)) ** 2
+    one_side_step = run_mc.ARRAY_IDEAL_STEP_V / 2 / run_mc.RATIFIED_LSB_V
+    return one_side_step * SOURCE_SIGMA * math.sqrt(variance)
 
 
 def carry_bit(c1: int, c2: int) -> int | None:
@@ -217,12 +233,11 @@ def main() -> int:
         return (LIMIT_LSB - (m + Z_99 * s)) / LIMIT_LSB
 
     def eval_plate(p: float):
-        s = PLATE_UM / p
+        s = run_mc.tt_mim_sigma(p) / SOURCE_SIGMA
         dnl_pred, inl_pred = predict_draws(s, s)
-        cu = 2.0e-15 * p * p + 1.9e-16 * 4 * p
         pitch = p + PITCH_GAP_UM
         return {
-            "plate": p, "cu_ff": cu * 1e15, "area_x": (p / PLATE_UM) ** 2,
+            "plate": p, "cu_ff": run_mc.tt_mim_cap_ff(p), "area_x": (p / PLATE_UM) ** 2,
             "array_um": (N_COL * pitch, N_ROW * pitch),
             "array_area_x": (pitch / (PLATE_UM + PITCH_GAP_UM)) ** 2,
             "dnl": (statistics.fmean(dnl_pred), statistics.stdev(dnl_pred), yield_at(dnl_pred), margin(dnl_pred)),
@@ -234,7 +249,7 @@ def main() -> int:
     p_min = None
     for plate_nm in range(PLATE_NM, 6001, 5):
         p = plate_nm / 1000
-        s = PLATE_UM / p
+        s = run_mc.tt_mim_sigma(p) / SOURCE_SIGMA
         dnl_pred, inl_pred = predict_draws(s, s)
         if margin(dnl_pred) >= 0 and margin(inl_pred) >= 0:
             p_min = p
@@ -243,7 +258,7 @@ def main() -> int:
     p_allpass = None
     for plate_nm in range(PLATE_NM, 8001, 5):
         p = plate_nm / 1000
-        s = PLATE_UM / p
+        s = run_mc.tt_mim_sigma(p) / SOURCE_SIGMA
         dnl_pred, inl_pred = predict_draws(s, s)
         if max(dnl_pred) <= LIMIT_LSB and max(inl_pred) <= LIMIT_LSB:
             p_allpass = p
@@ -267,7 +282,7 @@ def main() -> int:
     def scan_segmented_plate(t: int, s_seg: float):
         for plate_nm in range(PLATE_NM, 8001, 5):
             p = plate_nm / 1000
-            s = PLATE_UM / p
+            s = run_mc.tt_mim_sigma(p) / SOURCE_SIGMA
             dnl_pred, inl_pred = predict_draws(s_seg * s, s)
             dnl_margin, inl_margin = margin(dnl_pred), margin(inl_pred)
             if dnl_margin >= 0 and inl_margin >= 0:
@@ -297,9 +312,9 @@ def main() -> int:
 
     # ---- console summary ------------------------------------------------------
     print(f"source: {SOURCE_RECORD} (N={n}); pilot: {PILOT_RECORD} (N={pilot_stats['n']}, plate {PILOT_PLATE_UM} um)")
-    print(f"Pelgrom sigma_u at {PLATE_UM:.4f} um: {SIGMA_U_PCT:.4f} %")
+    print(f"Combined tt_mm sigma at {PLATE_UM:.4f} um: {100 * SOURCE_SIGMA:.4f} %")
     for metric, fit in (("DNL", fit_dnl), ("INL", fit_inl)):
-        print(f"{metric} fit r={fit['pearson_r']:.3f}; implied sigma_u: {fit['sigma_pct']:.4f}%")
+        print(f"{metric} fit r={fit['pearson_r']:.3f}; effective fit coefficient: {fit['sigma_pct']:.4f}%")
     if p_min:
         print(f"option A minimum plate (both margins met): {p_min:.3f} um; candidate {CANDIDATE_PLATE_UM:.3f} um")
     if p_allpass:
@@ -307,6 +322,8 @@ def main() -> int:
     print(f"candidate {CANDIDATE_PLATE_UM:.3f} um: DNL mean {cand['dnl'][0]:.3f} sd {cand['dnl'][1]:.3f} "
           f"yield {cand['dnl'][2]:.3f} margin {cand['dnl'][3]:+.3f}; INL mean {cand['inl'][0]:.3f} "
           f"yield {cand['inl'][2]:.3f} margin {cand['inl'][3]:+.3f}")
+    print(f"candidate fitted bounds: DNL {LIMIT_LSB * (1 - cand['dnl'][3]):.6f} LSB, "
+          f"INL {LIMIT_LSB * (1 - cand['inl'][3]):.6f} LSB")
     print(f"pilot measured: DNL mean {pilot_stats['dnl_mean']:.3f} sd {pilot_stats['dnl_sd']:.3f} max {pilot_stats['dnl_max']:.3f}; "
           f"INL mean {pilot_stats['inl_mean']:.3f} sd {pilot_stats['inl_sd']:.3f} max {pilot_stats['inl_max']:.3f}")
     for r in seg_rows:
@@ -357,18 +374,18 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
     a("- **Method**: per adjacent-code transition and per sampled code, the systematic part is the "
       "mismatch-disabled (negative-control) value (verified identical across all same-seed controls) "
       "and the random part is `draw - control` per seed; sigmas are sample stdev over N. The closure "
-      f"model rescales random parts by `sigma_u(p)/sigma_u({PLATE_UM:g}) = {PLATE_UM:g}/p` (Pelgrom) and "
+      "model rescales random parts by the combined tt_mm card ratio `(1.9 + 0.150)/(p + 0.150)` and "
       "leaves systematic parts fixed. Every table row recomputes from the committed draws by "
       "`analysis/attribute_1016.py` (this analysis's generator).")
     a("")
     a("## 1. Per-transition DNL decomposition (ADC LSB)")
     a("")
-    a("| transition | carry bit k | switched units (per side) | systematic DNL | measured cross-copy sigma | within-array switched-unit sigma (ADC LSB) | measured / analytic |")
+    a("| transition | carry bit k | switched units (per side) | systematic DNL | measured cross-copy sigma | ideal weighted cross-copy sigma | measured / weighted |")
     a("|---|---|---|---|---|---|---|")
     for t in sorted(pairs, key=lambda t: -coeff_sq_dnl[t]):
         k = carry_bit(*t)
         cs = coeff_sq_dnl[t]
-        pred = DIFF_ADC_LSB * math.sqrt(cs) * (SIGMA_U_PCT / 100.0)
+        pred = weighted_step_sigma(*t)
         ratio = D["sd_dnl"][t] / pred if pred else float("nan")
         a(f"| {t[0]}->{t[1]} | {k if k is not None else '(non-carry)'} | {cs:.0f} | "
           f"{D['sys_dnl'][t]:+.4f} | {D['sd_dnl'][t]:.4f} | {pred:.4f} | {ratio:.3f} |")
@@ -390,15 +407,36 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
     a("")
     a("## 3. Attribution: what drives the spread")
     a("")
-    a(f"**(a) The PDK mismatch model, quantified.** The sky130 MiM Pelgrom figure for the drawn "
-      f"{PLATE_UM:.4f} um plate (DR-019) is `sigma(C_u)/C_u = {SIGMA_U_PCT:.4f} %` "
-      f"(`A_C = {A_C_PCT_UM} %*um`). The sampled DNL sigmas correlate with the square root of the "
+    a("**(a) MiM parameters in the campaign decks.** Both archived netlists load "
+      "`libs.tech/combined/sky130.lib.spice tt_mm`. Its cap_mim_m3_1 uses effective square "
+      "side W + 0.150 um. Nominal C is 2(W + 0.150)² fF, and relative sigma at mult=1 "
+      "is 0.0047/(W + 0.150), with W in um. At 1.900 and 3.300 um these give "
+      f"{as_built['cu_ff']:.3f} and {cand['cu_ff']:.3f} fF, with "
+      f"{100 * SOURCE_SIGMA:.4f}% and {100 * run_mc.tt_mim_sigma(CANDIDATE_PLATE_UM):.4f}% mismatch. "
+      "The independent unit-cap probes in bit-trial record 20261123-000415-d1ce38af agree. "
+      "DR-019 uses the drawn-area/perimeter estimate and 2.8 %·um/W for its design reference "
+      "(8.664/24.288 fF and 1.4737/0.8485%). "
+      "[MiM subcircuit](https://github.com/fossi-foundation/skywater-pdk-libs-sky130_fd_pr/blob/"
+      "1232782c1b9fab3aacda74d67ce7c92bf7da8105/combined_models/continuous/models_capacitors.spice#L101-L108) · "
+      "[Mismatch coefficient](https://github.com/fossi-foundation/skywater-pdk-libs-sky130_fd_pr/blob/"
+      "1232782c1b9fab3aacda74d67ce7c92bf7da8105/combined_models/continuous/models_global.spice#L73) · "
+      "[Nominal geometry and density](https://github.com/fossi-foundation/skywater-pdk-libs-sky130_fd_pr/blob/"
+      "1232782c1b9fab3aacda74d67ce7c92bf7da8105/combined_models/continuous/parameters_cap_nom.spice#L20-L21)")
+    a("")
+    a("The deck instantiates one subcircuit per bit with MF=m=bit weight. The card reads "
+      "`mult`, which defaults to 1. ngspice passes `m` through to the primitive capacitor, "
+      "multiplying the capacitance including its single mismatch draw. MF does not set mult. "
+      "The weighted group therefore retains the unit's fractional sigma. In table 1 the ideal "
+      "divider sensitivity per group is m(selected − code/512), with a unit unselected termination. "
+      "The variance sums the squared sensitivities of the two independent levels and both sides.")
+    a("")
+    a(f"The sampled DNL sigmas correlate with the square root of the "
       f"within-array switched-unit count (r = {fit_dnl['pearson_r']:.3f}). The INL sigmas correlate "
       f"with sqrt(code*(511-code)/511) (r = {fit_inl['pearson_r']:.3f}). A one-side unit step is "
       "1.8 V / 512 = 3.515625 mV, one ADC LSB. Independent P and N errors add in quadrature, "
       f"giving a differential coefficient of {DIFF_ADC_LSB:.4f} ADC LSB. Fitting these shapes to "
-      f"the campaign gives effective unit mismatch of {fit_dnl['sigma_pct']:.4f} % (DNL) and "
-      f"{fit_inl['sigma_pct']:.4f} % (INL). The cross-copy experiment limits interpretation of these fits.")
+      f"the campaign gives effective coefficients of {fit_dnl['sigma_pct']:.4f} % (DNL) and "
+      f"{fit_inl['sigma_pct']:.4f} % (INL). The fitted shapes assume independent units. Each coefficient summarizes campaign spread under that assumption.")
     a("")
     a(f"**(b) Caps-only isolation probe.** Rebuilding the seed-1 campaign netlist with "
       "every nfet/pfet replaced by an ideal drive (bit=0: 1 ohm tie to VREFN; bit=1: PWL source "
@@ -413,7 +451,7 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
         a(f"| {c} | {D['level_rnd_sd'][c] * 1e6:.1f} | {probe_sd:.1f} |")
     a("")
     a("The mid-split codes carry 1.0-1.7 mV of level jitter in both experiments and the endpoints "
-      "are quiet in both. Unit-cap mismatch reproduces the observed pattern and magnitude.")
+      "are quiet in both. Weighted MiM mismatch reproduces the observed pattern and magnitude.")
     a("")
     a("**(c) The harness measures cross-copy DNL.** Each code uses an independent array copy. "
       "On a shared array, the variance of the step includes the covariance between its two levels. "
@@ -452,12 +490,12 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
     a("")
     a(f"The fitted upper bound is mean + {Z_99:.3f}*sigma. Margin = (limit - bound)/limit "
       f"with a limit of {LIMIT_LSB:g} LSB. A nonnegative margin meets the fitted criterion. "
-      "\"emp\" is the pass fraction of the N=40 rescaled draws. Pelgrom "
-      "scaling: random parts x " + f"{PLATE_UM:g}/p, systematic fixed.")
+      "\"emp\" is the pass fraction of the N=40 draws after rescaling the random terms by "
+      "2.05/(p + 0.150) and holding the source systematic terms fixed.")
     a("")
-    a(f"### Option A -- larger unit capacitor (pure Pelgrom scaling). RECOMMENDED (see DR-027).")
+    a(f"### Option A -- larger unit capacitor (combined tt_mm mismatch scaling). RECOMMENDED (see DR-027).")
     a("")
-    a("| plate (um) | area x | C_u (fF) | array core (um) | DNL mean/sd | DNL margin | DNL emp | INL mean/sd | INL margin | INL emp |")
+    a("| plate (um) | area x | card C_u (fF) | array core (um) | DNL mean/sd | DNL margin | DNL emp | INL mean/sd | INL margin | INL emp |")
     a("|---|---|---|---|---|---|---|---|---|---|")
     for r, tag in ((as_built, "1.900 (as-built)"), (cand, f"{CANDIDATE_PLATE_UM:.3f} (candidate)")):
         a(f"| {tag} | {r['area_x']:.2f} | {r['cu_ff']:.2f} | "
@@ -467,7 +505,8 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
     a("")
     a(f"- Minimum plate meeting both normal margins on the 5 nm grid: **{p_min:.3f} um** "
       f"(unit-cap area x{(p_min / PLATE_UM) ** 2:.2f}). The candidate **{CANDIDATE_PLATE_UM:.3f} um** adds "
-      f"~{abs(cand['dnl'][3]) * 100:.0f}% headroom below the limit on the binding (DNL) statistic.")
+      f"{cand['dnl'][3] * 100:.2f}% headroom. The fitted bounds are "
+      f"{LIMIT_LSB * (1 - cand['dnl'][3]):.6f} LSB DNL and {LIMIT_LSB * (1 - cand['inl'][3]):.6f} LSB INL.")
     a(f"- The all-{n}-draws-pass bound is {p_allpass:.3f} um (unit area x{(p_allpass / PLATE_UM) ** 2:.2f}) "
       "-- dominated by the single worst draw (seed 7, whose (255,256) random part of -1.735 LSB is a "
       "3-4 sigma tail sample of the copy-level distribution). Sizing to one N=40 worst draw with zero "
@@ -481,13 +520,12 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
       f"(x{cand['array_area_x']:.2f} area). The proposed pitch lies on the 5 nm grid. "
       "Layout precheck and spacing verification require a candidate layout.")
     cap_ratio = cand["cu_ff"] / as_built["cu_ff"]
-    a("- Ratified-row impact: reopens the RATIFIED Sampling-cap row (C_u, plate side) -- DR-027 "
-      "proposes the change for operator approval. DR-003's ~415x capacitance margin over the thermal floor "
-      f"grows by {cap_ratio:.4f}x ({cand['cu_ff']:.3f}/{as_built['cu_ff']:.3f} fF). "
-      f"RMS thermal noise falls by a factor of {math.sqrt(cap_ratio):.4f} at fixed temperature. "
-      "Issue #1033 measures the settling and acquisition impact at the larger C. "
-      "Incidental: DR-022/025's systematic gain error scales down "
-      "with C_par/C_u (fixed parasitics over a larger unit), reported there, not claimed here.")
+    nominal_ratio = design_cap_ff(CANDIDATE_PLATE_UM) / design_cap_ff(PLATE_UM)
+    a("- The Sampling-cap row uses DR-019's area/perimeter convention. Its capacitance margin "
+      f"over the thermal floor grows {nominal_ratio:.4f}× and fixed-temperature RMS noise falls by "
+      f"a factor of {math.sqrt(nominal_ratio):.4f}. Using the simulated capacitances gives "
+      f"{cap_ratio:.4f}× and {math.sqrt(cap_ratio):.4f}, respectively. "
+      "Issue #1033 measures settling and acquisition at the candidate load.")
     a("")
     a("### Option B -- unary segmentation of the top t bits at constant total C")
     a("")
@@ -532,11 +570,27 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
     a("- Retained as good practice for the FOLLOW-UP layout (hedging a real-die gradient the model "
       "cannot see), carrying no predicted-yield number in this study.")
     a("")
+    a("### Top-plate load per side in the assembled ADC (DR-022)")
+    a("")
+    a("The half-LSB offset cell and its opposite-side dummy each track one unit on their respective "
+      "side. The known load alone gives a span-error floor of 1/(512+1) = 0.195% FS, or "
+      "1024/513 ≈ 2.0 ADC LSB, for each alternative that retains this topology.")
+    a("")
+    a("| Option | plate (um) | tracking load, DR-019 convention (fF/side) | tracking load, combined card (fF/side) |")
+    a("|---|---|---|---|")
+    for option, side in (("A", CANDIDATE_PLATE_UM), ("As-built, B and C", PLATE_UM),
+                         ("D (two or three thermometer MSBs)", optD[0]["plate"])):
+        a(f"| {option} | {side:.3f} | {design_cap_ff(side):.3f} | {run_mc.tt_mim_cap_ff(side):.3f} |")
+    a("")
+    a("For fixed switches and comparator, BPREF junction/overlap load coupled through Csamp, "
+      "sampling-switch capacitance and comparator input capacitance can shrink relative to 512 C_u. "
+      "The tracking cell keeps its relative weight. Routing, dummy coupling and any additional "
+      "segmentation wiring require extraction of the candidate layout to determine total gain error.")
+    a("")
     a("## 6. Step-3 pilot: simulated confirmation of option A (record " + PILOT_RECORD + ")")
     a("")
     a(f"A fresh Monte Carlo of the candidate array (generated study variant, plate "
-      f"{PILOT_PLATE_UM:.4f} um, sigma_u = {A_C_PCT_UM / PILOT_PLATE_UM:.4f} % by the PDK's own "
-      f"Pelgrom term), N={pilot_stats['n']}, seed {pilot_stats['seed']} (outside the source "
+      f"{PILOT_PLATE_UM:.4f} um, sigma(C)/C = {100 * run_mc.tt_mim_sigma(PILOT_PLATE_UM):.4f}% at mult=1), N={pilot_stats['n']}, seed {pilot_stats['seed']} (outside the source "
       "campaign's seed 1..40, so the comparison is out-of-sample for the closure model fitted on "
       "those draws):")
     a("")
@@ -548,10 +602,11 @@ def write_record(res, D, fit_dnl, fit_inl, coeff_sq_dnl, probe_levels, probe_dir
       f"{pilot_stats['inl_mean']:.3f} / {pilot_stats['inl_sd']:.3f} |")
     a(f"| worst draw (either stat) | {cand['dnl_max']:.3f} (DNL) | {max(pilot_stats['dnl_max'], pilot_stats['inl_max']):.3f} |")
     a("")
-    a(f"All {pilot_stats['n']} pilot draws clear +-{LIMIT_LSB:g} LSB on both statistics; the measured "
-      "means/sigmas land on the model's prediction (DNL within 0.01 LSB of the predicted mean; INL "
-      "measured slightly better than predicted). The klt yield envelope (record "
-      "20261126-034358-5a2e0198) reports empirical 1.000 with normal-fit cpk 0.93 (DNL) / 1.79 "
+    a(f"All {pilot_stats['n']} pilot draws clear +-{LIMIT_LSB:g} LSB on both statistics at tt_mm, "
+      "27 °C and 1.8 V. The separate five-code transfer sweeps used 1.8988 and 1.9000 um plates. "
+      "The 3.3000 um acquisition and bit-trial settling results in #1033 concern different measurements. "
+      "Candidate transfer monotonicity and mismatch yield across PVT remain open. "
+      "The pilot yield envelope (record 20261126-043733-91c2f129) reports empirical 1.000 with normal-fit cpk 0.93 (DNL) / 1.79 "
       "(INL), a required N of 368 to CLAIM 0.99 at this pass rate, and its declared negative control "
       "(the as-built 1.9000 um campaign's committed draws) is not yet statistically distinguishable "
       "from the nominal at N=16 -- both are the pilot's stated size limits, resolved by the sized run.")

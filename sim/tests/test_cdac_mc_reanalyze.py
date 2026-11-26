@@ -133,15 +133,17 @@ class TestPilotSizing(unittest.TestCase):
         output = subprocess.check_output(
             [sys.executable, str(CDAC_DIR / "analysis" / "attribute_1016.py")], text=True
         )
-        self.assertIn("option A minimum plate (both margins met): 3.100 um", output)
-        self.assertRegex(output, r"all-40-draws-pass bound .*: 4\.320 um")
-        self.assertIn("implied sigma_u: 1.9475%", output)
-        self.assertIn("implied sigma_u: 2.3192%", output)
+        self.assertIn("option A minimum plate (both margins met): 3.195 um", output)
+        self.assertRegex(output, r"all-40-draws-pass bound .*: 4\.510 um")
+        self.assertIn("effective fit coefficient: 1.9475%", output)
+        self.assertIn("effective fit coefficient: 2.3192%", output)
+        self.assertIn("Combined tt_mm sigma at 1.9000 um: 0.2293 %", output)
+        self.assertIn("candidate fitted bounds: DNL 0.976534 LSB", output)
         self.assertIn("option B t=1: dnl yield 0.825 margin -0.509", output)
         self.assertIn("option B t=2: dnl yield 0.975 margin -0.116", output)
         self.assertIn("option B t=3: dnl yield 0.975 margin +0.141", output)
-        self.assertIn("option D t=2: plate 2.335 area x1.51 dnl yield 0.975", output)
-        self.assertIn("option D t=3: plate 2.335 area x1.51 dnl yield 1.000", output)
+        self.assertIn("option D t=2: plate 2.370 area x1.56 dnl yield 0.975", output)
+        self.assertIn("option D t=3: plate 2.370 area x1.56 dnl yield 1.000", output)
 
     def test_stdev_precision_at_pilot_and_target_boundary(self):
         for n, expected in (
