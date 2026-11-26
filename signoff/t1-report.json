@@ -318,6 +318,14 @@
           ],
           "status": "met",
           "reason": null
+        },
+        {
+          "citation": "sim/cdac-array-transfer/klt-sim/20261122-103440-000e61e7/report.json",
+          "rows": [
+            "v_ref"
+          ],
+          "status": "met",
+          "reason": null
         }
       ],
       "detail": {
@@ -333,16 +341,12 @@
         ],
         "declared_gaps": [
           {
-            "id": "v_ref",
-            "gap": "#1021: V_REF is the applied corner rail (an input the bench wires in as VREFP={vdd_val}), not an observed quantity; a measured rail would read back the applied source, a fixed 1.8 V limit would fail every +-10 % supply corner by construction, and no ratified tolerance exists against which any observable for this row could be graded -- the observable/tolerance decision record #1021 owns is a spec change, not a manifest choice"
-          },
-          {
             "id": "lsb",
-            "gap": "#1021: LSB is the derived formula 2*V_REF/2^N = 3.5156 mV; the transfer bench's five codes exercise polarity and strict monotonicity with their deviation from ideal reported for information only, and no ratified tolerance exists on that deviation -- grading one would invent one (a #1021 decision record)"
+            "gap": "The CDAC run reports differential step deviation at five codes. A pass condition for deviation from 2*V_REF/2^N awaits the proposed DR-026 decision (#1021)."
           },
           {
             "id": "sampling_cap",
-            "gap": "#1021: the claim is structural (C_u ~8.66 fF from a 1.9000 um square plate, 2^9 = 512 positions/side -- the deck's own device sizing and array population) plus functional (monotonicity, polarity); a .meas cannot grade the structural half, and the functional half alone is one part of the claim, which the gap path exists for"
+            "gap": "The structural check verifies the 1.9000 um plate side and 512 positions per side. Charge-derived unit capacitance is informational. Proposed DR-026 (#1021) owns the choice of a structural grade or an electrical tolerance."
           },
           {
             "id": "corners",
@@ -359,7 +363,8 @@
           "power"
         ],
         "row_sources": {
-          "comparator_noise": "derived"
+          "comparator_noise": "derived",
+          "v_ref": "derived"
         }
       }
     },
