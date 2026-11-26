@@ -3,6 +3,7 @@
 import copy
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -17,12 +18,21 @@ import run_klt_graded as graded  # noqa: E402
 ARCHIVE = BENCH / "klt-sim/20261122-103440-000e61e7/report.json"
 
 
+def untagged_report():
+    """Model the current request using the archived batch's values and limits."""
+    report = json.loads(ARCHIVE.read_text())
+    for measurement in report["measurements"]:
+        if measurement["name"] in ("vref_ratio", "v_vrefn"):
+            del measurement["spec_row"]
+    return report
+
+
 class GradedRecordTest(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.work = Path(tmp.name)
-        self.report = json.loads(ARCHIVE.read_text())
+        self.report = untagged_report()
         self.stdout = io.StringIO()
         # The output tree is temporary. Baseline comparison reads its frozen input.
         (self.work / "records").mkdir()
@@ -43,6 +53,27 @@ class GradedRecordTest(unittest.TestCase):
         self.assertEqual(self.status, 3, self.stdout.getvalue())
         self.assertFalse((self.work / "records/test.md").exists())
         self.assertFalse((self.work / "netlist-snapshots").exists())
+
+    def test_ideal_source_voltage_readbacks_cannot_claim_a_spec_row(self):
+        deck = graded.FRAGMENT.read_text().lower()
+        clamped = set(re.findall(r"^v\S+\s+(\S+)\s+0\s+", deck, re.MULTILINE)) | {"0"}
+        self.assertTrue({"vrefp", "vrefn", "vdd"} <= clamped)
+        guards = set()
+        for measurement in json.loads(graded.REQUEST.read_text())["measurements"]:
+            expr = measurement["spice"].lower()
+            probes = re.findall(r"\bv\(([^)]+)\)", expr)
+            nodes = {node.strip() for probe in probes for node in probe.split(",")}
+            if nodes and nodes <= clamped and "i(" not in expr:
+                guards.add(measurement["name"])
+                self.assertNotIn("spec_row", measurement, measurement["name"])
+        self.assertTrue({"vref_ratio", "v_vrefn"} <= guards)
+
+    def test_t1_does_not_credit_the_historical_reference_tags(self):
+        t1 = json.loads((BENCH.parents[1] / "signoff/t1-report.json").read_text())
+        item = next(i for i in t1["items"] if i["id"] == 5 and i["partition"] == "analog")
+        self.assertNotIn("v_ref", item["detail"]["row_sources"])
+        gap = next(g for g in item["detail"]["declared_gaps"] if g["id"] == "v_ref")
+        self.assertIn("#1021", gap["gap"])
 
     def test_record_defaults_to_batch(self):
         submit = self.record()
@@ -67,26 +98,29 @@ class GradedRecordTest(unittest.TestCase):
                     with self.subTest(name=name, field=field):
                         data = json.loads(original)
                         meas = next(m for m in data["measurements"] if m["name"] == name)
-                        del meas[field]
+                        if field == "spec_row":
+                            meas[field] = "v_ref"
+                        else:
+                            del meas[field]
                         request.write_text(json.dumps(data))
                         submit = self.record()
                         self.assert_refused()
                         submit.assert_not_called()
 
-    def test_report_must_grade_both_references_with_the_documented_limits(self):
+    def test_report_must_check_both_untagged_references_with_the_documented_limits(self):
         for name in ("vref_ratio", "v_vrefn"):
             for fault in ("informational", "wrong tag", "widened limits", "duplicate"):
                 with self.subTest(name=name, fault=fault):
-                    self.report = json.loads(ARCHIVE.read_text())
+                    self.report = untagged_report()
                     definitions = self.report["measurements"]
                     meas = next(m for m in definitions if m["name"] == name)
                     if fault == "informational":
-                        del meas["limits"], meas["spec_row"]
+                        del meas["limits"]
                         for corner in self.report["corners"]:
                             result = next(m for m in corner["measurements"] if m["name"] == name)
                             result["margin"] = None  # klt still reports status "pass"
                     elif fault == "wrong tag":
-                        meas["spec_row"] = "lsb"
+                        meas["spec_row"] = "v_ref"
                     elif fault == "widened limits":
                         meas["limits"]["min"] -= 0.1
                     else:
@@ -100,7 +134,7 @@ class GradedRecordTest(unittest.TestCase):
                             ("vref_ratio", True), ("v_vrefn", None),
                             ("vref_ratio", float("nan")), ("v_vrefn", float("inf"))):
             with self.subTest(name=name, value=value):
-                self.report = json.loads(ARCHIVE.read_text())
+                self.report = untagged_report()
                 measurements = self.report["corners"][-1]["measurements"]
                 next(m for m in measurements if m["name"] == name)["value"] = value
                 self.record()
@@ -125,7 +159,7 @@ class GradedRecordTest(unittest.TestCase):
     def test_genuine_reference_failure_is_recorded(self):
         for name, value, margin in (("vref_ratio", 0.9, -0.09999), ("v_vrefn", 2e-5, -1e-5)):
             with self.subTest(name=name):
-                self.report = json.loads(ARCHIVE.read_text())
+                self.report = untagged_report()
                 self.report.update(status="fail", passed=8, failed=1)
                 corner = next(
                     c for c in self.report["corners"]
@@ -150,7 +184,7 @@ class GradedRecordTest(unittest.TestCase):
     def test_missing_duplicate_and_wrong_corner_refused(self):
         for fault in ("subset", "duplicate", "wrong supply"):
             with self.subTest(fault=fault):
-                self.report = json.loads(ARCHIVE.read_text())
+                self.report = untagged_report()
                 corners = self.report["corners"]
                 if fault == "subset":
                     del corners[1:]

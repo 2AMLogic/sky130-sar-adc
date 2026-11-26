@@ -318,14 +318,6 @@
           ],
           "status": "met",
           "reason": null
-        },
-        {
-          "citation": "sim/cdac-array-transfer/klt-sim/20261122-103440-000e61e7/report.json",
-          "rows": [
-            "v_ref"
-          ],
-          "status": "met",
-          "reason": null
         }
       ],
       "detail": {
@@ -340,6 +332,10 @@
           "power"
         ],
         "declared_gaps": [
+          {
+            "id": "v_ref",
+            "gap": "#1021: ideal sources set VREFP, VREFN and VDD. Their voltage readbacks cannot measure the reference delivered under CDAC load."
+          },
           {
             "id": "lsb",
             "gap": "The CDAC run reports sampled voltage-level errors at five codes and interval errors over four spans. A pass condition for deviation from 2*V_REF/2^N awaits the proposed DR-026 decision (#1021)."
@@ -363,8 +359,7 @@
           "power"
         ],
         "row_sources": {
-          "comparator_noise": "derived",
-          "v_ref": "derived"
+          "comparator_noise": "derived"
         }
       }
     },
@@ -597,7 +592,7 @@
         "command": null,
         "kind": "generic",
         "check_status": "pass",
-        "content_hash": "sha256:29dcae41f214b6b86f8f0d90c0e765e27ee63d7f77abdb600b1605c10301b311",
+        "content_hash": "sha256:ea5fe454157fe3633b9f2e9a7046c3247d2469422ca2b1a405fa988bc7b6b19a",
         "input_verified": null,
         "exit_status": 0
       }

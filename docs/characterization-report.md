@@ -13,7 +13,7 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 | Sample rate | DRAFT | UNMEASURED as an end-to-end sample-rate figure (four mechanisms probed individually, not combined);… | 10 record(s), see detail below |
 | ENOB | DRAFT (target value) | DOES NOT MEET the DRAFT baseline target (>9.0 bit), informationally: 8.506 bit (mean-case CDAC mism… | 1 record(s), see detail below |
 | INL / DNL | DRAFT (target value) | DOES NOT MEET the DRAFT target (<= +-1 LSB, target_yield=0.99), informationally: empirical yield 0.… | 2 record(s), see detail below |
-| `V_REF` | RATIFIED | PASS (graded relation V_REF = V_DD per corner, 9/9, `klt sim` envelope 20261122-103440-000e61e7; sl… | 2 record(s), see detail below |
+| `V_REF` | RATIFIED | GAP (#1021). These stimulus readbacks cannot measure a change in the reference delivered under CDAC… | 2 record(s), see detail below |
 | LSB (differential) | RATIFIED | GAP (measurement not graded: no ratified tolerance; decision owned by spec/decision-records/DR-026-… | 2 record(s), see detail below |
 | Sampling cap (CDAC unit × array) | RATIFIED | PASS (sim structural check, exact ratified values, 9/9 corners) + GAP (electrical C_u measurement:… | 3 record(s), see detail below |
 | Comparator input-referred noise | RATIFIED | PASS vs. baseline (<=1.0148 mV rms) at every corner, binding corner `tt_125c_1.80v` = 0.8643 mV rms… | 1 record(s), see detail below |
@@ -126,16 +126,16 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 ### `V_REF`
 
 - **Status**: RATIFIED
-- **Conditions**: Full ratified corner set, 9 OAT points. V_REF is a fixed design constant per DR-003's own scope table, not itself a simulated quantity -- the cited records confirm the CDAC array correctly consumes `VREFP={vdd_val}`/`VREFN=0` at each corner's own supply point, not that a reference-generator circuit meets a tolerance (none is ratified). Graded since issue #1021: the `klt sim` envelope's `spec_row`-tagged, limits-bearing `vref_ratio`/`v_vrefn` measurements machine-evaluate the ratified relation `V_REF = V_DD` at every corner, with solver/print-precision slack only (slack provenance stated in the record).
-- **Verdict**: PASS (graded relation V_REF = V_DD per corner, 9/9, `klt sim` envelope 20261122-103440-000e61e7; slack = solver/print precision only) + PASS (structural + functional/monotonicity check, 9/9 corners)
+- **Conditions**: The CDAC bench drives VREFP and VDD with ideal sources set to the corner supply and drives VREFN at 0 V. The archived batch reports a reference-to-supply ratio of 1 and VREFN of 0 V at all nine corners.
+- **Verdict**: GAP (#1021). These stimulus readbacks cannot measure a change in the reference delivered under CDAC load.
 - **Notes**: See spec/decision-records/DR-003-numeric-spec-derivation.md for the full derivation.
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md` (Record ID `20261126-040720-de9c8405`, Supersedes: 20261122-103440-000e61e7)
-  - Overall: PASS (envelope status 'pass', 9/9 corners passed; graded V_REF relation + structural census + functional monotonicity all as stated above)
+- `sim/cdac-array-transfer/records/20261126-070822-ce736573.md` (Record ID `20261126-070822-ce736573`, Supersedes: 20261126-040720-de9c8405)
+  - Overall: PASS (envelope status 'pass', 9/9 corners passed; stimulus checks + structural census + functional monotonicity all as stated above)
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- grades the RATIFIED `V_REF = V_DD` row's own content as a machine-evaluated relation at every corner of the ratified corner set: the applied reference at the CD…
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- checks the applied reference, CDAC structure and five-code transfer over the ratified corner set. V_REF coverage is a GAP (#1021): ideal sources set VREFP, VREF…
 - `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
@@ -150,10 +150,10 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md` (Record ID `20261126-040720-de9c8405`, Supersedes: 20261122-103440-000e61e7)
-  - Overall: PASS (envelope status 'pass', 9/9 corners passed; graded V_REF relation + structural census + functional monotonicity all as stated above)
+- `sim/cdac-array-transfer/records/20261126-070822-ce736573.md` (Record ID `20261126-070822-ce736573`, Supersedes: 20261126-040720-de9c8405)
+  - Overall: PASS (envelope status 'pass', 9/9 corners passed; stimulus checks + structural census + functional monotonicity all as stated above)
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- grades the RATIFIED `V_REF = V_DD` row's own content as a machine-evaluated relation at every corner of the ratified corner set: the applied reference at the CD…
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- checks the applied reference, CDAC structure and five-code transfer over the ratified corner set. V_REF coverage is a GAP (#1021): ideal sources set VREFP, VREF…
 - `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
@@ -168,10 +168,10 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 
 **Evidence:**
 
-- `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md` (Record ID `20261126-040720-de9c8405`, Supersedes: 20261122-103440-000e61e7)
-  - Overall: PASS (envelope status 'pass', 9/9 corners passed; graded V_REF relation + structural census + functional monotonicity all as stated above)
+- `sim/cdac-array-transfer/records/20261126-070822-ce736573.md` (Record ID `20261126-070822-ce736573`, Supersedes: 20261126-040720-de9c8405)
+  - Overall: PASS (envelope status 'pass', 9/9 corners passed; stimulus checks + structural census + functional monotonicity all as stated above)
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
-  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- grades the RATIFIED `V_REF = V_DD` row's own content as a machine-evaluated relation at every corner of the ratified corner set: the applied reference at the CD…
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- checks the applied reference, CDAC structure and five-code transfer over the ratified corner set. V_REF coverage is a GAP (#1021): ideal sources set VREFP, VREF…
 - `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)

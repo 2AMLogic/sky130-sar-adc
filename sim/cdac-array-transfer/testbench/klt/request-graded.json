@@ -204,8 +204,7 @@
       "limits": {
         "min": -1e-05,
         "max": 1e-05
-      },
-      "spec_row": "v_ref"
+      }
     },
     {
       "name": "vref_diff",
@@ -219,8 +218,7 @@
       "limits": {
         "min": 0.99999,
         "max": 1.00001
-      },
-      "spec_row": "v_ref"
+      }
     },
     {
       "name": "mono_step_0_128",

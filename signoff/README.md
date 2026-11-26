@@ -69,7 +69,7 @@ saying, because the grader cannot.
 | 2 | Layout | **`met`** (both) | One bare citation: a generic envelope pinning the composed top-level stream (`layout/sar-adc-top/reports/20261001-211249-1ca34e6/sar_adc_top.gds`) by path and sha256. Asserts nothing about item 4. See "What the item 1, 2, 9 and 10 citations assert".
 | 3 | DRC clean | **`met`** (both) | `klt drc` on the composed top-level stream: `status: clean`, 0 violations, deck `sky130` @ `sha256:a1d90e06…` (see the cited `drc.json` for the authoritative deck hash and counts). Covers both partitions because the stream it ran on contains both partitions' geometry. **Coverage gaps are disclosed below — read them; a `met` here is not evidence they were disclosed.** |
 | 4 | LVS clean | `unmet` / `check_failed` (both) | Cited deliberately even though it fails. `klt lvs` reports `status: "mismatch"` against the full-block reference; the authoritative mismatch, net, device and pin counts are in the cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` (`mismatch_count`, `category_counts`, `counts`) — read them there. Summary retained at that record only: 67 mismatches / 66 errors, 519/555 reference nets and 1046/1095 reference devices matched; categories 49 `device.unmatched`, 9 `net.merged`, 8 `net.split`, 1 `topology.flattened`. Pins read 21 layout / 22 reference / 22 matched: the reference carries `GND` and `VGND` as two ports of what the layout extracts as one net — the shared p-substrate (`GND\|VGND\|VSS`) — so one promoted layout pin answers both, which is why `layout < reference` here is not a missing pin; see [DR-012](../spec/decision-records/DR-012-analog-ground-pad.md). *Historical comparison, superseded:* the 2026-09-24 record (`reports/20260924-234053-66dca3c/`) read 88 mismatches / 87 errors, 411/444 nets and 803/869 devices; before issue #355 it read 98/97. Root cause is an upstream extraction-hierarchy gap, not a design defect — filed generically as klayout-tools#1878; see `layout/sar-adc-top/README.md`'s "LVS device/topology blocker". The full-block LVS still does not match. |
-| 5 | Full corner verification | analog: `unmet` / `partial_coverage`; digital: **`met`** (provisional) | Digital: the manifest's `5.digital` cites a `klt sta` report (routed `sar_sequencer`, four stock Liberty corners at 12 MHz, all `constrained`, no setup/hold violations). Under `klt 0.8.0` the row is compound: the manifest cites **five** reports (STA and `klt functional-verification` for each of `sar_sequencer` and `top_glue`, each graded `met`; plus, since issue #1023, the behavioral-sequencer `klt sim` envelope), and declares the ratified Resolution row under `spec_rows."5.digital"` (`resolution_n`, `ratified: true`), which the grader credits from the sim envelope's limits-bearing, `spec_row`-tagged measurements: `row_coverage.row_sources.resolution_n == "derived"`, `uncovered_rows: []`. Citing the STA alone renders `unmet` / `partial_coverage` (`missing_kinds: functional-verification`); dropping only the sim citation renders `unmet` / `partial_coverage` with `resolution_n` in `uncovered_rows` (the negative control, re-run on the pinned grader). **`met` is the grader's verdict on those five reports; the spec table is DRAFT, 8 of the nine PVT points have no Liberty file, the STA covers the digital partition's own boundary only, and `derived` here measures digital bit capture — not converter ENOB or linearity, which have their own spec rows — see "Item 5, digital" below.** **Analog.** The grader credits 2 of 12 rows from two `klt sim` reports. Comparator noise meets the ratified baseline and the applied CDAC reference equals each corner’s rail, both at all nine corners. Item 5 analog grades `unmet` / `partial_coverage`. LSB and sampling cap await proposed DR-026, corner methodology is a tooling gap (klayout-tools#6969), and seven rows are DRAFT. See “Item 5, analog” below. |
+| 5 | Full corner verification | analog: `unmet` / `partial_coverage`; digital: **`met`** (provisional) | Digital: the manifest's `5.digital` cites a `klt sta` report (routed `sar_sequencer`, four stock Liberty corners at 12 MHz, all `constrained`, no setup/hold violations). Under `klt 0.8.0` the row is compound: the manifest cites **five** reports (STA and `klt functional-verification` for each of `sar_sequencer` and `top_glue`, each graded `met`; plus, since issue #1023, the behavioral-sequencer `klt sim` envelope), and declares the ratified Resolution row under `spec_rows."5.digital"` (`resolution_n`, `ratified: true`), which the grader credits from the sim envelope's limits-bearing, `spec_row`-tagged measurements: `row_coverage.row_sources.resolution_n == "derived"`, `uncovered_rows: []`. Citing the STA alone renders `unmet` / `partial_coverage` (`missing_kinds: functional-verification`); dropping only the sim citation renders `unmet` / `partial_coverage` with `resolution_n` in `uncovered_rows` (the negative control, re-run on the pinned grader). **`met` is the grader's verdict on those five reports; the spec table is DRAFT, 8 of the nine PVT points have no Liberty file, the STA covers the digital partition's own boundary only, and `derived` here measures digital bit capture — not converter ENOB or linearity, which have their own spec rows — see "Item 5, digital" below.** **Analog.** The grader credits 1 of 12 rows. Comparator noise meets the ratified baseline at all nine corners. Item 5 analog grades `unmet` / `partial_coverage`. The CDAC reference readbacks verify stimulus setup (#1021). LSB and sampling cap await proposed DR-026, corner methodology is a tooling gap (klayout-tools#6969), and seven rows are DRAFT. See “Item 5, analog” below. |
 | 6 | Statistical claims | analog `unmet` / `check_failed`; digital `unmet` / `no_evidence` | Cited since issue #1015: the manifest declares the block's statistical rows under `spec_rows."6.analog"` (ENOB and INL/DNL, both `ratified: false` — their target values are DRAFT; comparator offset/dead-band as a declared `gap` per DR-020) and cites the two freshness-pinnable `klt yield` envelopes, each pinned by `content_hash` to its committed `.samples.json`. Both envelopes report `status: "fail"`, so the grader renders `check_failed` with both under `failed_citations`, `failed_rows: [enob, inl_dnl]`, `unratified_rows: [enob, inl_dnl]` and the DR-020 row under `declared_gaps` — see "Item 6" below for what each envelope says, which limit it was graded against versus what the spec row reads today, and what would turn each row `met`. |
 | 7 | Post-layout verification | analog `unmet` / `no_evidence`; digital `met` | **Analog:** no `klt pex` report exists for the composed top level; sub-block `klt pex` records now exist and are **not cited in the manifest** — `layout/cdac-array/reports/20261121-104134-a71fe14a/` and `layout/sampling-frontend/reports/20261121-104527-a71fe14a/` (issue #1017's first PEX records for those blocks) plus the re-minted comparator envelope `layout/comparator/reports/20261121-103712-a71fe14a/` (superseding the three September 2026 envelopes, which described a re-drawn layout at two tt/27C points only) — because they cover the sub-blocks individually and do not prove post-layout behaviour of the composed block. Each record states `extraction.model`, `body_bias.status` (`biased`, zero unbiased PMOS body nets) and per-corner `klt pex` `delta[]` at the ratified 9-point OAT grid, and discloses the floating-substrate extraction artifact (klayout-tools#7066). The analog half is blocked on item 4 (the top-level LVS mismatch, issue #103), mirroring `layout/sar-adc-top/README.md`; the composed-block `klt pex` run that would grade this item `met` waits on the same. Item 7 on the analog partition accepts nothing else: a clean DRC or a pre-layout sim renders `wrong_kind`. Nothing to disclose about `body_bias` on a *citation* — that field is reported on a `pex` citation, and there is still no `pex` citation in the manifest. **Digital:** cited since issue #679 — a `klt functional-verification` report with `options.sdf` set and `environment.sdf.annotated: true` on the routed `sar_sequencer`; see "Item 7, digital" below for what `met` does and does not assert. |
 | 8 | Characterization report | **`met`** (both partitions, by two separate citations) | `8.analog`: `docs/characterization-report.md`; `8.digital`: `docs/characterization-report-digital.md` (frequency bracket, rail power and routed area at the nine ratified corners); each wrapped in its own `generic` envelope (the only kind item 8 accepts). **What `met` asserts is narrow — read "Item 8" below before quoting it.** The digital row is schematic-level and does not borrow the analog row's pass, nor the reverse. |
@@ -335,7 +335,7 @@ Disclosures the grader cannot make:
   by the runner's own rule (a sample above half the rail at that corner's
   supply is a one). It is **not** a converter-resolution measurement: ENOB and
   INL/DNL are separate rows (`6.analog`, both still DRAFT). Item 5 analog grades
-  `partial_coverage` from its two analog citations. The binding's decision quantity is the bench's margin helpers (each check samples its node's signed
+  `partial_coverage` from its comparator noise citation. The binding's decision quantity is the bench's margin helpers (each check samples its node's signed
   distance from half the rail, so the static `min: 0` / `max: 0` limits
   express the rail-referenced rule at every supply); the limit is inclusive at
   exactly zero where the runner's comparison is strict, and no sample in the
@@ -378,17 +378,14 @@ Disclosures the grader cannot make:
 ### Item 5, analog: what `partial_coverage` asserts, and what it does not
 
 The manifest declares all twelve analog target-spec rows under
-`spec_rows."5.analog"`. The pinned grader credits two rows from the
-`spec_row` tags on passing measurements with limits in the cited reports.
-It lists both `comparator_noise` and `v_ref` as `derived` under
-`detail.row_sources`. The item grades `unmet` / `partial_coverage`. The raw
-single-ended noise and the untagged CDAC monotonicity checks contribute no
-additional rows.
+`spec_rows."5.analog"`. The pinned grader lists only `comparator_noise`
+under `detail.row_sources`. That measurement passes at all nine corners.
+The item grades `unmet` / `partial_coverage`. It has four declared gaps
+and seven unratified rows.
 
 | Evidence | Where | Verdict |
 |---|---|---|
 | Comparator input-referred noise, reduced sub-model, 1 kHz–1 GHz, `sqrt(2) × inoise_total` | `sim/comparator-decision/klt-sim/20261121-010219-75b91e8/report.json` (cited; record `sim/comparator-decision/records/20261121-010219-75b91e8.md`) | 9/9 corners PASS vs the ratified baseline ≤ 1.0148 mV rms; binding `tt_125c_1.80v` at 0.9051 mV rms (10.8 % under). The stretch threshold (≤ 0.5859 mV rms) is met at **no** corner of this run and grades nothing — recorded as found, not relaxed. |
-| Applied CDAC reference, `(VREFP − VREFN) / VDD` and `VREFN` | [Batch report](../sim/cdac-array-transfer/klt-sim/20261122-103440-000e61e7/report.json) and [run record](../sim/cdac-array-transfer/records/20261126-040720-de9c8405.md) | 9/9 corners PASS. Each reports `vref_ratio = 1` and `v_vrefn = 0 V`. The limits of 1 ± 1e-5 on the ratio and ±1e-5 V on VREFN allow for solver and print precision on the ratified relation `V_REF = V_DD`. |
 
 Disclosures the grader cannot make:
 
@@ -404,8 +401,14 @@ Disclosures the grader cannot make:
   46, batch worker vs local harness, `.spiceinit` vs in-`.control` solver
   switch) — see the record's own uncontrolled-differences section; no
   attribution is claimed.
-- **Tool versions.** Both batch reports used a `klt 0.9.0` client and runner.
+- **Tool versions.** The comparator and CDAC batch reports used a `klt 0.9.0` client and runner.
   The signoff grader is pinned to `0.8.0` in `signoff/requirements.txt`.
+- **V_REF is a declared gap (#1021).** Ideal sources drive VREFP, VREFN
+  and VDD. Their readbacks give a ratio of 1 and VREFN of 0 V at all nine
+  corners, independently of the CDAC load. The original batch report tagged
+  those measurements as `v_ref`, so item 5 excludes that report. The current
+  request keeps both limits as stimulus checks.
+  [Corrected record](../sim/cdac-array-transfer/records/20261126-070822-ce736573.md)
 - **LSB and sampling cap are declared gaps.** The CDAC record reports the
   sampled voltage-level errors at five codes and interval errors over their four spans. It also checks the 1.9000 µm
   plate side and 512 positions per side, and reports the unit capacitance
@@ -434,10 +437,9 @@ Disclosures the grader cannot make:
   `no_limits_checked`), and it FAILs #811's baseline-agreement rule at
   `ff_27c_1.80v` — that gate belongs to #811 and is neither passed, widened
   nor reinterpreted here.
-- **Freshness.** Each manifest citation pins its deck through the envelope's
+- **Freshness.** The comparator citation pins its deck through the envelope's
   `provenance.input.content_hash`. On each push,
-  `check_evidence_hashes.py` re-hashes both decks and every input listed in
-  their respective `netlist_closure` entries.
+  `check_evidence_hashes.py` re-hashes that deck and its netlist closure.
 
 ### Item 7, digital: what `met` asserts
 

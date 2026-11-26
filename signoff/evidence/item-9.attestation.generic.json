@@ -26,7 +26,7 @@
       "path": "sim/cdac-array-transfer/testbench/klt/request-graded.json",
       "passed": true,
       "executed": true,
-      "content_hash": "sha256:1e882a41dc72c28b03239694c216ff903629263c46514a6b57f8a178d16a17d6"
+      "content_hash": "sha256:c1fff1ed5732f604b920a39a19c753ae505f9b080ed5b080c5253b9fa808ce51"
     },
     {
       "check": "present",

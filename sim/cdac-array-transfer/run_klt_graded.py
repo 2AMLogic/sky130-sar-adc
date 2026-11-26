@@ -11,14 +11,10 @@ same DUT, same 9-point ratified OAT corner grid -- which adds the row
 observables and machine-evaluates what can be machine-evaluated without
 inventing a tolerance (CLAUDE.md: agents do not choose spec tolerances):
 
-  V_REF        GRADED in-envelope. `vref_ratio` (limits 1 +/- 1e-5 relative)
-               and `v_vrefn` (limits +/- 1e-5 V) carry `spec_row: v_ref`:
-               the applied reference at the CDAC equals the corner's own
-               rail per the ratified relation `V_REF = V_DD` (DR-003). The
-               slack is solver/print precision only, not a design
-               tolerance: 1e-5 relative is twice the 6-significant-digit
-               `.meas` print half-step just above unity (5e-6) and >= 16x ngspice's
-               default `vntol` = 1e-6 V referred to the 1.62 V rail corner.
+  V_REF        Harness check only. Three ideal sources set VREFP, VREFN
+               and VDD. The ratio and VREFN limits check their applied
+               values across the corner grid. The DUT cannot affect
+               either voltage readback, so V_REF is a coverage gap (#1021).
   LSB          NOT graded in-envelope. The per-corner differential step is
                measured (mono steps + vdiff values) but the ratified row
                gives no tolerance on its deviation from
@@ -132,8 +128,10 @@ def _vref_measurements(container: dict, source: str):
 
 def _check_vref_definitions(container: dict, source: str) -> None:
     for name, limits, measurement in _vref_measurements(container, source):
-        if measurement.get("spec_row") != "v_ref" or measurement.get("limits") != limits:
-            raise ValueError(f"{source} {name} must grade spec_row v_ref with limits {limits}")
+        if "spec_row" in measurement:
+            raise ValueError(f"{source} {name} reads an ideal source and must be untagged")
+        if measurement.get("limits") != limits:
+            raise ValueError(f"{source} {name} must use stimulus limits {limits}")
 
 
 def _graded_request_sha256() -> str:
@@ -275,14 +273,14 @@ def write_record(
             cu_elec_ff=abs(m["q_vrefp"]["value"]) / (vdd * SWITCHED_UNITS_EQ) * 1e15,
         ))
 
-    graded_ok = all(
+    stimulus_ok = all(
         m.get("status") == "pass" for _, _, m in _vref_measurements(report, "report")
     ) and all(
         r["vref_ratio_status"] == "pass" and r["v_vrefn_status"] == "pass" for r in rows
     )
     functional_ok = all(r["monotonic"] and r["correct_sign"] for r in rows)
     report_pass = report.get("status") == "pass" and passed == len(corners)
-    overall_ok = report_pass and graded_ok and functional_ok and struct_ok
+    overall_ok = report_pass and stimulus_ok and functional_ok and struct_ok
 
     # ---- baseline-agreement probe (issue #564's comparator; #811's gate, informational here)
     from compare_klt_envelope import load_baseline, compare
@@ -308,19 +306,16 @@ def write_record(
     a(f"- **Record ID**: {record_id}")
     a(
         "- **Claim**: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- "
-        "grades the RATIFIED `V_REF = V_DD` row's own content as a machine-"
-        "evaluated relation at every corner of the ratified corner set: the "
-        "applied reference at the CDAC (`v(vrefp)-v(vrefn)`) equals the "
-        "corner's own rail (`v(vdd)`) within solver/print precision only "
-        "(envelope measurement `vref_ratio`, `spec_row: v_ref`, limits "
-        "1 +/- 1e-5 relative; VREFN pinned to 0 within 1e-5 V). Reports, and "
-        "deliberately does NOT grade, the other two ratified rows this "
-        "experiment touches: LSB (per-corner differential step deviation -- "
+        "checks the applied reference, CDAC structure and five-code transfer "
+        "over the ratified corner set. V_REF coverage is a GAP (#1021): "
+        "ideal sources set VREFP, VREFN and VDD independently of the CDAC. "
+        "The reference readbacks check the stimulus configuration. "
+        "LSB (per-corner differential step deviation: "
         "no ratified tolerance, decision owned by "
         "spec/decision-records/DR-026-cdac-row-tolerance-decisions.md, "
         "proposed) and Sampling cap (structural plate geometry re-checked "
         "exactly; electrical C_u observed via reference charge, same "
-        "missing-tolerance decision)."
+        "missing-tolerance decision) remain coverage gaps."
     )
     a(
         "- **Netlist provenance**: same DUT as the pilot request -- "
@@ -350,19 +345,12 @@ def write_record(
         f"{run_transfer.RATIFIED_ARRAY_SIZE_PER_SIDE}/side). This is the "
         "sampling-cap row's exact structural part; it is corner-invariant."
     )
-    graded_verdict = f"PASS at all {len(rows)} corners" if graded_ok else "FAIL"
+    stimulus_verdict = f"PASS at all {len(rows)} corners" if stimulus_ok else "FAIL"
     a(
-        "- **Graded check (V_REF)**: envelope `vref_ratio` and `v_vrefn`, "
-        f"`spec_row: v_ref` -- {graded_verdict}. "
-        "At six significant digits the print step just above "
-        "unity is 1e-5 (1.00000 to 1.00001). The relative allowance of 1e-5 "
-        "is twice the 5e-6 half-step and corresponds to >= 16x "
-        "ngspice's default vntol=1e-6 V at the 1.62 V rail corner; it is a "
-        "solver-precision bound on an exact relation (DR-003's `V_REF = "
-        "V_DD`), NOT a design tolerance. No LSB or sampling-cap pass "
-        "condition exists in this envelope: neither row has a ratified "
-        "tolerance on its measured deviation (DR-026, proposed), so their "
-        "observables here carry no limits and no spec_row tag."
+        f"- **Stimulus check**: `vref_ratio` and `v_vrefn` {stimulus_verdict}. "
+        "The ratio bound is 1 +/- 1e-5 and the VREFN bound is +/- 1e-5 V. "
+        "At six significant digits the step immediately above unity is 1e-5. "
+        "These bounds allow for numerical precision when reading the ideal sources."
     )
     a(
         "- **Functional check**: strict monotonicity (vdiff strictly "
@@ -378,7 +366,7 @@ def write_record(
         "corners/codes. The table separately gives the largest relative interval "
         "error at each corner, comparing each measured voltage difference with "
         "the ideal difference at its two codes (spans of 128, 128, 128 and 127 codes). The "
-        "per-corner LSB derived from the graded reference "
+        "per-corner LSB derived from the applied reference "
         "(`2*(v_vrefp-v_vrefn)/2^N`) and per-corner electrical unit cap "
         "from the reference charge are tabulated below. The electrical C_u "
         "derivation: q_vrefp integrates i(Vrefp) over the whole transient; "
@@ -407,7 +395,7 @@ def write_record(
     a(
         f"- **Overall**: {'PASS' if overall_ok else 'FAIL'} (envelope status "
         f"{report.get('status')!r}, {report.get('passed')}/{report.get('corner_count')} "
-        "corners passed; graded V_REF relation + structural census + "
+        "corners passed; stimulus checks + structural census + "
         "functional monotonicity all as stated above)"
     )
     a("")

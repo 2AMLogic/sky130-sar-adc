@@ -5,18 +5,17 @@
 - **Decided by**: proposed via issue #1021; no option chosen yet; ratification pending a separate operator decision recorded in this file's `## Decision` section (merging the PR that proposes this record does not ratify it; DR-003 standing policy)
 - **Supersedes**: none
 - **Superseded by**: (none while this record stands)
-- **Related**: issue #1021; DR-003 (ratified the rows and their values); DR-019 (resized the unit-cap plate); `sim/cdac-array-transfer/records/20261126-040720-de9c8405.md` (the graded `klt sim` envelope whose informational columns are this record's evidence); `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (the structural + functional baseline); `sim/spec-coverage.json` rows `LSB (differential)` and `Sampling cap (CDAC unit × array)` (declared gaps naming this record until it is ratified)
+- **Related**: issue #1021; DR-003 (ratified the rows and their values); DR-019 (resized the unit-cap plate); `sim/cdac-array-transfer/records/20261126-070822-ce736573.md` (the graded `klt sim` envelope whose informational columns are this record's evidence); `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (the structural + functional baseline); `sim/spec-coverage.json` rows `LSB (differential)` and `Sampling cap (CDAC unit × array)` (declared gaps naming this record until it is ratified)
 
 ## Context
 
 Issue #1021 found that three RATIFIED `spec/target-spec.md` rows (`V_REF`,
 LSB, Sampling cap) were evidenced only by a structural + functional/
 monotonicity record whose own Claim states that no numeric error-tolerance
-exists — a verdict that does not grade the named quantities. The `V_REF` row
-needed no new number: its entire content is the exact relation
-`V_REF = V_DD`, now machine-graded per corner by the envelope's
-`spec_row`-tagged `vref_ratio`/`v_vrefn` measurements
-(`sim/cdac-array-transfer/records/20261126-040720-de9c8405.md`, PASS 9/9).
+exists — a verdict that does not grade the named quantities. Ideal sources enforce the ratified
+`V_REF = V_DD` relation in this bench. At all nine corners their voltage
+readbacks check the stimulus setup. Issue #1021 tracks the missing
+DUT-sensitive reference evidence.
 
 The other two rows cannot be graded without a tolerance that does not exist
 anywhere in the ratified spec, and CLAUDE.md forbids an agent from choosing
@@ -61,7 +60,7 @@ declarations name. For each row, the ranked options are:
    ~1.5× headroom over the observed 0.33 nominal LSB. The INL/DNL rows
    also express deviations in LSB.
 2. **Defer to the DNL/INL statistical rows**: declare the LSB row graded by
-   its exact relation only (as `V_REF` now is) and let accuracy live in the
+   its exact relation only and let accuracy live in the
    DRAFT INL/DNL rows. Cost: the ratified LSB row then never has its own
    magnitude grade, and a future INL relaxation cannot be caught at this
    bench.
@@ -100,8 +99,7 @@ declarations name. For each row, the ranked options are:
 **Sampling cap (CDAC unit × array)**: each would gain a tolerance clause (or
 an explicitly structural-only grade clause) in the note column, in the same
 DR-via-#27 form the values themselves were ratified in. No row *value*
-changes. The `V_REF` row is unaffected (already gradeable as an exact
-relation; graded by the envelope cited above).
+changes. Issue #1021 owns the separate `V_REF` evidence gap.
 
 ## Consequences
 
@@ -123,6 +121,9 @@ relation; graded by the envelope cited above).
 
 ## Open items
 
+- **V_REF evidence (#1021).** Identify a reference observable that can change
+  with CDAC loading, or seek an operator decision on a structural check.
+  The current bench reads the applied ideal sources.
 - The 125 °C `cu_elec` outlier's leakage attribution (measured, not
   inferred) — a follow-up probe if option sampling-cap-2 is ever chosen.
 - Whether the `mono_step_*` monotonicity checks should eventually carry

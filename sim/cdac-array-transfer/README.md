@@ -36,8 +36,8 @@ python3 sim/cdac-array-transfer/run_transfer.py --record
 ```
 
 **Ratified-spec-row campaign (issue #28)** — the same DUT swept across the
-full ratified corner set and graded against the ratified `V_REF` / LSB /
-CDAC unit-cap-and-array-size rows, written as its own record (`--record`
+full ratified corner set for structural and five-code functional checks. It
+writes its own record (`--record`
 above still writes only the pre-ratification informational record; the two
 are independent flags, not a superseding pair):
 
@@ -149,7 +149,7 @@ Result so far: record `records/20261106-180843-15ea2ea.md` (NOT RUN -- the
 fleet refused the job on a client/runner version mismatch; no comparison was
 possible). Raw report: `klt-sim/20261106-180843-15ea2ea/`.
 
-## Graded spec-row envelope (issue #1021)
+## CDAC stimulus, transfer and sizing checks (issue #1021)
 
 `testbench/klt/request-graded.json` (driven by `run_klt_graded.py`) is the
 graded sibling of the pilot request above: same DUT (`tb_body.spice` ->
@@ -159,7 +159,7 @@ and what is deliberately not:
 
 | Row | Observable in the envelope | Pass condition | Status |
 |---|---|---|---|
-| `V_REF` | `vref_ratio = (v(vrefp)-v(vrefn))/v(vdd)` and `v_vrefn`, both `spec_row: v_ref`-tagged, limits-bearing | Ratified relation `V_REF = V_DD` per corner (DR-003): ratio within `1 ± 1e-5` relative, VREFN within `±1e-5 V` of 0. The slack is solver/print precision ONLY -- `1e-5` rel is twice the six-significant-digit `.meas` print half-step just above unity (print step `1.00001 − 1.00000 = 1e-5`, half-step `5e-6`) and ≥ 16x ngspice's default `vntol` = 1e-6 V at the 1.62 V rail corner -- not a design tolerance | **Graded** (record `records/20261126-040720-de9c8405.md`, PASS 9/9 corners) |
+| `V_REF` | `vref_ratio = (VREFP − VREFN) / VDD` and `v_vrefn` read ideal voltage sources. The DUT cannot change either result. | Stimulus checks only. The untagged limits are 1 ± 1e-5 on the ratio and ±1e-5 V on VREFN. At six significant digits the step above unity is 1e-5. | **Gap** (#1021). All nine corners read 1 and 0 V. Coverage requires evidence of the reference delivered under load. |
 | LSB (differential) | vdiff values + four untagged `mono_step_*` limits-bearing checks; per-corner derived LSB computed in the record | **No ratified tolerance exists** for the step's deviation from `2*V_REF/2^N = 3.5156 mV` -- none is invented here (CLAUDE.md). The monotonicity/polarity checks carry limits but NO `spec_row` tag, so they can never be read as the row's coverage | **Gap** -- tolerance decision owned by `spec/decision-records/DR-026-cdac-row-tolerance-decisions.md` (proposed); `sim/spec-coverage.json` keeps the row in the `ratified-gap` class naming it |
 | Sampling cap | Structural census (`run_transfer.check_structural_sizing()`, exact values) + untagged `q_vrefp` reference-charge integral -> per-corner `cu_elec` in the record | Structural: plate side exactly `1.9000 um`, per-side weights `1,2,4,...,256` + termination = `512`/side (ratified, DR-003/DR-019; corner-invariant). Electrical `cu_elec` (8.59-9.54 fF over the 9 corners vs the ratified "≈ 8.66 fF" estimate): **no ratified tolerance** -> informational only, no tag, no limits | **Structural graded; electrical gap** -- same DR-026 decision; row stays `ratified-gap` |
 
@@ -193,8 +193,10 @@ from `sim/pdk.json` / `sim/toolchain.json`. A full-grid record requires the
 committed graded request and one result for each ratified process, temperature
 and supply combination in the OAT grid. Run a subset request directly with
 `klt sim` for debugging. The corrected record is
-`records/20261126-040720-de9c8405.md` (PASS; raw report under
-`klt-sim/20261122-103440-000e61e7/`). The #811 baseline-agreement probe
+`records/20261126-070822-ce736573.md`. It reinterprets the archived batch under
+`klt-sim/20261122-103440-000e61e7/`. The historical report tagged the
+ideal-source readbacks as `v_ref`. The correction withdraws that coverage claim.
+The #811 baseline-agreement probe
 (`compare_klt_envelope.py`) is reported inside that record informationally:
 it FAILs the pilot's `|delta| <= 2e-5 V` rule across uncontrolled
 differences (PDK pin, host, ngspice build, tran step) -- that gate belongs

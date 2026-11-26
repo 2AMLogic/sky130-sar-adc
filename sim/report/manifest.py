@@ -510,26 +510,17 @@ ROWS: tuple[Row, ...] = (
         spec_row="`V_REF`",
         status="RATIFIED",
         conditions=(
-            "Full ratified corner set, 9 OAT points. V_REF is a fixed design "
-            "constant per DR-003's own scope table, not itself a simulated "
-            "quantity -- the cited records confirm the CDAC array correctly "
-            "consumes `VREFP={vdd_val}`/`VREFN=0` at each corner's own supply "
-            "point, not that a reference-generator circuit meets a tolerance "
-            "(none is ratified). Graded since issue #1021: the `klt sim` "
-            "envelope's `spec_row`-tagged, limits-bearing `vref_ratio`/"
-            "`v_vrefn` measurements machine-evaluate the ratified relation "
-            "`V_REF = V_DD` at every corner, with solver/print-precision "
-            "slack only (slack provenance stated in the record)."
+            "The CDAC bench drives VREFP and VDD with ideal sources set to the "
+            "corner supply and drives VREFN at 0 V. The archived batch reports "
+            "a reference-to-supply ratio of 1 and VREFN of 0 V at all nine corners."
         ),
         verdict=(
-            "PASS (graded relation V_REF = V_DD per corner, 9/9, `klt sim` "
-            "envelope 20261122-103440-000e61e7; slack = solver/print "
-            "precision only) + PASS (structural + functional/monotonicity "
-            "check, 9/9 corners)"
+            "GAP (#1021). These stimulus readbacks cannot measure a change in "
+            "the reference delivered under CDAC load."
         ),
         notes="See spec/decision-records/DR-003-numeric-spec-derivation.md for the full derivation.",
         sim_citations=(
-            "sim/cdac-array-transfer/records/20261126-040720-de9c8405.md",
+            "sim/cdac-array-transfer/records/20261126-070822-ce736573.md",
             "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
         ),
     ),
@@ -563,7 +554,7 @@ ROWS: tuple[Row, ...] = (
             "`ratified-gap` naming DR-026."
         ),
         sim_citations=(
-            "sim/cdac-array-transfer/records/20261126-040720-de9c8405.md",
+            "sim/cdac-array-transfer/records/20261126-070822-ce736573.md",
             "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
         ),
     ),
@@ -614,7 +605,7 @@ ROWS: tuple[Row, ...] = (
             "naming DR-026 until the tolerance decision lands."
         ),
         sim_citations=(
-            "sim/cdac-array-transfer/records/20261126-040720-de9c8405.md",
+            "sim/cdac-array-transfer/records/20261126-070822-ce736573.md",
             "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
         ),
         layout_citations=("layout/cdac-array/reports/20261001-133221-7487784/record.md",),
