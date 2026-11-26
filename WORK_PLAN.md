@@ -8,6 +8,7 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
 - **#1036**: sim(cdac): attribute DNL/INL spread and propose the 3.3000 um unit-cap closure (DR-027)
+- **#1049**: Record CDAC stimulus and transfer checks and declare three spec coverage gaps
 
 ## Very Important
 
@@ -36,7 +37,7 @@ Human-approved issues ready for implementation (`loom:issue`).
 - **#784**: layout: move sar-sequencer and seln-inverters PnR io.layer_v off li1 (rejected by klt place-and-route)
 - **#790**: Re-mint sim/digital-partition campaign after sar-sequencer re-route (PR #788 check:report)
 - **#811**: Re-run multi-corner/MC sim records via klt sim under open_pdks f6eeac7 as superseding records (#709 split)
-- **#1094**: Consolidate executing-worker environment resolution across the 7 klt sim drivers onto klt_sim.py
+- **#1021**: T1 item 5 (analog): grade V_REF, LSB and sampling cap as full ratified claims, not just top-plate voltages
 
 ## In Progress
 
@@ -48,7 +49,8 @@ Issues currently being built (`loom:building`).
 - **#834**: spec: no absolute maximum ratings exist — Challenge #4's proposal-content list requires "absolute limits"
 - **#965**: Hand-kept status texts drifted past the boundary-sweep landing: ROADMAP newest-record bullet, DR-021 Open items, full-conversion records/LATEST
 - **#1016**: CDAC linearity: design iteration toward INL/DNL <= +-1 LSB at 0.99 yield (the redesign path DR-007 left as future work)
-- **#1021**: T1 item 5 (analog): grade V_REF, LSB and sampling cap as full ratified claims, not just top-plate voltages
+- **#1094**: Consolidate executing-worker environment resolution across the 7 klt sim drivers onto klt_sim.py
+- **#1096**: run_testbench.py stamps "(executing worker)" on the submitting host's fallback PDK/ngspice lines
 
 ## PRs Awaiting Review
 
@@ -64,6 +66,8 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 - **#842**: docs(spec): state PDK-sourced absolute limits in DR-026 and report them in the proposal
 - **#973**: docs: qualify the newest full-conversion pointer and record the #913 boundary sweep
 - **#1036**: sim(cdac): attribute DNL/INL spread and propose the 3.3000 um unit-cap closure (DR-027)
+- **#1049**: Record CDAC stimulus and transfer checks and declare three spec coverage gaps
+- **#1098**: fix(sim): label fallback PDK/ngspice lines as the submitting host's
 
 ## Proposed
 
@@ -84,6 +88,7 @@ Issues carrying `loom:curated`.
 - **#1014**: T1 item 5 (analog): cite spec_row-tagged klt sim envelopes for the ratified analog rows as a 5.analog manifest entry *(curated)*
 - **#1016**: CDAC linearity: design iteration toward INL/DNL <= +-1 LSB at 0.99 yield (the redesign path DR-007 left as future work) *(curated)*
 - **#1021**: T1 item 5 (analog): grade V_REF, LSB and sampling cap as full ratified claims, not just top-plate voltages *(curated)*
+- **#1096**: run_testbench.py stamps "(executing worker)" on the submitting host's fallback PDK/ngspice lines *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -102,14 +107,14 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 3 |
+| Operator merge-risk holds | 4 |
 | Very important | 1 |
 | Important | 9 |
 | Ready (`loom:issue`) | 4 |
-| In Progress (`loom:building`) | 7 |
+| In Progress (`loom:building`) | 8 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 4 |
-| Curated | 15 |
+| Approved PRs awaiting merge | 6 |
+| Curated | 16 |
 | Architect / Hermit proposals | 6 |
 | Active epics | 1 |
 <!-- guide:plan-body:end -->
