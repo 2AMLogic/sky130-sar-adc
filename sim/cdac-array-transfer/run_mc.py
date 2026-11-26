@@ -45,6 +45,7 @@ DNL/INL row). DNL/INL below are computed in units of the ratified ADC LSB
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import shutil
 import statistics
@@ -100,6 +101,7 @@ ADJACENT_PAIRS_MC: list[tuple[int, int]] = [
 
 ENDPOINT_LO, ENDPOINT_HI = 0, 511
 ARRAY_IDEAL_STEP_V = 2 * NOMINAL_SUPPLY_V / 512  # this array's own ideal code-to-code step
+DR019_SIDE_UM = 1.9000
 
 
 def build_netlist(info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float, rndseed: int | None, unit_side_um: float = 1.9000) -> str:
@@ -236,6 +238,7 @@ class McResult:
     draws: list[Draw] = field(default_factory=list)
     negctrl: list[Draw] = field(default_factory=list)
     source_record_id: str | None = None  # set only by reanalyze_from_logs()
+    sample_netlist: str = ""  # first mismatch draw's deck, including the original .lib
 
 
 def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = False, unit_side_um: float = 1.9000) -> McResult:
@@ -260,13 +263,35 @@ def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = 
             one_draw, corner, seed, n,
             scratch_dir, quiet, log_prefix="negctrl", label="negctrl", describe_fn=describe,
         )
-    return McResult(seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner, draws=draws, negctrl=negctrl)
+    return McResult(seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner, draws=draws, negctrl=negctrl,
+                    sample_netlist=build_netlist(info, mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, seed, unit_side_um))
 
 
 _LOG_NAME_RE = re.compile(r"^(?P<kind>draw|negctrl)_(?P<idx>\d+)_seed(?P<seed>-?\d+)\.log$")
 
 
-def reanalyze_from_logs(source_record_id: str, corner: str = BASE_CORNER) -> McResult:
+def plate_side_um(netlist: str, requested: float | None = None) -> float:
+    """Read W and L from every MiM instance, including the terminating units."""
+    sides = set()
+    for line in netlist.splitlines():
+        fields = line.lower().split()
+        if not fields or not fields[0].startswith("x") or "sky130_fd_pr__cap_mim_m3_1" not in fields:
+            continue
+        params = dict(field.split("=", 1) for field in fields if "=" in field)
+        if "w" not in params or "l" not in params:
+            raise ValueError("missing MiM W or L in campaign snapshot")
+        sides.update((float(params["w"]), float(params["l"])))
+    if len(sides) != 1:
+        raise ValueError("expected one uniform square MiM plate size in campaign snapshot")
+    side = sides.pop()
+    if not math.isfinite(side) or side <= 0:
+        raise ValueError("invalid MiM plate size in campaign snapshot")
+    if requested is not None and requested != side:
+        raise ValueError(f"requested plate {requested:g} um conflicts with simulated plate {side:g} um")
+    return side
+
+
+def reanalyze_from_logs(source_record_id: str, corner: str | None = None) -> McResult:
     """Re-derive an McResult from a PRIOR record's already-committed
     `mc-draws/<source_record_id>/*.log` files -- NO new ngspice invocation.
     Used to re-score already-collected evidence against a DIFFERENT
@@ -280,7 +305,14 @@ def reanalyze_from_logs(source_record_id: str, corner: str = BASE_CORNER) -> McR
     if not draws_dir.is_dir():
         raise FileNotFoundError(f"no mc-draws/ directory for source record {source_record_id}: {draws_dir}")
 
-    mismatch_corner = corners_mod.mismatch_corner_for(corner)
+    snapshot = (EXPERIMENT_DIR / "netlist-snapshots" / f"{source_record_id}.spice").read_text()
+    lib = re.search(r"^\.lib\s+\S+\s+(\w+)_mm\s*$", snapshot, re.MULTILINE | re.IGNORECASE)
+    if not lib:
+        raise ValueError(f"{source_record_id}: missing mismatch corner in source snapshot")
+    source_corner = lib[1]
+    if corner is not None and corner != source_corner:
+        raise ValueError(f"requested corner {corner} conflicts with source corner {source_corner}")
+    mismatch_corner = corners_mod.mismatch_corner_for(source_corner)
     by_idx: dict[str, dict[int, tuple[int, Path]]] = {"draw": {}, "negctrl": {}}
     for log_path in draws_dir.glob("*.log"):
         m = _LOG_NAME_RE.match(log_path.name)
@@ -305,8 +337,8 @@ def reanalyze_from_logs(source_record_id: str, corner: str = BASE_CORNER) -> McR
         raise ValueError(f"mc-draws/{source_record_id}: {n} draw logs but {len(negctrl)} negctrl logs (expected equal)")
     seed = min(s for s, _ in by_idx["draw"].values())
     return McResult(
-        seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner,
-        draws=draws, negctrl=negctrl, source_record_id=source_record_id,
+        seed=seed, n=n, corner=source_corner, mismatch_corner=mismatch_corner,
+        draws=draws, negctrl=negctrl, source_record_id=source_record_id, sample_netlist=snapshot,
     )
 
 
@@ -467,25 +499,19 @@ def stdev_precision_prose(n: int) -> str:
     return f"N={n} gives {rel_se_pct:.1f}%, {verdict} the 10% relative standard error limit."
 
 
-def _negative_control_measurements(negctrl_record: str) -> dict[str, list[float]] | None:
+def _negative_control_measurements(negctrl_record: str) -> dict[str, list[float]]:
     """Per-measurement known-bad sample lists for the `klt yield` envelope's
     `negative_control` declaration (issue #1016), re-derived from a PRIOR
     record's already-committed `mc-draws/<negctrl_record>/` logs with NO new
-    ngspice run. The as-built 1.9000 um-plate campaign is the natural
-    known-bad control for a candidate-resize study: its DNL/INL populations
-    demonstrably fail the +-1 LSB limit (empirical yield 0.825/0.925,
-    records 20261001-124049-5207381 / 20261115-014818-7adcfe77), so it is
-    DECLARED as the known-bad control. Whether the envelope's statistics
-    actually distinguish it from nominal at the campaign's N is the
-    envelope's own `negative_control.verdict`, not something this
-    declaration asserts. Returns None (and the
-    envelope is minted without a control, exactly as before) if the record
-    or its draws cannot be read."""
-    try:
-        res = reanalyze_from_logs(negctrl_record)
-    except (FileNotFoundError, ValueError) as exc:
-        print(f"warning: negative-control record {negctrl_record!r} unreadable ({exc}); minting envelope without a declared control")
-        return None
+    ngspice run. The envelope reports whether the declared control is
+    distinguishable from nominal in `negative_control.verdict`."""
+    record = EXPERIMENT_DIR / "records" / f"{negctrl_record}.md"
+    if not record.read_text().strip():
+        raise ValueError(f"empty negative-control record: {record}")
+    res = reanalyze_from_logs(negctrl_record)
+    for d in res.draws:
+        if not all(math.isfinite(level) for level in d.vdiff.values()):
+            raise ValueError(f"negative-control record {negctrl_record}: missing or invalid level at seed {d.seed}")
     return {
         "dnl_max_lsb": [d.dnl_max_lsb for d in res.draws],
         "inl_max_lsb": [d.inl_max_lsb for d in res.draws],
@@ -498,11 +524,12 @@ def write_evidence(
     target_limit_lsb: float = DRAFT_INL_DNL_TARGET_LSB,
     target_yield: float = 0.99,
     supersedes: str = "",
-    unit_side_um: float = 1.9000,
+    unit_side_um: float | None = None,
     negctrl_record: str | None = None,
 ) -> tuple[Path, bool]:
-    sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed, unit_side_um=unit_side_um)
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, sample_netlist)
+    unit_side_um = plate_side_um(result.sample_netlist, unit_side_um)
+    negctrl_samples = _negative_control_measurements(negctrl_record) if negctrl_record is not None else None
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, result.sample_netlist)
     record_id = prov.record_id
     record_path = prov.record_path
     netlist_sha = prov.netlist_sha
@@ -530,7 +557,6 @@ def write_evidence(
     n = result.n
 
     yield_json_path = EXPERIMENT_DIR / "yield-reports" / f"{record_id}.json"
-    negctrl_samples = _negative_control_measurements(negctrl_record) if negctrl_record else None
     negctrl_desc = (
         f"declared known-bad control: committed draws of record {negctrl_record} "
         "(plate size and empirical yields are in that record). Declaration only -- "
@@ -574,19 +600,8 @@ def write_evidence(
         provenance = target_provenance_prose(target_limit_lsb, target_yield)
         a(f"- **Claim**: {provenance.claim_body}")
         a(f"- **Reanalysis, not a new simulation**: {reanalysis_prose_line(result.source_record_id)}")
-        if unit_side_um != 1.9000:
-            a(
-                "- **Netlist provenance**: schematic, generated STUDY VARIANT -- unit-cap plate side "
-                f"resized to {unit_side_um:.4f} um (issue #1016 closure study; the as-committed "
-                "design/cdac/cdac_array.sch still carries DR-019's 1.9000 um plate -- this record "
-                "re-scores the candidate campaign's committed draws, it does not implement the "
-                "resize). The source campaign's netlists were generated by "
-                "`sim/cdac-array-transfer/gen_fragment.py` (byte-for-byte verified against #53's "
-                "hand-authored fragment at the default 1.9000 um plate by "
-                "`sim/tests/test_cdac_fragment_gen.py`); the PDK's own MiM Pelgrom mismatch term "
-                "picks the resized plate up automatically (sigma_u = 2.8 %*um / "
-                f"{unit_side_um:.4f} um = {2.8 / unit_side_um:.4f} % vs 1.4737 % as-built)"
-            )
+        a(f"- **Netlist provenance**: copied from `netlist-snapshots/{result.source_record_id}.spice`. "
+          f"All MiM unit plates in that source deck have W = L = {unit_side_um:.4f} um.")
     else:
         a(
             "- **Claim**: "
@@ -761,8 +776,9 @@ ANALYTIC_GAIN_3SIGMA_LSB = 1.4191  # DR-003 Item 3 as updated by DR-019: 3*32*si
 def write_gain_error_evidence(result: McResult, supersedes: str = "", note: str = "") -> tuple[Path, bool]:
     """Mint a gain-error (mismatch half) record from a McResult, normally a
     `reanalyze_from_logs()` one. Informational: no spec row is touched."""
-    sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed)
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, sample_netlist)
+    if plate_side_um(result.sample_netlist) != DR019_SIDE_UM:
+        raise ValueError("gain-error evidence requires the 1.9000 um DR-019 plate for its analytic reference")
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, result.sample_netlist)
     g = gain_error_summary(result)
     n = result.n
     neg_spans = g["plain_span_v"]
@@ -889,7 +905,7 @@ def main() -> int:
     ap.add_argument("--record", action="store_true")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--n", type=int, default=50)
-    ap.add_argument("--corner", default=BASE_CORNER)
+    ap.add_argument("--corner", help="process corner (fresh run default: tt; reanalysis: source snapshot)")
     ap.add_argument("--note", default="")
     evidence.add_supersedes_argument(ap)
     ap.add_argument("--quiet", action="store_true")
@@ -916,12 +932,12 @@ def main() -> int:
         help="target_yield passed to klt yield (default: 0.99, matching the DRAFT spec row's convention)",
     )
     ap.add_argument(
-        "--unit-cap-side-um", type=float, default=1.9000,
+        "--unit-cap-side-um", type=float,
         help=(
             "MiM unit-cap plate side for a CANDIDATE-array study run (issue #1016). "
-            "Default 1.9000 = DR-019's as-built plate (byte-identical netlist to prior "
-            "campaigns). Any other value simulates a resized array WITHOUT touching "
-            "design/cdac -- the PDK's Pelgrom mismatch term rescales with the plate."
+            "Fresh runs default to DR-019's 1.9000 um plate. Reanalysis uses the "
+            "source snapshot and checks any explicit value against it. Other fresh-run "
+            "sizes simulate a resized array without editing design/cdac."
         ),
     )
     ap.add_argument(
@@ -939,13 +955,21 @@ def main() -> int:
         print(f"PDK: found={info.found} variant={info.variant} error={info.error!r}")
         return 0 if info.found else 3
 
+    if args.negative_control_record is not None and (args.gain_error or not args.record):
+        ap.error("--negative-control-record requires a DNL/INL --record run")
     if args.reanalyze:
         result = reanalyze_from_logs(args.reanalyze, corner=args.corner)
+        plate_side_um(result.sample_netlist, args.unit_cap_side_um)
         if not args.quiet:
             for i, d in enumerate(result.draws):
                 print(f"  draw {i} (seed={d.seed}, {result.mismatch_corner}): DNLmax={d.dnl_max_lsb:.4f} LSB INLmax={d.inl_max_lsb:.4f} LSB")
     else:
-        result = run_mc(seed=args.seed, n=args.n, corner=args.corner, quiet=args.quiet, unit_side_um=args.unit_cap_side_um)
+        side = DR019_SIDE_UM if args.unit_cap_side_um is None else args.unit_cap_side_um
+        if not math.isfinite(side) or side <= 0 or round(side, 4) == 0:
+            ap.error("unit plate must have a positive finite side at the deck's four-decimal precision")
+        if args.gain_error and side != DR019_SIDE_UM:
+            ap.error("gain-error evidence requires the 1.9000 um DR-019 plate")
+        result = run_mc(seed=args.seed, n=args.n, corner=args.corner or BASE_CORNER, quiet=args.quiet, unit_side_um=side)
     exit_code = 0
     if args.record and args.gain_error:
         record_path, ok = write_gain_error_evidence(result, supersedes=args.supersedes, note=args.note)
@@ -957,7 +981,6 @@ def main() -> int:
             result, note=args.note,
             target_limit_lsb=args.target_limit_lsb, target_yield=args.target_yield,
             supersedes=args.supersedes,
-            unit_side_um=args.unit_cap_side_um,
             negctrl_record=args.negative_control_record,
         )
         print(f"wrote {record_path}")
@@ -967,4 +990,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except (OSError, ValueError) as exc:
+        sys.exit(f"error: {exc}")

@@ -59,39 +59,48 @@ ratification remains the operator's and is not argued.
 **What the study verified (all numbers re-derivable from committed logs by
 `sim/cdac-array-transfer/analysis/attribute_1016.py`):**
 
-1. **Attribution.** The spread is unit-cap mismatch, not switch mismatch:
-   a caps-only isolation probe (every FET replaced by an ideal drive, caps
+1. **Attribution.** A caps-only isolation probe (every FET replaced by an ideal drive, caps
    keeping their `tt_mm` AGAUSS; committed under `analysis/probe-caps-only-*`)
    reproduces the committed campaign's per-code level jitter in pattern and
    magnitude (mid-split codes 1.0–1.7 mV rms in both; endpoints quiet). The
-   per-transition random sigmas follow the switched-unit-count
-   (McCreary–Wooley) shape, Pearson r = 0.859 (DNL) / 0.955 (INL); the
+   DNL sigmas correlate with the square root of switched units (r = 0.859).
+   INL sigmas correlate with the code-level model (r = 0.955). The
    PDK's Pelgrom figure for the drawn 1.9000 µm plate is
    `sigma(C_u)/C_u = 1.4737 %` (`A_C = 2.8 %·µm`), and under the
-   like-for-like differential ADC-LSB convention the draws imply 0.97 % /
-   1.16 % — same order, convention-limited agreement.
-2. **Structural finding (recorded, not acted on).** The campaign fragment
-   gives every code its own array copy, so its per-draw "DNL" conflates
-   copy-to-copy level variance with within-die DNL (evidence: the 1-unit
-   transition 384→385 carries σ = 0.375 LSB and holds the draw max in 6/40
-   draws — static-bit noise a within-die DNL would cancel). The campaign's
-   max|DNL| is therefore a CONSERVATIVE structure on within-die DNL; sizing
-   the closure against it also closes within-die DNL. Changing the
-   methodology is out of this issue's bounds; filed as its own question.
-3. **The mismatch-disabled floor is systematic.** max|DNL| 0.2364 /
-   max|INL| 0.1534 LSB with mismatch off, growing with the switched block
-   (−0.2364 LSB at the 511-unit MSB carry). Area does not remove it; the
-   closure model holds it fixed (conservative).
-4. **Closure comparison** (predicted by the decomposition model:
-   systematic fixed, random × 1.9/p Pelgrom; "margin" = mean + 2.326σ vs
-   the 1 LSB limit):
+   study's switched-unit DNL and code-level INL fits the draws imply
+   1.9475 % / 2.3192 %. A one-side unit step is 1.8 V / 512 = 3.515625 mV,
+   one ADC LSB. Independent P/N mismatch contributions combine in quadrature.
+   This gives a modeled DNL sigma of 0.4711 LSB at the 255→256 carry.
+2. **Cross-copy DNL.** The campaign gives every code its own array copy,
+   so a step includes two independent level errors. The single-unit 384→385 step
+   carries σ = 0.375 LSB and holds the draw maximum in 6/40 draws.
+   Conversely, the complementary selections at 255→256 give ideal one-side
+   variance coefficients of 510.998 on a shared array and 255.998 across
+   copies. The operator retained the cross-copy metric for sizing in #1034.
+   Within-die DNL remains unmeasured.
+3. **Mismatch-disabled controls.** Maximum absolute DNL / INL is
+   0.236446 / 0.153445 LSB for the source and 0.122668 / 0.085145 LSB
+   for the pilot. The closure model assumes the source systematic terms
+   stay fixed. Both plate size and tool versions differ between campaigns.
+4. **Closure comparison.** The model holds the source systematic terms
+   fixed and scales the random terms by 1.9/p. The fitted upper bound is
+   mean + 2.326σ. The fractional margin is (limit − bound)/limit.
    - **A — larger unit cap**: 3.100 µm (×2.66 unit area) is the first
      5 nm grid point that meets both margins.
      **3.300 µm** carries ~5 % headroom on the binding (DNL) statistic.
-   - **B — unary segmentation at constant total C**: fixes DNL only; INL
-     margin stays −0.203 at every t. B alone cannot close the row.
-   - **D — segmentation (t=2/3) + 2.335 µm plate**: meets both at unit area
-     ×1.51 vs ×3.02, but adds a thermometer decoder to the sequencer
+   - **B — unary segmentation at constant total C**. The worst within-array
+     carry switches 511, 511, 255 and 127 units per side for zero through
+     three thermometer MSBs. One thermometer MSB is the existing binary MSB.
+     Uniformly scaling measured random DNL by the square root of the count
+     ratio gives fitted DNL bounds of 1.509, 1.116 and 0.859 LSB for one,
+     two and three MSBs. The model holds INL fixed (margin −0.203).
+     This sensitivity calculation cannot establish segmented cross-copy
+     yield because independent copies also contribute unchanged-bit errors.
+   - **D — segmentation (t=2/3) + 2.335 µm plate**. Under the same
+     assumption both depths meet the fitted limits. The DNL margins are
+     +0.047 and +0.257, respectively, with INL just at the limit on the
+     5 nm grid. The projected unit area is ×1.51 vs ×3.02. D adds a
+     thermometer decoder to the sequencer
      (digital re-composition, DR-006 re-verification), splits the MSB
      column routing, and STILL reopens the Sampling-cap row.
    - **C — layout matching changes**: not evidencable (the PDK's MiM
@@ -119,18 +128,18 @@ rounded), with:
 
 - `C_u = camimc·area + cpmimc·perimeter = 24.29 fF` (from 8.6640 fF;
   ×2.80), `sigma_u = A_C/3.3000 = 0.8485 %` (from 1.4737 %),
-- unit-cap area ×3.02; array core 217.7 × 54.4 µm → 307.3 × 76.8 µm
-  (×1.99 — the capm-gap pitch rule `plate + 1.502` does not scale with the
-  plate), same 64 × 16 topology, `C_tot ≈ 12.4 pF/side`,
+- unit-cap area ×3.02. Holding the existing 1.500 µm gap gives a pitch of
+  3.400 → 4.800 µm and an estimated core of 217.6 × 54.4 → 307.2 × 76.8 µm
+  (×1.99) at 64 × 16 units, `C_tot ≈ 12.4 pF/side`. Precheck and spacing
+  verification require a candidate layout,
 - predicted campaign-metric outcome (the metric `klt yield` grades):
   max|DNL| 0.499 ± 0.196 LSB, max|INL| 0.450 ± 0.126 LSB against ±1 LSB —
   both margins met with headroom, confirmed out-of-sample by the pilot.
 
-Rejected: B alone (cannot close INL); D as the FIRST move (saves ×1.51 vs
-×3.02 unit area but reopens the same spec row anyway and widens the
-re-verification surface across the digital partition — the area saving is
-real and D stays the documented fallback if the operator rejects A's area
-cost); C (no evidencable mechanism for either contributor). Not taken here:
+Rejected: B alone (misses the modeled INL limit); D as the FIRST move
+(the ×1.51 unit-area estimate requires segmented-campaign verification
+and reopens the same spec row as A plus the digital partition); C (no
+measured yield benefit). D remains a fallback if the operator rejects A's area cost. Not taken here:
 relaxing any target value (DR-007's own track, the operator's call),
 lowering `target_yield`, or any methodology change.
 
@@ -150,11 +159,16 @@ array)** — currently RATIFIED (DR-003 via #27; plate resized by DR-019 via
 Rows this resize MOVES THE PHYSICS OF, without this record claiming any of
 them (each gets its own re-derivation in the follow-ups):
 
-- **kT/C noise** (ratified): improves ×3.02 — the ~415× margin grows.
-- **Settling / sample rate** (DRAFT `100 kS/s–1 MS/s`, never re-derived):
-  the larger array must be re-derived against DR-006's timing budget —
-  follow-up issue filed; the resize must NOT be ratified without that
-  answer.
+- **kT/C noise** (ratified). The capacitance margin over DR-003's thermal
+  floor grows by 24.288 / 8.664 = 2.8033× from the ~415× baseline.
+  At fixed temperature the RMS noise falls by a factor of 1.6743.
+- **Settling / sample rate** (DRAFT `100 kS/s–1 MS/s`). At the candidate
+  size, #1033 found the CDAC bit trial settled within 37.4541 ns across
+  nine corners. The assembled front end met the half-LSB acquisition
+  criterion at 100 kS/s and missed it at all nine corners at 1 MS/s. The
+  worst residual at the fast deadline was −23.7933 mV. This limits the
+  resize proposal at the fast endpoint with existing switches.
+  [Acquisition and bit-trial results](../../sim/sampling-cdac-handoff/records/20261123-002026-730a33ea.md)
 - **ENOB / INL-DNL target rows** (DRAFT, DR-007 candidates): the mismatch
   halves this record's numbers address shrink ×1.74 (`1.9/3.3`); any
   target-value decision stays exactly where DR-007 left it.
@@ -197,6 +211,5 @@ them (each gets its own re-derivation in the follow-ups):
   **#1032** (the sized N ≥ 368 fleet MC campaign + citable `klt yield`
   envelope for T1 item 6; blocked by #811's park), **#1033** (the
   settling/sample-rate re-derivation at `C_tot ≈ 12.4 pF/side` against
-  DR-006), **#1034** (the within-die-DNL methodology question raised by the
-  attribution study's cross-copy finding — a question, not a change).
+  DR-006), **#1034** (resolved by retaining the current cross-copy metric).
 - DR-007's ratification (either direction) remains open and independent.

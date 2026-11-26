@@ -18,8 +18,10 @@ import shutil
 import statistics
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 CDAC_DIR = SIM_DIR / "cdac-array-transfer"
@@ -35,6 +37,7 @@ from run_mc import (  # noqa: E402
 )
 
 SOURCE_RECORD_ID = "20260828-005006-0c70212"
+PILOT_RECORD_ID = "20261121-075027-75b91e85"
 
 
 class TestReanalyzeFromLogs(unittest.TestCase):
@@ -76,6 +79,50 @@ class TestReanalyzeFromLogs(unittest.TestCase):
             reanalyze_from_logs("no-such-record-id")
 
 
+class TestEvidenceProvenance(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.experiment = Path(temp.name)
+        for name in ("mc-draws", "records", "netlist-snapshots"):
+            (self.experiment / name).mkdir()
+        for record in (SOURCE_RECORD_ID, PILOT_RECORD_ID):
+            for path in (Path("mc-draws", record), Path("records", record + ".md"),
+                         Path("netlist-snapshots", record + ".spice")):
+                (self.experiment / path).symlink_to(CDAC_DIR / path)
+        self.enterContext(patch.object(run_mc, "EXPERIMENT_DIR", self.experiment))
+
+    def replay(self, source, *args):
+        with patch.object(sys, "argv", ["run_mc", "--reanalyze", source, "--record", "--quiet", *args]):
+            return run_mc.main()
+
+    def test_default_replay_copies_candidate_and_legacy_decks(self):
+        for source, side in ((PILOT_RECORD_ID, "3.3000"), (SOURCE_RECORD_ID, "1.8988")):
+            with self.subTest(source=source), patch.object(run_mc.evidence, "new_record_id", return_value=source + "-replay"):
+                with patch.object(run_mc.evidence, "run_klt_yield", return_value=None) as report:
+                    self.assertEqual(self.replay(source, "--negative-control-record", SOURCE_RECORD_ID), 0)
+                for measurement in report.call_args.args[0]:
+                    self.assertEqual(len(measurement["negative_control"]["samples"]), 40)
+                decks = self.experiment / "netlist-snapshots"
+                self.assertEqual((decks / (source + "-replay.spice")).read_bytes(),
+                                 (decks / (source + ".spice")).read_bytes())
+                record = (self.experiment / "records" / (source + "-replay.md")).read_text()
+                self.assertIn(f"W = L = {side} um", record)
+
+    def test_rejected_requests_leave_no_artifacts(self):
+        original = set(self.experiment.rglob("*"))
+        for args, error, message in (
+            (("--unit-cap-side-um", "1.9"), ValueError, "conflicts with simulated plate"),
+            (("--negative-control-record", "unavailable"), FileNotFoundError, "unavailable"),
+            (("--gain-error",), ValueError, "DR-019 plate"),
+            (("--gain-error", "--unit-cap-side-um", "3.3"), ValueError, "DR-019 plate"),
+        ):
+            with self.subTest(args=args):
+                with self.assertRaisesRegex(error, message):
+                    self.replay(PILOT_RECORD_ID, *args)
+                self.assertEqual(set(self.experiment.rglob("*")), original)
+
+
 class TestPilotSizing(unittest.TestCase):
     def test_reported_bounds_on_committed_draws(self):
         output = subprocess.check_output(
@@ -83,8 +130,13 @@ class TestPilotSizing(unittest.TestCase):
         )
         self.assertIn("option A minimum plate (both margins met): 3.100 um", output)
         self.assertRegex(output, r"all-40-draws-pass bound .*: 4\.320 um")
-        for depth in (2, 3):
-            self.assertIn(f"option D t={depth}: plate 2.335", output)
+        self.assertIn("implied sigma_u: 1.9475%", output)
+        self.assertIn("implied sigma_u: 2.3192%", output)
+        self.assertIn("option B t=1: dnl yield 0.825 margin -0.509", output)
+        self.assertIn("option B t=2: dnl yield 0.975 margin -0.116", output)
+        self.assertIn("option B t=3: dnl yield 0.975 margin +0.141", output)
+        self.assertIn("option D t=2: plate 2.335 area x1.51 dnl yield 0.975", output)
+        self.assertIn("option D t=3: plate 2.335 area x1.51 dnl yield 1.000", output)
 
     def test_stdev_precision_at_pilot_and_target_boundary(self):
         for n, expected in (
