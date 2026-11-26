@@ -64,11 +64,11 @@ REPO_ROOT = LAYOUT_DIR.parent
 
 sys.path.insert(0, str(LAYOUT_DIR / "bin"))
 
-import _lvs_reference_common
 from _lvs_reference_common import (  # noqa: E402
     cdl_text_if_available,
     instance_map_problems,
     report_instance_parity,
+    resolve_pin_orders,
     spice_instances_from_cards,
     top_level_subckt_body,
     verilog_instances_with_supply_defaults,
@@ -79,18 +79,6 @@ DEFAULT_NETLIST = BLOCK_DIR / "netlist" / "top_glue.v"
 PIN_ORDER_CACHE = BLOCK_DIR / "netlist" / "sky130_fd_sc_hd-pin-order.json"
 
 
-def _top_level_body(spice_text: str) -> str:
-    """The `sar_adc_top` subcircuit body only.
-
-    Delegates to `layout/bin/_lvs_reference_common.py`'s
-    `top_level_subckt_body()` since issue #495, which needed the same slice
-    for the half-LSB offset network's own parity gate. The regexes and the
-    two `SystemExit` messages moved there verbatim; this wrapper stays so the
-    rest of this module reads unchanged.
-    """
-    return top_level_subckt_body(spice_text)
-
-
 def std_cell_cards(spice_path: Path) -> list[str]:
     """The top-level subcircuit's own `sky130_fd_sc_hd__*` instance cards.
 
@@ -99,9 +87,13 @@ def std_cell_cards(spice_path: Path) -> list[str]:
     level adds itself (no sub-block), filtered to the standard-cell library.
     Translating those cards into named pins, diffing them against the Verilog
     and reporting is shared with the sequencer's gate -- see
-    `layout/bin/_lvs_reference_common.py`.
+    `layout/bin/_lvs_reference_common.py`. The `sar_adc_top` body slice
+    itself is that module's `top_level_subckt_body()`, shared there since
+    issue #495 needed the same slice for the half-LSB offset network's own
+    parity gate; the regexes and the two `SystemExit` messages moved there
+    verbatim.
     """
-    body = _top_level_body(spice_path.read_text(encoding="utf-8"))
+    body = top_level_subckt_body(spice_path.read_text(encoding="utf-8"))
     cards: list[str] = []
     for raw in body.splitlines():
         line = raw.strip()
@@ -136,20 +128,6 @@ PIN_ORDER_COMMENT = (
 )
 
 
-def resolve_pin_orders(
-    cell_types: list[str], cdl_text: str | None, refresh: bool
-) -> dict[str, list[str]]:
-    """Top-glue's pin orders; the cache rules live in
-    `layout/bin/_lvs_reference_common.py`'s `resolve_pin_orders`."""
-    return _lvs_reference_common.resolve_pin_orders(
-        cell_types,
-        cdl_text,
-        refresh,
-        cache_path=PIN_ORDER_CACHE,
-        comment=PIN_ORDER_COMMENT,
-    )
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--spice", type=Path, default=DEFAULT_SPICE)
@@ -163,8 +141,14 @@ def main() -> int:
 
     cards = std_cell_cards(args.spice)
     cell_types = top_level_cell_types(cards)
+    # The cache rules (PDK verify, refresh semantics) live in
+    # `_lvs_reference_common.resolve_pin_orders`.
     pin_orders = resolve_pin_orders(
-        cell_types, cdl_text_if_available(), args.refresh_pin_order_cache
+        cell_types,
+        cdl_text_if_available(),
+        args.refresh_pin_order_cache,
+        cache_path=PIN_ORDER_CACHE,
+        comment=PIN_ORDER_COMMENT,
     )
 
     want = spice_instances_from_cards(cards, pin_orders)

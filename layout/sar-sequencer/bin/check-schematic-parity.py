@@ -59,11 +59,11 @@ REPO_ROOT = LAYOUT_DIR.parent
 
 sys.path.insert(0, str(LAYOUT_DIR / "bin"))
 
-import _lvs_reference_common
 from _lvs_reference_common import (  # noqa: E402
     cdl_text_if_available,
     instance_map_problems,
     report_instance_parity,
+    resolve_pin_orders,
     spice_instances_from_cards,
     verilog_instances_with_supply_defaults,
 )
@@ -106,20 +106,6 @@ PIN_ORDER_COMMENT = (
 )
 
 
-def resolve_pin_orders(
-    cell_types: list[str], cdl_text: str | None, refresh: bool
-) -> dict[str, list[str]]:
-    """Sequencer's pin orders; the cache rules live in
-    `layout/bin/_lvs_reference_common.py`'s `resolve_pin_orders`."""
-    return _lvs_reference_common.resolve_pin_orders(
-        cell_types,
-        cdl_text,
-        refresh,
-        cache_path=PIN_ORDER_CACHE,
-        comment=PIN_ORDER_COMMENT,
-    )
-
-
 def verilog_ports(netlist_path: Path) -> list[str]:
     text = netlist_path.read_text(encoding="utf-8")
     match = re.search(r"\bmodule\s+\w+\s*\((.*?)\)\s*;", text, re.S)
@@ -141,8 +127,14 @@ def main() -> int:
 
     ports, lines = sequencer_subckt(args.spice.read_text(encoding="utf-8"))
     cell_types = sorted({ln.split()[-1] for ln in lines})
+    # The cache rules (PDK verify, refresh semantics) live in
+    # `_lvs_reference_common.resolve_pin_orders`.
     pin_orders = resolve_pin_orders(
-        cell_types, cdl_text_if_available(), args.refresh_pin_order_cache
+        cell_types,
+        cdl_text_if_available(),
+        args.refresh_pin_order_cache,
+        cache_path=PIN_ORDER_CACHE,
+        comment=PIN_ORDER_COMMENT,
     )
 
     # Per-block: the subcircuit body is sliced whole, so a line that is not a

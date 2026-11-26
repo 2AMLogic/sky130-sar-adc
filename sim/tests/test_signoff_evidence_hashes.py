@@ -689,6 +689,150 @@ class YieldCitationTests(unittest.TestCase):
         self.assertIn("pins no content_hash", failures[0])
 
 
+class SimCitationTests(unittest.TestCase):
+    """Item 5 analog's `klt sim` citation (issue #1014).
+
+    A sim report's `netlist` is a scoped path OBJECT
+    (`{"path": ..., "scope": "repo"}`), and the run's actual input is the
+    deck's CLOSURE: `environment.netlist_closure[]` names the deck itself
+    plus every `.include`d fragment, each with its own sha256. The manifest
+    pin is compared against the envelope's recorded input hash (leg 2, the
+    grader's own gate); the closure leg re-derives what the grader cannot --
+    that the committed deck (and every included DUT) still hashes to what
+    the report recorded, so an edited deck OR an edited include turns the
+    build red instead of leaving a stale pass behind.
+    """
+
+    def setUp(self):
+        self.tree = FixtureTree(self)
+        self.deck = b"* klt-sim deck fixture\n.include dut.spice\n"
+        self.dut = b"* included DUT fragment fixture\n"
+        self.tree.write("sim/x/testbench/klt/tb_body.spice", self.deck)
+        self.tree.write("sim/x/testbench/klt/dut.spice", self.dut)
+        deck_hex = sha256_bytes(self.deck).split(":", 1)[1]
+        dut_hex = sha256_bytes(self.dut).split(":", 1)[1]
+        self.envelope = {
+            "schema_version": 3,
+            "netlist": {"path": "sim/x/testbench/klt/tb_body.spice", "scope": "repo"},
+            "status": "pass",
+            "corner_count": 9,
+            "measurements": [
+                {
+                    "name": "graded",
+                    "status": "pass",
+                    "limits": {"max": 1.0},
+                    "spec_row": "some_row",
+                }
+            ],
+            "environment": {
+                "netlist_closure": [
+                    {
+                        "path": "sim/x/testbench/klt/tb_body.spice",
+                        "scope": "repo",
+                        "sha256": deck_hex,
+                    },
+                    {
+                        "path": "sim/x/testbench/klt/dut.spice",
+                        "scope": "repo",
+                        "sha256": dut_hex,
+                    },
+                ]
+            },
+            "provenance": {
+                "input": {"content_hash": sha256_bytes(self.deck), "role": "netlist"}
+            },
+        }
+        self.tree.write_json("sim/x/klt-sim/r/report.json", self.envelope)
+        self.manifest = {
+            "block": "fixture",
+            "kind": "mixed-signal",
+            "evidence": {
+                "5.analog": [
+                    {
+                        "file": "sim/x/klt-sim/r/report.json",
+                        "content_hash": sha256_bytes(self.deck),
+                        "rows": ["some_row"],
+                    }
+                ]
+            },
+        }
+
+    def test_classifies_a_sim_envelope(self):
+        """Mirror of the grader's own recognition rule: `measurements` list +
+        `corner_count` -- and that pair wins over yield's triple, whose rule
+        excludes `corner_count` for exactly this reason."""
+        self.assertEqual(checker.classify(self.envelope), "sim")
+        yield_shaped = {
+            "measurements": [{"name": "m"}],
+            "measurement_count": 1,
+            "source": {"kind": "sample-set"},
+            "corner_count": 9,
+        }
+        self.assertEqual(checker.classify(yield_shaped), "sim")
+
+    def test_passes_when_the_deck_and_every_included_input_match(self):
+        self.assertEqual(self.tree.check(self.manifest), [])
+
+    def test_fails_when_the_deck_changed_underneath_the_recorded_hash(self):
+        """The half the grader's freshness gate cannot see: manifest and
+        envelope still agree, the deck on disk does not."""
+        self.tree.write(
+            "sim/x/testbench/klt/tb_body.spice",
+            b"* klt-sim deck fixture, edited\n.include dut.spice\n",
+        )
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("The deck changed under the evidence", failures[0])
+
+    def test_fails_when_an_included_dut_changed(self):
+        """The hole this leg exists to close: the deck still matches its
+        recorded hash, but the closure names the `.include`d fragment too --
+        an edited include must not leave the citation green."""
+        self.tree.write(
+            "sim/x/testbench/klt/dut.spice",
+            b"* included DUT fragment fixture, edited\n",
+        )
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("an .included DUT changed under the evidence", failures[0])
+
+    def test_fails_when_a_closure_input_does_not_resolve(self):
+        """A closure entry naming a file this repo does not contain is a
+        citation whose input bytes are not committed -- the sim-shape twin of
+        the pre-#1015 `/tmp`-samples yield citation."""
+        (self.tree.root / "sim/x/testbench/klt/dut.spice").unlink()
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("does not resolve to a committed file", failures[0])
+        self.assertIn("netlist_closure", failures[0])
+
+    def test_skips_a_closure_entry_klt_declares_unhashed(self):
+        """A `$PDK_ROOT/...` closure entry carries `sha256: None` plus an
+        `unhashed_reason`; it names no committed file, so it is skipped, while
+        the hashed entries are still verified."""
+        self.envelope["environment"]["netlist_closure"].append(
+            {"target": "$PDK_ROOT/lib.spice", "sha256": None, "unhashed_reason": "env_var"}
+        )
+        self.tree.write_json("sim/x/klt-sim/r/report.json", self.envelope)
+        self.assertEqual(self.tree.check(self.manifest), [])
+
+    def test_fails_when_the_pin_disagrees_with_the_envelope(self):
+        self.manifest["evidence"]["5.analog"][0]["content_hash"] = sha256_bytes(b"other")
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("manifest pin", failures[0])
+
+    def test_fails_when_the_recorded_hash_names_no_deck(self):
+        """provenance.input.content_hash without a usable `netlist` path is a
+        recorded hash that describes nothing namable -- refuse it rather than
+        skipping the re-hash."""
+        self.envelope["netlist"] = {"scope": "repo"}
+        self.tree.write_json("sim/x/klt-sim/r/report.json", self.envelope)
+        failures = self.tree.check(self.manifest)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("no usable 'netlist' path", failures[0])
+
+
 class MintedAttestationTests(unittest.TestCase):
     """The committed inventories and envelopes are exactly what the mint script
     derives, so an envelope's `status` cannot be edited by hand."""

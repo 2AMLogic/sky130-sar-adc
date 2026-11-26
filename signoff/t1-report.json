@@ -307,9 +307,61 @@
         "Both require the spec table itself to be ratified \u2014 verdicts against a draft spec are provisional by construction."
       ],
       "status": "unmet",
-      "reason": "no_evidence",
+      "reason": "partial_coverage",
       "graded_by_build": true,
-      "citation": null
+      "citation": null,
+      "citations_graded": [
+        {
+          "citation": "sim/comparator-decision/klt-sim/20261121-010219-75b91e8/report.json",
+          "rows": [
+            "comparator_noise"
+          ],
+          "status": "met",
+          "reason": null
+        }
+      ],
+      "detail": {
+        "failed_rows": [],
+        "uncovered_rows": [
+          "architecture",
+          "sample_rate",
+          "enob",
+          "inl_dnl",
+          "kickback",
+          "gain_error",
+          "power"
+        ],
+        "declared_gaps": [
+          {
+            "id": "v_ref",
+            "gap": "#1021: V_REF is the applied corner rail (an input the bench wires in as VREFP={vdd_val}), not an observed quantity; a measured rail would read back the applied source, a fixed 1.8 V limit would fail every +-10 % supply corner by construction, and no ratified tolerance exists against which any observable for this row could be graded -- the observable/tolerance decision record #1021 owns is a spec change, not a manifest choice"
+          },
+          {
+            "id": "lsb",
+            "gap": "#1021: LSB is the derived formula 2*V_REF/2^N = 3.5156 mV; the transfer bench's five codes exercise polarity and strict monotonicity with their deviation from ideal reported for information only, and no ratified tolerance exists on that deviation -- grading one would invent one (a #1021 decision record)"
+          },
+          {
+            "id": "sampling_cap",
+            "gap": "#1021: the claim is structural (C_u ~8.66 fF from a 1.9000 um square plate, 2^9 = 512 positions/side -- the deck's own device sizing and array population) plus functional (monotonicity, polarity); a .meas cannot grade the structural half, and the functional half alone is one part of the claim, which the gap path exists for"
+          },
+          {
+            "id": "corners",
+            "gap": "klayout-tools#6969: a RATIFIED methodology row -- no single limits-bearing measurement can grade 'the corner set' (it is evidenced by the corner matrix the campaigns themselves ran), and the grader has no form deriving such a row from the union of cited envelopes' coverage blocks. Whether a spec row no tool could ever evidence belongs in the table at all is an operator question, asked on #1014"
+          }
+        ],
+        "unratified_rows": [
+          "architecture",
+          "sample_rate",
+          "enob",
+          "inl_dnl",
+          "kickback",
+          "gain_error",
+          "power"
+        ],
+        "row_sources": {
+          "comparator_noise": "derived"
+        }
+      }
     },
     {
       "tier": "T1",
@@ -353,8 +405,25 @@
           "citation": "sim/digital-functional/runs/20261017-193811-9522693/top-glue.json",
           "status": "met",
           "reason": null
+        },
+        {
+          "citation": "sim/sar-sequencer-behavioral/corners/20261121-073156-75b91e85/report.json",
+          "rows": [
+            "resolution_n"
+          ],
+          "status": "met",
+          "reason": null
         }
       ],
+      "row_coverage": {
+        "failed_rows": [],
+        "uncovered_rows": [],
+        "declared_gaps": [],
+        "unratified_rows": [],
+        "row_sources": {
+          "resolution_n": "derived"
+        }
+      },
       "citations": [
         {
           "file": "sim/digital-sta/runs/20261017-194050-9522693/sar-sequencer.12mhz.json",
@@ -390,6 +459,15 @@
           "check_status": "pass",
           "content_hash": null,
           "input_verified": null,
+          "exit_status": 0
+        },
+        {
+          "file": "sim/sar-sequencer-behavioral/corners/20261121-073156-75b91e85/report.json",
+          "command": null,
+          "kind": "sim",
+          "check_status": "pass",
+          "content_hash": "sha256:e90301c42d597088d364f482531a8d2bb5bbe8bb7c2e98b5db6c8839a5580ae7",
+          "input_verified": true,
           "exit_status": 0
         }
       ]

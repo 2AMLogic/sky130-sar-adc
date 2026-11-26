@@ -42,16 +42,25 @@ Design decisions this module encodes (each cited where it is enforced):
   testbench's positional instantiation line means the same thing on both
   legs -- and a pin-list drift fails loudly here instead of silently
   permuting nets.
+- **Shared CLI driver.** The `--check-env` / `--pilot` / `--record`
+  dispatch (`pex_main`) and the `klt pex` argv (`klt_pex_argv`) live here
+  too (issue #1069): the three per-block `main()` copies had drifted
+  (comparator's `--check-env` alone reported `found=`/`error:` and exited 3
+  on a missing PDK), so this is the one copy every flow calls -- with
+  comparator's richer `--check-env` semantics for all three. Each block
+  script keeps only its testbenches, analysis and record prose.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -67,7 +76,7 @@ if str(SIM_DIR) not in sys.path:
     sys.path.insert(0, str(SIM_DIR))
 
 from harness import corners as corners_mod  # noqa: E402
-from harness import klt_sim, pdk  # noqa: E402
+from harness import evidence, klt_sim, pdk  # noqa: E402
 
 #: The layout flow's pinned `klt` (layout/requirements.txt, issue #734).
 #: $PEX_KLT_BIN overrides it for a throwaway-venv run (issue #1017 step 4).
@@ -186,6 +195,43 @@ def run_klt(
                 f"JSON response): {klt_sim.error_excerpt(json.dumps(payload))}"
             ) from None
         return payload
+
+
+def klt_pex_argv(
+    gds_path: str | Path,
+    request_name: str,
+    info: pdk.PdkInfo,
+    work_dir: Path,
+    *,
+    extracted_name: str,
+    outdir_name: str,
+    backend: str,
+) -> list[str]:
+    """The `klt pex` argv every block flow shares: pinned deck/variant/root,
+    the fleet backend selector, and ABSOLUTE `-o`/`--outdir` paths under the
+    run's own `.klt/` scratch subtree (klayout-tools#1525 -- a relative path
+    breaks the extracted-side `.include` once `klt sim` runs ngspice from a
+    per-corner directory). Only the GDS, the request filename and the scratch
+    names vary per call (`extracted_name`/`outdir_name` carry the
+    comparator's per-tag suffixes). The caller owns `work_dir/.klt`'s
+    existence and removes the subtree when the run is done."""
+    return [
+        "pex",
+        str(gds_path),
+        request_name,
+        "--deck",
+        "sky130",
+        "--pdk",
+        info.variant,
+        "--pdk-root",
+        str(info.root),
+        "-o",
+        str((work_dir / ".klt" / extracted_name).resolve()),
+        "--outdir",
+        str((work_dir / ".klt" / outdir_name).resolve()),
+        "--backend",
+        backend,
+    ]
 
 
 def resolve_pdk() -> pdk.PdkInfo:
@@ -458,5 +504,69 @@ def apply_capacity_wait(request: dict) -> dict:
     return request
 
 
-def fmt_volts(v: float | None) -> str:
-    return "n/a" if v is None else f"{v:.6g}"
+# ---------------------------------------------------------------------------
+# Shared CLI driver (issue #1069): the --check-env / --pilot / --record
+# dispatch every block flow's run_pex.py main() is a thin call into. The
+# three per-block copies this replaces had drifted; the semantics here are
+# comparator's richer ones (issue #112): --check-env reports found=/error:
+# and exits 3 on a missing PDK instead of exiting 0, main() takes argv and
+# --quiet, --pilot runs one corner (tt/27C/1.8V) on the local backend in a
+# tempdir prefixed for the block, and --record mints a fresh append-only
+# record id under the block's reports/ on the batch backend.
+# ---------------------------------------------------------------------------
+
+
+def pex_main(
+    block_dir: Path,
+    gds_name: str,
+    reports_dir: Path,
+    run: Callable[..., int],
+    tmp_prefix: str,
+    description: str,
+    argv: Sequence[str] | None = None,
+) -> int:
+    """Parse the shared flags and dispatch to the block's `run(work_dir,
+    backend, pilot=..., record=..., quiet=...)`; returns the process exit
+    code. `block_dir`/`gds_name` feed `--check-env`'s LAYOUT read (via
+    latest_layout, which fails loudly on a missing GDS), `reports_dir` is
+    where `--record` mints its new evidence record id, and `description` is
+    the flow's own argparse description line."""
+    ap = argparse.ArgumentParser(description=description)
+    ap.add_argument("--check-env", action="store_true", help="verify klt/PDK/layout and exit")
+    ap.add_argument("--pilot", action="store_true", help="one corner (tt/27C/1.8V), local backend")
+    ap.add_argument("--record", action="store_true", help="mint an append-only record")
+    ap.add_argument("--backend", default=None, help="override klt pex backend (default: local for --pilot, batch otherwise)")
+    ap.add_argument("--quiet", action="store_true")
+    args = ap.parse_args(argv)
+
+    if args.check_env:
+        # pdk.resolve() (not resolve_pdk()) so a missing PDK is REPORTED and
+        # exited 3, not raised -- the check-env contract comparator's copy
+        # wrote and the other two had drifted out of.
+        info = pdk.resolve()
+        ver = subprocess.run(
+            [str(klt_bin()), "--version"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+        print(f"klt: {klt_bin()} ({ver})")
+        print(f"PDK: variant={info.variant} root={info.root} found={info.found}")
+        if not info.found:
+            print(f"  error: {info.error}")
+            return 3
+        _, latest = latest_layout(block_dir, gds_name)
+        print(f"layout: reports/{latest}/{gds_name}")
+        return 0
+
+    if args.pilot and args.record:
+        print("--pilot and --record are separate invocations", file=sys.stderr)
+        return 2
+    if args.pilot:
+        with tempfile.TemporaryDirectory(prefix=tmp_prefix) as td:
+            return run(Path(td), "local", pilot=True, record=False, quiet=args.quiet)
+    if args.record:
+        backend = args.backend or "batch"
+        return run(
+            reports_dir / evidence.new_record_id(), backend, pilot=False, record=True,
+            quiet=args.quiet,
+        )
+    ap.print_help()
+    return 2

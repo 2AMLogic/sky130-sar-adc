@@ -94,6 +94,32 @@ def _runner(rc=0, out="", err="", calls=None):
     return run
 
 
+def _oat_axis_dicts(text):
+    """Dict literals whose keys are exactly the OAT corner-axis triple
+    (`process`, `temperature_c`, `supply_v`) -- the artifacts a private copy
+    of the OAT expansion necessarily carries, in the `corners` block AND in
+    every `exclude` entry alike. Keyed on the parsed AST, like
+    `_reads_sharded_envelope` before it. The deliberately-unconsolidated
+    shapes do not match: reference-drive-budget keys its axes on `params`
+    (zipped VDD x R_ref rows), and the full-conversion input sweep is a
+    single-corner `params` sweep with no `exclude` at all. Prose that does
+    not parse yields no hit; the guard's scan loop asserts real modules
+    parse, so a broken module cannot slip past silently."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            keys = {k.value for k in node.keys if isinstance(k, ast.Constant)}
+            if len(keys) == len(node.keys) and keys == {
+                "process", "temperature_c", "supply_v"
+            }:
+                found.append(ast.unparse(node))
+    return found
+
+
 class TestSubmitArgv(unittest.TestCase):
     def test_batch_submit_waits_for_capacity(self):
         """CLAUDE.md's fleet rule: a vCPU-budgeted fleet refuses a burst with
@@ -673,6 +699,163 @@ class TestSavedVectors(unittest.TestCase):
         self.assertEqual(klt_sim.saved_vectors([]), [])
 
 
+class TestOatCorners(unittest.TestCase):
+    """Issue #1052: the OAT `corners`/`exclude` expansion is ONE harness
+    function. The four consolidated campaigns keep pinning their full
+    request shapes through their own suites; these pin the helper's own
+    contract directly, on small grids small enough to eyeball."""
+
+    def test_a_single_corner_covers_its_product_so_exclude_is_empty(self):
+        corners, exclude = klt_sim.oat_corners(["tt_27c_1.80v"], "vsup")
+        self.assertEqual(corners, {
+            "process": ["tt"],
+            "supply_v": {"vsup": [1.8]},
+            "temperature_c": [27.0],
+        })
+        self.assertEqual(exclude, [])
+
+    def test_an_oat_subset_excludes_the_exact_cartesian_complement(self):
+        corners, exclude = klt_sim.oat_corners(
+            ["tt_27c_1.80v", "tt_125c_1.80v", "ss_27c_1.80v"], "vsup")
+        self.assertEqual(corners, {
+            "process": ["ss", "tt"],
+            "supply_v": {"vsup": [1.8]},
+            "temperature_c": [27.0, 125.0],
+        })
+        self.assertEqual(exclude, [
+            {"process": "ss", "temperature_c": 125.0, "supply_v": {"vsup": 1.8}},
+        ])
+
+    def test_the_complement_walks_sorted_axes_in_product_order(self):
+        _, exclude = klt_sim.oat_corners(
+            ["tt_27c_1.80v", "ss_-40c_1.80v", "tt_125c_1.62v"], "vsup")
+        self.assertEqual(
+            [(e["process"], e["temperature_c"], e["supply_v"]["vsup"]) for e in exclude],
+            [("ss", -40.0, 1.62), ("ss", 27.0, 1.62), ("ss", 27.0, 1.8),
+             ("ss", 125.0, 1.62), ("ss", 125.0, 1.8),
+             ("tt", -40.0, 1.62), ("tt", -40.0, 1.8), ("tt", 27.0, 1.62),
+             ("tt", 125.0, 1.8)],
+        )
+
+    def test_supply_key_threads_through_to_both_blocks(self):
+        corners, exclude = klt_sim.oat_corners(
+            ["tt_27c_1.80v", "tt_125c_1.80v", "ss_27c_1.80v"], "vdig")
+        self.assertEqual(list(corners["supply_v"]), ["vdig"])
+        self.assertEqual(exclude[0]["supply_v"], {"vdig": 1.8})
+
+    def test_an_unparseable_corner_id_is_refused(self):
+        with self.assertRaises(ValueError):
+            klt_sim.oat_corners(["not-a-corner-id"], "vsup")
+
+
+class TestBuildOatRequest(unittest.TestCase):
+    """Issues #1052/#1054: the `klt sim` request assembly around
+    `oat_corners()`. The exact dicts below -- values AND insertion order --
+    are what the six consolidated drivers emitted privately; the order half
+    is what makes the serialized request byte-for-byte identical."""
+
+    STEPS = [{"name": "s0", "analysis": {"kind": "ac", "args": "lin 1 1e6 1e6"}}]
+
+    def test_analysis_steps_mode_builds_the_exact_driver_shape(self):
+        req = klt_sim.build_oat_request(
+            "tb.spice", ["tt_27c_1.80v", "ss_27c_1.80v", "tt_125c_1.80v"],
+            "vsup", analysis_steps=self.STEPS, timeout_s=300.0,
+            backend="batch")
+        self.assertEqual(req, {
+            "netlist": "tb.spice",
+            "engine": "ngspice",
+            "models": {"pdk": "sky130A",
+                       "lib": "libs.tech/combined/sky130.lib.spice"},
+            "corners": {"process": ["ss", "tt"],
+                        "supply_v": {"vsup": [1.8]},
+                        "temperature_c": [27.0, 125.0]},
+            "analysis_steps": self.STEPS,
+            "options": {"timeout_s": 300.0, "keep_artifacts": True},
+            "exclude": [{"process": "ss", "temperature_c": 125.0,
+                         "supply_v": {"vsup": 1.8}}],
+            "backend": "batch",
+        })
+        self.assertEqual(list(req), ["netlist", "engine", "models", "corners",
+                                     "analysis_steps", "options", "exclude",
+                                     "backend"])
+
+    def test_analysis_and_measurements_mode_builds_the_exact_driver_shape(self):
+        analysis = {"kind": "tran", "args": "0.8n 2.5u 0 0.8n"}
+        measurements = [{"name": "t_hi", "spice": ".meas tran t_hi ...", "unit": "s"}]
+        req = klt_sim.build_oat_request(
+            "tb.spice", ["tt_27c_1.80v"], "vdig", analysis=analysis,
+            measurements=measurements, pdk="sky130B", models_lib="x/y.lib",
+            batch={"capacity_wait_s": 5})
+        self.assertEqual(req, {
+            "netlist": "tb.spice",
+            "engine": "ngspice",
+            "models": {"pdk": "sky130B", "lib": "x/y.lib"},
+            "corners": {"process": ["tt"], "supply_v": {"vdig": [1.8]},
+                        "temperature_c": [27.0]},
+            "analysis": analysis,
+            "measurements": measurements,
+            "options": {"timeout_s": 900.0, "keep_artifacts": True},
+            "batch": {"capacity_wait_s": 5},
+        })
+        self.assertEqual(list(req), ["netlist", "engine", "models", "corners",
+                                     "analysis", "measurements", "options",
+                                     "batch"])
+
+    def test_a_covering_grid_omits_exclude_and_none_omits_backend(self):
+        req = klt_sim.build_oat_request(
+            "tb.spice", ["tt_27c_1.80v"], "vsup", analysis_steps=self.STEPS)
+        self.assertNotIn("exclude", req)
+        self.assertNotIn("backend", req)
+        self.assertNotIn("batch", req)
+
+    def test_batch_is_copied_not_shared(self):
+        batch = {"capacity_wait_s": 5}
+        req = klt_sim.build_oat_request(
+            "tb.spice", ["tt_27c_1.80v"], "vsup",
+            analysis_steps=self.STEPS, batch=batch)
+        self.assertEqual(req["batch"], batch)
+        self.assertIsNot(req["batch"], batch)
+
+    def test_hosts_over_one_appends_remote_last(self):
+        """Issue #1054: the two `remote.hosts` drivers' `remote` block came
+        after `backend`, so the helper must append it after every other
+        conditional key to keep the serialized request identical."""
+        req = klt_sim.build_oat_request(
+            "tb.spice", ["tt_27c_1.80v", "ss_27c_1.80v", "tt_125c_1.80v"],
+            "vsup", analysis_steps=self.STEPS, backend="batch", hosts=2)
+        self.assertEqual(req["remote"], {"hosts": 2})
+        self.assertEqual(list(req), ["netlist", "engine", "models", "corners",
+                                     "analysis_steps", "options", "exclude",
+                                     "backend", "remote"])
+
+    def test_hosts_of_none_zero_or_one_omits_remote(self):
+        for hosts in (None, 0, 1):
+            with self.subTest(hosts=hosts):
+                req = klt_sim.build_oat_request(
+                    "tb.spice", ["tt_27c_1.80v"], "vsup",
+                    analysis_steps=self.STEPS, hosts=hosts)
+                self.assertNotIn("remote", req)
+                self.assertNotIn("backend", req)
+
+    def test_both_modes_at_once_is_refused(self):
+        with self.assertRaises(ValueError):
+            klt_sim.build_oat_request(
+                "tb.spice", ["tt_27c_1.80v"], "vsup", analysis_steps=self.STEPS,
+                analysis={"kind": "tran"}, measurements=[])
+
+    def test_neither_mode_is_refused(self):
+        with self.assertRaises(ValueError):
+            klt_sim.build_oat_request("tb.spice", ["tt_27c_1.80v"], "vsup")
+
+    def test_half_of_the_pair_is_refused(self):
+        for kwargs in ({"analysis": {"kind": "tran"}},
+                       {"measurements": []}):
+            with self.subTest(kwargs=sorted(kwargs)):
+                with self.assertRaises(ValueError):
+                    klt_sim.build_oat_request(
+                        "tb.spice", ["tt_27c_1.80v"], "vsup", **kwargs)
+
+
 class TestNoCampaignModuleKeepsItsOwnFragmentScan(unittest.TestCase):
     """Issue #1030: the fragment split and the saved-vector scan live in
     `harness.klt_sim`; a campaign module re-copies them at its own risk.
@@ -832,6 +1015,192 @@ class TestNoDriverKeepsItsOwnSubmitBlock(unittest.TestCase):
                     p.read_text(),
                     "use harness.klt_sim.measurements_by_corner() for the "
                     "per-corner transcription",
+                )
+
+
+class TestNoCampaignModuleKeepsItsOwnOatExpansion(unittest.TestCase):
+    """Issues #1052/#1054: the OAT `corners`/`exclude` expansion and the
+    request assembly around it live in `harness.klt_sim.oat_corners()` /
+    `build_oat_request()`; a campaign module re-copies them at its own risk.
+    A new campaign that copies a sibling's block instead of calling the
+    helper fails here -- this is the request-side counterpart of
+    TestNoDriverKeepsItsOwnSubmitBlock above (#865) and of the fragment-scan
+    guard (#1030).
+
+    The marker is the axis-triple dict literal itself (see
+    `_oat_axis_dicts`): both the `corners` block and every `exclude` entry
+    of a private copy carry it, and the deliberately-unconsolidated shapes
+    (reference-drive-budget's zipped `params` rows, the input sweep's
+    single-corner `params` sweep) do not.
+    """
+
+    #: The six drivers #1052 and #1054 migrated; they must stay delegated
+    #: forever.
+    CONSOLIDATED = {
+        "input-drive-budget", "vcm-drive-budget",
+        "top-plate-cpar", "digital-partition",
+        "cdac-bit-trial-settling", "sampling-cdac-handoff",
+    }
+
+    #: Campaigns that still carry a private copy. #1054 migrated the last
+    #: two, so the set is empty and must stay empty: the exactness test
+    #: below fails on any drift in either direction, and a NEW private copy
+    #: is not coverable by adding to it.
+    STILL_PRIVATE: set[str] = set()
+
+    @staticmethod
+    def _campaign_modules() -> list[Path]:
+        return [p for p in sorted(SIM_DIR.glob("*/*.py"))
+                + sorted(SIM_DIR.glob("*/*/*.py"))
+                if p.parent.name not in ("harness", "tests")
+                and "harness/" not in p.as_posix()]
+
+    def test_every_consolidated_driver_delegates(self):
+        for name in self.CONSOLIDATED:
+            mods = [p for p in self._campaign_modules()
+                    if p.parent.name == name]
+            self.assertTrue(mods, f"no campaign modules found under {name}/")
+            for p in mods:
+                with self.subTest(module=f"{name}/{p.name}"):
+                    self.assertEqual(
+                        _oat_axis_dicts(p.read_text()), [],
+                        f"{name}/{p.name} re-copies the OAT corners/exclude "
+                        "expansion -- call harness.klt_sim.oat_corners() / "
+                        "build_oat_request() instead (issue #1052)")
+
+    def test_no_other_campaign_module_re_copies_the_expansion(self):
+        for p in self._campaign_modules():
+            if p.parent.name in self.STILL_PRIVATE:
+                continue
+            text = p.read_text()
+            try:
+                ast.parse(text)
+            except SyntaxError as exc:
+                self.fail(f"{p.parent.name}/{p.name} does not parse ({exc}) -- "
+                          "the OAT-expansion guard cannot see through a "
+                          "broken module; fix or remove it")
+            with self.subTest(module=f"{p.parent.name}/{p.name}"):
+                self.assertEqual(
+                    _oat_axis_dicts(text), [],
+                    f"{p.parent.name}/{p.name} re-copies the OAT "
+                    "corners/exclude expansion -- call "
+                    "harness.klt_sim.build_oat_request() instead "
+                    "(issue #1052)")
+
+    def test_no_campaign_still_carries_a_private_copy(self):
+        """Keeps the migration complete: #1054 emptied the allowlist, so any
+        campaign found re-copying the expansion is a regression (or a fresh
+        copy) and must be migrated onto the helper, not allowlisted."""
+        private = {p.parent.name for p in self._campaign_modules()
+                   if _oat_axis_dicts(p.read_text())}
+        self.assertEqual(
+            private, self.STILL_PRIVATE,
+            "campaigns are still carrying a private OAT copy "
+            f"({sorted(private)}) -- migrate them onto "
+            "harness.klt_sim.build_oat_request() (#1054 left none behind)")
+
+    def test_the_axis_triple_matcher_fires_on_both_artifacts_of_a_copy(self):
+        """The matcher keys on the dict literal's key set, so both halves of
+        a private copy fire (the `corners` block and the `exclude` entry),
+        while the neighboring legitimate shapes stay quiet."""
+        fires = [
+            'exclude = [{"process": p, "temperature_c": t, "supply_v": {k: v}}]',
+            'corners = {"process": procs, "supply_v": {k: vdds}, "temperature_c": temps}',
+            "{'process': p, 'temperature_c': t, 'supply_v': {k: v}}",
+        ]
+        for sample in fires:
+            with self.subTest(sample=sample):
+                self.assertTrue(_oat_axis_dicts(sample), sample)
+        for decoy in [
+            'exclude = [{"process": p, "temperature_c": t, "params": {k: v}}]',
+            '"corners": {"process": ps, "temperature_c": ts, "params": {}}',
+            '{"process": p, "temperature_c": t}',
+            '{"process": p, "temperature_c": t, "supply_v": sv, "extra": 1}',
+            'c.get("supply_v")',
+        ]:
+            with self.subTest(decoy=decoy):
+                self.assertEqual(_oat_axis_dicts(decoy), [], decoy)
+
+
+class TestClientVersion(unittest.TestCase):
+    """Issue #1086: one local `klt --version` probe for record metadata."""
+
+    def test_returns_stripped_version_string_when_available(self):
+        calls = []
+        ver = klt_sim.client_version(runner=_runner(rc=0, out="  klt 0.9.3\n", calls=calls))
+        self.assertEqual(ver, "klt 0.9.3")
+        self.assertEqual(calls, [["klt", "--version"]])
+
+    def test_returns_placeholder_when_executable_is_missing(self):
+        def missing(argv):
+            raise FileNotFoundError(argv[0])
+
+        self.assertEqual(
+            klt_sim.client_version(runner=missing),
+            "(klt --version unavailable)",
+        )
+        self.assertEqual(
+            klt_sim.CLIENT_VERSION_UNAVAILABLE,
+            "(klt --version unavailable)",
+        )
+
+    def test_returns_placeholder_on_other_os_errors(self):
+        def denied(argv):
+            raise PermissionError(argv[0])
+
+        self.assertEqual(
+            klt_sim.client_version(runner=denied),
+            klt_sim.CLIENT_VERSION_UNAVAILABLE,
+        )
+
+    def test_returns_placeholder_when_stdout_is_empty_or_whitespace(self):
+        for out in ("", "   \n\t "):
+            with self.subTest(out=out):
+                self.assertEqual(
+                    klt_sim.client_version(runner=_runner(rc=0, out=out)),
+                    klt_sim.CLIENT_VERSION_UNAVAILABLE,
+                )
+
+    def test_returns_placeholder_when_probe_exits_nonzero(self):
+        self.assertEqual(
+            klt_sim.client_version(runner=_runner(rc=1, out="klt: usage error\n")),
+            klt_sim.CLIENT_VERSION_UNAVAILABLE,
+        )
+
+
+class TestNoConsolidatedWriterProbesKltVersionDirectly(unittest.TestCase):
+    """Issue #1086: record writers read local `klt --version` through
+    `harness.klt_sim.client_version()` rather than probing `klt` inline."""
+
+    CONSOLIDATED = (
+        "vcm-drive-budget/run_vcm_drive_budget.py",
+        "full-conversion-transient/full_conversion_campaigns/input_sweep.py",
+        "reference-drive-budget/run_reference_drive_budget.py",
+        "input-drive-budget/run_input_drive_budget.py",
+        "top-plate-cpar/run_top_plate_cpar.py",
+        "sampling-cdac-handoff/run_handoff.py",
+        "cdac-bit-trial-settling/run_bit_trial_settling.py",
+        "digital-partition/run_digital_partition.py",
+    )
+
+    def test_every_consolidated_writer_delegates_to_klt_sim_client_version(self):
+        for rel in self.CONSOLIDATED:
+            text = (SIM_DIR / rel).read_text()
+            with self.subTest(module=rel):
+                self.assertIn(
+                    "klt_sim.client_version(",
+                    text,
+                    f"{rel} must call klt_sim.client_version() (issue #1086)",
+                )
+                self.assertNotIn(
+                    '"klt", "--version"',
+                    text,
+                    f"{rel} still probes klt --version directly (issue #1086)",
+                )
+                self.assertNotIn(
+                    "def klt_client_version",
+                    text,
+                    f"{rel} still defines a private klt_client_version() helper",
                 )
 
 

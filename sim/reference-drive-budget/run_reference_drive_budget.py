@@ -77,7 +77,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -1374,8 +1373,7 @@ def write_record(analysis: dict, points: list, r_values: list[float], info: dict
         "record is controlled for PDK or simulator version.",
         "",
     ]
-    klt_version = subprocess.run(
-        ["klt", "--version"], capture_output=True, text=True, check=False).stdout.strip()
+    klt_version = klt_sim.client_version()
     worker_pdk = info.get("worker_pdk")
     worker_ng = info.get("worker_ngspice")
     pdk_line = (f"sky130A @ {worker_pdk.split()[-1]}" if worker_pdk else prov.pdk_line)

@@ -69,7 +69,7 @@ saying, because the grader cannot.
 | 2 | Layout | **`met`** (both) | One bare citation: a generic envelope pinning the composed top-level stream (`layout/sar-adc-top/reports/20261001-211249-1ca34e6/sar_adc_top.gds`) by path and sha256. Asserts nothing about item 4. See "What the item 1, 2, 9 and 10 citations assert".
 | 3 | DRC clean | **`met`** (both) | `klt drc` on the composed top-level stream: `status: clean`, 0 violations, deck `sky130` @ `sha256:a1d90e06…` (see the cited `drc.json` for the authoritative deck hash and counts). Covers both partitions because the stream it ran on contains both partitions' geometry. **Coverage gaps are disclosed below — read them; a `met` here is not evidence they were disclosed.** |
 | 4 | LVS clean | `unmet` / `check_failed` (both) | Cited deliberately even though it fails. `klt lvs` reports `status: "mismatch"` against the full-block reference; the authoritative mismatch, net, device and pin counts are in the cited `layout/sar-adc-top/reports/20261001-211249-1ca34e6/lvs.json` (`mismatch_count`, `category_counts`, `counts`) — read them there. Summary retained at that record only: 67 mismatches / 66 errors, 519/555 reference nets and 1046/1095 reference devices matched; categories 49 `device.unmatched`, 9 `net.merged`, 8 `net.split`, 1 `topology.flattened`. Pins read 21 layout / 22 reference / 22 matched: the reference carries `GND` and `VGND` as two ports of what the layout extracts as one net — the shared p-substrate (`GND\|VGND\|VSS`) — so one promoted layout pin answers both, which is why `layout < reference` here is not a missing pin; see [DR-012](../spec/decision-records/DR-012-analog-ground-pad.md). *Historical comparison, superseded:* the 2026-09-24 record (`reports/20260924-234053-66dca3c/`) read 88 mismatches / 87 errors, 411/444 nets and 803/869 devices; before issue #355 it read 98/97. Root cause is an upstream extraction-hierarchy gap, not a design defect — filed generically as klayout-tools#1878; see `layout/sar-adc-top/README.md`'s "LVS device/topology blocker". The full-block LVS still does not match. |
-| 5 | Full corner verification | analog: `unmet` / `no_evidence`; digital: **`met`** (provisional) | Digital: the manifest's `5.digital` cites a `klt sta` report (routed `sar_sequencer`, four stock Liberty corners at 12 MHz, all `constrained`, no setup/hold violations). Under `klt 0.8.0` the row is compound: the manifest cites four reports (STA and `klt functional-verification` for each of `sar_sequencer` and `top_glue`), each graded `met`; citing the STA alone renders `unmet` / `partial_coverage` (`missing_kinds: functional-verification`). **`met` is the grader's verdict on those four reports; the spec table is DRAFT, 8 of the nine PVT points have no Liberty file, and the STA covers the digital partition's own boundary only — see "Item 5, digital" below.** Analog: no `klt sim` envelope exists — `sim/` campaigns mint this repo's own Markdown records — and the ENOB / INL-DNL **target values** are still DRAFT. |
+| 5 | Full corner verification | analog: `unmet` / `partial_coverage`; digital: **`met`** (provisional) | Digital: the manifest's `5.digital` cites a `klt sta` report (routed `sar_sequencer`, four stock Liberty corners at 12 MHz, all `constrained`, no setup/hold violations). Under `klt 0.8.0` the row is compound: the manifest cites **five** reports (STA and `klt functional-verification` for each of `sar_sequencer` and `top_glue`, each graded `met`; plus, since issue #1023, the behavioral-sequencer `klt sim` envelope), and declares the ratified Resolution row under `spec_rows."5.digital"` (`resolution_n`, `ratified: true`; the other ratified row the manifest declares is the analog `comparator_noise`; the spec table itself carries six RATIFIED rows), which the grader credits from the sim envelope's limits-bearing, `spec_row`-tagged measurements: `row_coverage.row_sources.resolution_n == "derived"`, `uncovered_rows: []`. Citing the STA alone renders `unmet` / `partial_coverage` (`missing_kinds: functional-verification`); dropping only the sim citation renders `unmet` / `partial_coverage` with `resolution_n` in `uncovered_rows` (the negative control, re-run on the pinned grader). **`met` is the grader's verdict on those five reports; the spec table is DRAFT, 8 of the nine PVT points have no Liberty file, the STA covers the digital partition's own boundary only, and `derived` here measures digital bit capture — not converter ENOB or linearity, which have their own spec rows — see "Item 5, digital" below.** Analog: cited since issue #1014 — the manifest declares `spec_rows."5.analog"` (every analog row of the target table, twelve rows) and cites one `klt sim` envelope: the 2026-11-21 comparator input-referred-noise run, whose `spec_row`-tagged, `limits`-bearing measurement grades `comparator_noise` per corner against the ratified ≤1.0148 mV rms baseline (PASS 9/9, binding `tt_125c_1.80v`). One row of twelve derived-covered ⇒ `unmet` / `partial_coverage`: the three ratified CDAC rows and the Corners methodology row are declared gaps (#1021, klayout-tools#6969), and the seven DRAFT rows are declared `ratified: false` and can never grade `met`. **Read "Item 5, analog" below before quoting any of it.** |
 | 6 | Statistical claims | analog `unmet` / `check_failed`; digital `unmet` / `no_evidence` | Cited since issue #1015: the manifest declares the block's statistical rows under `spec_rows."6.analog"` (ENOB and INL/DNL, both `ratified: false` — their target values are DRAFT; comparator offset/dead-band as a declared `gap` per DR-020) and cites the two freshness-pinnable `klt yield` envelopes, each pinned by `content_hash` to its committed `.samples.json`. Both envelopes report `status: "fail"`, so the grader renders `check_failed` with both under `failed_citations`, `failed_rows: [enob, inl_dnl]`, `unratified_rows: [enob, inl_dnl]` and the DR-020 row under `declared_gaps` — see "Item 6" below for what each envelope says, which limit it was graded against versus what the spec row reads today, and what would turn each row `met`. |
 | 7 | Post-layout verification | analog `unmet` / `no_evidence`; digital `met` | **Analog:** no `klt pex` report exists for the composed top level; sub-block `klt pex` records now exist and are **not cited in the manifest** — `layout/cdac-array/reports/20261121-104134-a71fe14a/` and `layout/sampling-frontend/reports/20261121-104527-a71fe14a/` (issue #1017's first PEX records for those blocks) plus the re-minted comparator envelope `layout/comparator/reports/20261121-103712-a71fe14a/` (superseding the three September 2026 envelopes, which described a re-drawn layout at two tt/27C points only) — because they cover the sub-blocks individually and do not prove post-layout behaviour of the composed block. Each record states `extraction.model`, `body_bias.status` (`biased`, zero unbiased PMOS body nets) and per-corner `klt pex` `delta[]` at the ratified 9-point OAT grid, and discloses the floating-substrate extraction artifact (klayout-tools#7066). The analog half is blocked on item 4 (the top-level LVS mismatch, issue #103), mirroring `layout/sar-adc-top/README.md`; the composed-block `klt pex` run that would grade this item `met` waits on the same. Item 7 on the analog partition accepts nothing else: a clean DRC or a pre-layout sim renders `wrong_kind`. Nothing to disclose about `body_bias` on a *citation* — that field is reported on a `pex` citation, and there is still no `pex` citation in the manifest. **Digital:** cited since issue #679 — a `klt functional-verification` report with `options.sdf` set and `environment.sdf.annotated: true` on the routed `sar_sequencer`; see "Item 7, digital" below for what `met` does and does not assert. |
 | 8 | Characterization report | **`met`** (both partitions, by two separate citations) | `8.analog`: `docs/characterization-report.md`; `8.digital`: `docs/characterization-report-digital.md` (frequency bracket, rail power and routed area at the nine ratified corners); each wrapped in its own `generic` envelope (the only kind item 8 accepts). **What `met` asserts is narrow — read "Item 8" below before quoting it.** The digital row is schematic-level and does not borrow the analog row's pass, nor the reverse. |
@@ -280,8 +280,10 @@ sample-rate row is still DRAFT (issue #1), so every verdict below is provisional
 until it is ratified. Ratifying it is not part of the work behind this row, and
 `klt signoff` does not check it: the `met` would read the same against a draft.
 
-What stands behind the row (the reports were minted by `klt 0.6.0`, the build
-that minted the evidence; the grader is `klt 0.8.0`; records are
+What stands behind the row (the STA and functional reports were minted by
+`klt 0.6.0`, the build that minted that evidence; the behavioral sim envelope
+was minted 2026-11-21 by `klt 0.9.3.dev2575+g6bd18bbc8637` submitting to a
+`klt 0.9.0` fleet runner — issue #1023; the grader is `klt 0.8.0`; records are
 append-only, see `sim/README.md`):
 
 | Evidence | Where | Verdict |
@@ -291,6 +293,7 @@ append-only, see `sim/README.md`):
 | Negative control: 6 GHz clock | `…/*.negative-control-6ghz.json` | setup fails at every corner of both macros; cited in place of the real report the grader renders it `unmet` / `check_failed` |
 | Functional verification, `sar_sequencer` | `sim/digital-functional/runs/20261017-193811-9522693/sar-sequencer.json` (cited) | 8 / 8 tests pass; 5 / 5 netlist mutants killed |
 | Functional verification, `top_glue` | `…/top-glue.json` (cited) | 6 / 6 tests pass; 6 / 6 mutants killed |
+| Behavioral corner sim, `sar_sequencer` (issue #1023) | `sim/sar-sequencer-behavioral/corners/20261121-073156-75b91e85/report.json` (cited, `rows: [resolution_n]`) | `klt sim` (client 0.9.3.dev, fleet runner 0.9.0), 9/9 ratified PVT points `pass`, 35 limits-bearing measurements tagged `resolution_n`; binding corner `tt_27c_1.62v`, worst margin 0.8099 V; dated record `sim/sar-sequencer-behavioral/records/20261121-073156-75b91e85.md` |
 
 The tests are bit-exact against `sim/digital-functional/tb/sar_ref.py` (a
 reference model written from the DR-006 / DR-008 / DR-009 text, with its own
@@ -301,17 +304,52 @@ and the whole `top_glue` input space.
 
 Disclosures the grader cannot make:
 
-- **What the grader checks about the four citations.** The `5.digital` entry is
+- **What the grader checks about the five citations.** The `5.digital` entry is
   a list (as item 11's is). `klt 0.8.0` grades each cited report on its own
-  (all four `met`) and requires both kinds, `klt sta` and `klt
+  (all five `met`) and requires both kinds, `klt sta` and `klt
   functional-verification`, to be present: with only the sequencer STA cited
   (the `0.6.0`-era shape, one slot) the row renders `unmet` / `partial_coverage`.
   It does not check that each macro has both kinds, nor the netlist-to-report
-  linkage; `check_evidence_hashes.py` re-derives the sta DEF hash and, for
-  functional verification, every netlist / model / testbench hash in the
-  record's `inputs.sha256`.
+  linkage; `check_evidence_hashes.py` re-derives the sta DEF hash, for
+  functional verification every netlist / model / testbench hash in the
+  record's `inputs.sha256`, and — since issue #1023 — the `klt sim` deck
+  (`netlist.path`, repo-scoped) against the envelope's recorded
+  `provenance.input.content_hash`, which the manifest's `content_hash` pin
+  matches.
+- **The `resolution_n` binding, and what `derived` asserts (issue #1023).** The
+  manifest declares `spec_rows."5.digital": [{id: resolution_n, ratified:
+  true}]` — the Resolution `N = 10 bit` row (RATIFIED, DR-003 via #27). It is
+  one of two ratified rows among the manifest's declared `spec_rows` (the other
+  is the analog `comparator_noise`, under `5.analog`); the spec table itself
+  carries six RATIFIED rows. The sim citation alone names it under
+  `rows`. The grader derives the row's coverage from the envelope's own
+  passing, limits-bearing measurements tagged `measurements[].spec_row`
+  (klayout-tools#3778): `row_coverage.row_sources.resolution_n == "derived"`,
+  `uncovered_rows: []`. Verified two ways on the pinned grader: the committed
+  manifest renders it, and a scratch manifest dropping only the sim citation
+  renders `unmet` / `partial_coverage` with `resolution_n` the sole
+  `uncovered_rows` entry and the other four citations still `met` — the row's
+  coverage rests on the sim envelope, not on a manifest assertion (the
+  `asserted` source label was the alternative #1023 rejected). What the row
+  measures is the digital partition's bit capture: correct MSB-first
+  successive-approximation capture of all 10 output bits, clock/phase
+  sequencing and ring auto-restart — the behavioral bench's 35 named checks at
+  the nine ratified PVT points, two complementary 10-bit conversions, decided
+  by the runner's own rule (a sample above half the rail at that corner's
+  supply is a one). It is **not** a converter-resolution measurement: ENOB and
+  INL/DNL are separate rows (`6.analog`, both still DRAFT), and the analog
+  partition's half of item 5 remains `no_evidence`. The binding's decision
+  quantity is the bench's margin helpers (each check samples its node's signed
+  distance from half the rail, so the static `min: 0` / `max: 0` limits
+  express the rail-referenced rule at every supply); the limit is inclusive at
+  exactly zero where the runner's comparison is strict, and no sample in the
+  run sat within 0.8099 V of that boundary. A separate claim from #811's
+  baseline-agreement and supersession work — this citation supersedes no
+  record.
 - **Corner coverage: 1 of 9 points, and not exactly.** The nine PVT points the
   digital characterization uses are listed in `sim/digital-sta/corner-set.json`.
+  This is the **STA** half's coverage; the behavioral sim citation above
+  covers all nine points, but checks bit capture, not timing.
   `sky130_fd_sc_hd` ships Liberty files only for `tt_025C_1v80`, `tt_100C_1v80`,
   `ss_{n40C,100C}_*`, `ff_{n40C,100C}_*`: no `fs` / `sf` file at all, nothing at
   27 C other than the 25 C typical file, nothing at 1.62 / 1.98 V. Eight points
@@ -330,11 +368,93 @@ Disclosures the grader cannot make:
   instances (issue #102). `design/sar_sequencer.sch` has 57: it gained the
   `COMP_EFF` xnor and per-conversion clear gating of issue #263 / DR-008. Both
   the functional tests and the STA cover the 36-instance netlist, so neither
-  speaks for `COMP_EFF` or the clear gating.
+  speaks for `COMP_EFF` or the clear gating. The behavioral sim citation is the
+  other way around: it netlists the **current 57-instance schematic** fresh
+  (`klt netlist` of `design/sar_sequencer.sch`, pinned by the envelope's
+  recorded input hash), so it covers `COMP_EFF` and the clear gating but not
+  the placed-and-routed geometry — the two halves of the citation set are
+  complementary, and neither alone covers both netlists.
 - **Zero-delay functional run.** The item 5 functional reports carry no SDF; the SDF-annotated re-run is item 7 ("Item 7, digital" below).
 - **PDK revision.** The reports were minted against open_pdks `f6eeac7`, the
   revision installed on the host, not the `c6d73a3` that `sim/pdk.json` pins
   (issue #669, the re-pin, is open).
+
+### Item 5, analog: what `partial_coverage` asserts, and what it does not
+
+Cited since issue #1014. The manifest declares twelve analog rows under
+`spec_rows."5.analog"` — every analog row of `spec/target-spec.md`'s target
+table — and cites one `klt sim` envelope. The verdict is
+`unmet` / `partial_coverage`: exactly one declared row is covered, and the
+coverage is **derived** (`detail.row_sources` reports `comparator_noise:
+derived`), meaning the grader read the `spec_row` tag off the cited
+envelope's own `limits`-bearing, passing measurement (klayout-tools#3778) —
+not that the manifest asserted the row. The untagged raw single-ended
+measurement in the same report grades nothing (a tag without `limits`
+grades nothing either).
+
+What stands behind the row:
+
+| Evidence | Where | Verdict |
+|---|---|---|
+| Comparator input-referred noise, reduced sub-model, 1 kHz–1 GHz, `sqrt(2) × inoise_total` | `sim/comparator-decision/klt-sim/20261121-010219-75b91e8/report.json` (cited; record `sim/comparator-decision/records/20261121-010219-75b91e8.md`) | 9/9 corners PASS vs the ratified baseline ≤ 1.0148 mV rms; binding `tt_125c_1.80v` at 0.9051 mV rms (10.8 % under). The stretch threshold (≤ 0.5859 mV rms) is met at **no** corner of this run and grades nothing — recorded as found, not relaxed. |
+
+Disclosures the grader cannot make:
+
+- **The envelope supersedes nothing.** The 2026-08-27 campaign record
+  (`sim/comparator-decision/records/20260827-212404-e13bc1e.md`) stands
+  unedited as the row's indexed evidence (`sim/spec-coverage.md`); this
+  envelope is the machine-graded citation beside it, same method transcribed
+  device-for-device (tail + input pair, diode-connected precharge loads,
+  latch omitted, CLK at VDD, band 1 kHz–1 GHz, the `sqrt(2)` differential
+  conversion DR-003 Item 4 records as the named approximation). The −5.6 % …
+  +5.7 % single-ended deltas against the campaign sit across uncontrolled
+  differences (PDK pin `f6eeac7` vs the superseded `c6d73a3`, ngspice-47 vs
+  46, batch worker vs local harness, `.spiceinit` vs in-`.control` solver
+  switch) — see the record's own uncontrolled-differences section; no
+  attribution is claimed.
+- **Minting client ≠ grader pin.** The envelope was minted by a throwaway
+  `klt 0.9.0` client matching its runner (`signoff/requirements.txt`'s 0.8.0
+  grader pin is untouched); the 0.8.0 grader already takes this manifest
+  form, so no report row changed because of a pin bump — there was no bump.
+- **The three ratified CDAC rows are declared gaps, not partial credit.**
+  `v_ref`, `lsb` and `sampling_cap` (#1021): the transfer bench's ten
+  top-plate voltages cannot substantiate the full claims (V_REF is the
+  applied corner rail — an input; LSB is a formula whose five-code deviation
+  the baseline reports *for information*; sampling cap is structural plate
+  geometry + array population plus functional). Grading any of them needs an
+  observable and a ratified tolerance that do not exist; inventing one is a
+  spec change (#1021 owns the decision record), never a manifest choice.
+- **`corners` is a declared gap on tooling grounds.** A methodology row no
+  single `limits`-bearing measurement can grade ("the corner set" is
+  evidenced by the corner matrices the campaigns themselves ran); the grader
+  has no form deriving such a row from the union of cited envelopes
+  (klayout-tools#6969). Whether a spec row no tool could ever evidence
+  belongs in the table at all is an **operator question**, asked on
+  issue #1014 — not decided here.
+- **Resolution `N` is not an analog row.** Per `partition_boundary.digital`
+  the (N+1)-stage sequencer and 10-bit SAR register are the digital
+  partition's own row set; the behavioural record
+  (`sim/sar-sequencer-behavioral/records/20260827-211956-e13bc1e.md`) stands
+  as its indexed evidence, and #1023 owns the missing machine-graded binding
+  on the digital side. `5.digital`'s citation set is unchanged by this
+  issue.
+- **The seven DRAFT rows sit in BOTH `unratified_rows` and
+  `uncovered_rows`** — architecture, sample_rate, enob, inl_dnl, kickback,
+  gain_error, power are declared `ratified: false` with no citation, and the
+  grader lists a draft row in both. That is the designed rendering of "a
+  draft target cannot grade `met`", not an accident; no declared row is
+  uncovered by accident, and nothing outside the twelve-row inventory is
+  counted.
+- **#811's November CDAC envelope stays uncited.** It carries no
+  `limits`/`spec_row` (citing it would grade nothing:
+  `no_limits_checked`), and it FAILs #811's baseline-agreement rule at
+  `ff_27c_1.80v` — that gate belongs to #811 and is neither passed, widened
+  nor reinterpreted here.
+- **Freshness.** The manifest pin is the cited envelope's
+  `provenance.input.content_hash` — the deck's hash;
+  `check_evidence_hashes.py`'s sim leg re-hashes the deck **and** every
+  `netlist_closure` entry on every push, so an edited deck or `.include`d
+  input turns the build red.
 
 ### Item 7, digital: what `met` asserts
 
@@ -627,7 +747,7 @@ evidence of nothing. Two independent, headless checks enforce it, and they catch
 | Gate | Command | Catches | Does **not** catch |
 |---|---|---|---|
 | Grader re-render | `bash signoff/run-signoff.sh --check` | Any change that alters a graded row: an edited manifest, a superseded evidence envelope, a pin that no longer matches the envelope's own hash, a checklist/grader change. | An artifact rewritten underneath a manifest and envelope that still agree with each other. |
-| Artifact re-hash | `python3 signoff/check_evidence_hashes.py` | Exactly that: every cited envelope's recorded input hash is re-derived from the file on disk, including all four item 5 digital reports. | Grading changes — it does not know what the checklist says. |
+| Artifact re-hash | `python3 signoff/check_evidence_hashes.py` | Exactly that: every cited envelope's recorded input hash is re-derived from the file on disk, including all four item 5 digital reports and the item 5 analog sim envelope's deck and netlist closure. | Grading changes — it does not know what the checklist says. |
 
 The second gate exists because the first one structurally cannot do its job.
 `klt signoff` compares the manifest's pin against the **envelope's own

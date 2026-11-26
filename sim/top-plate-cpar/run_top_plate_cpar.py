@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -221,28 +220,13 @@ def corner_ids() -> list[str]:
 
 def build_request(netlist_name: str, cids: list[str], *, timeout_s: float = 1800.0,
                   backend: str | None = None) -> dict:
-    pts = [corners_mod.parse_corner_id(c) for c in cids]
-    procs = sorted({p for p, _, _ in pts})
-    temps = sorted({t for _, t, _ in pts})
-    vdds = sorted({v for _, _, v in pts})
-    want = set(pts)
-    exclude = [
-        {"process": p, "temperature_c": t, "supply_v": {SUPPLY_KEY: v}}
-        for p in procs for t in temps for v in vdds if (p, t, v) not in want
-    ]
-    req: dict = {
-        "netlist": netlist_name,
-        "engine": "ngspice",
-        "models": {"pdk": "sky130A", "lib": "libs.tech/combined/sky130.lib.spice"},
-        "corners": {"process": procs, "supply_v": {SUPPLY_KEY: vdds}, "temperature_c": temps},
-        "analysis_steps": analysis_steps(),
-        "options": {"timeout_s": timeout_s, "keep_artifacts": True},
-    }
-    if exclude:
-        req["exclude"] = exclude
-    if backend:
-        req["backend"] = backend
-    return req
+    """One `klt sim` request -- the shared OAT assembly on harness.klt_sim
+    (issue #1052)."""
+    return klt_sim.build_oat_request(
+        netlist_name, cids, SUPPLY_KEY,
+        analysis_steps=analysis_steps(),
+        timeout_s=timeout_s, backend=backend,
+    )
 
 
 def read_report(report: dict) -> tuple[dict[str, dict[str, float | None]], dict]:
@@ -495,7 +479,7 @@ def write_record(analysis: dict, data: dict, cids: list[str], supersedes: str,
               "ngspice resolved on the SUBMITTING host; the numbers above were produced by the "
               "executing workers listed here. Where those differ, no comparison with a locally "
               "run record is controlled for PDK/simulator version."]
-    klt = subprocess.run(["klt", "--version"], capture_output=True, text=True).stdout.strip()
+    klt = klt_sim.client_version()
     lines += [""]
     # The numbers come from the EXECUTING workers, so the PDK / simulator lines name
     # those (all six jobs must agree); the submitting host's own are listed as extras.

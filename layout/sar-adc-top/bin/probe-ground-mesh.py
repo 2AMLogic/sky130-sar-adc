@@ -94,13 +94,19 @@ verdict this script exists to be able to report), 1 if it could not run.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import pathlib
 import shutil
 import subprocess
 import sys
 import tempfile
+
+# `sim/harness` is stdlib-only (see its own __init__.py), so importing its
+# streamed SHA-256 helper here keeps this script's dependency set unchanged
+# while the chunked hash loop lives in exactly one place.
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT / "sim"))
+from harness.evidence import sha256_bytes_file  # noqa: E402
 
 TOP_CELL = "gen_compose_0"
 ROUTE_CELL_NAME = "SAR_ADC_TOP_ROUTE"
@@ -136,14 +142,6 @@ SUPPLY = "GND"
 #: leg needs a second question", for why the diagnostic pass declares it and
 #: the graded spec must not.
 THIRD_LEG_LABEL = "VSS"
-
-
-def _sha256(path: pathlib.Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def run(cmd: list[str], cwd: pathlib.Path | None = None) -> subprocess.CompletedProcess:
@@ -326,7 +324,7 @@ def main() -> int:
     # `full` recomposition must be BYTE-IDENTICAL to the GDS the record was
     # graded on. If it is not, the two variants differ by something besides
     # the mesh and the ablation is measuring that instead.
-    record_hash = "sha256:" + _sha256(record / "sar_adc_top.gds")
+    record_hash = "sha256:" + sha256_bytes_file(record / "sar_adc_top.gds")
     variants["full"]["record_content_hash"] = record_hash
     reproduces_record = variants["full"]["input_content_hash"] == record_hash
 

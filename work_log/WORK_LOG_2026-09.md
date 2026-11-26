@@ -2,6 +2,46 @@
 
 Sections moved byte-for-byte from [WORK_LOG.md](../WORK_LOG.md) by `loom-daemon work-docs archive`.
 
+### 2026-09-24
+
+- **Issue #345** (closed): Commit a klt signoff block manifest so this block's T1 state is graded, not hand-read
+- **Issue #346** (closed): comparator kickback: measured decomposition + mitigation option table from the sky130-comparator canary (same-PDK StrongARM prior art)
+- **Issue #355** (closed): Top-level digital rails VPWR/VGND each resolve to two disconnected islands — T1 item 11 finding
+- **Issue #361** (closed): spec: propose a DRAFT Kickback decision record for target-spec.md, informed by #346's baseline measurement
+- **Issue #362** (closed): Analog GND has no top-level pin — the same structural gap #355 fixed for the digital rails
+- **Issue #363** (closed): measure_metal_min_area.py under-merges its region, overstating sub-minimum-area counts (and its 'deck has no area rule' premise is stale)
+- **Issue #368** (closed): signoff evidence-hash checker rejects every candidate when REPO_ROOT contains a symlink (10 test failures on macOS)
+- **Issue #373** (closed): Withdraw klayout-tools#2139 upstream: its sub-minimum-area reproducer rested on this repo's own under-merging measurement
+- **Issue #374** (closed): npm run test:unit is red on main: 10 signoff evidence-hash fixtures assert a pre-#357 contract
+- **PR #339**: ci(layout): gate DRC-clean verdicts on curated-deck provenance (issue #121)
+- **PR #357**: feat(signoff): commit a klt signoff block manifest as the T1 verdict of record
+- **PR #358**: feat(sim): add comparator kickback probe testbench (issue #346)
+- **PR #359**: docs(chipalooza): carry the newly-graded power-delivery (ERC) gap (issue #121)
+- **PR #360**: docs(chipalooza): record #103's v0.6.0 re-measurement and operator escalation (issue #121)
+- **PR #365**: feat(layout): tie VPWR/VGND into one island each, out to top-level pins (#355)
+- **PR #366**: docs(spec): add a DRAFT Kickback row proposed by DR-011
+- **PR #367**: docs(chipalooza): gate the ERC supply readout, the second evidence tree (issue #121)
+- **PR #369**: docs(chipalooza): grade the DRC half on the pinned deck's own area rules (issue #121)
+- **PR #370**: docs(chipalooza): record klayout-tools#2396/#2398's closure-but-no-release
+- **PR #371**: fix(signoff): resolve REPO_ROOT before is_relative_to comparison (issue #368)
+- **PR #372**: fix: stop the metal min-area script under-merging its region
+- **PR #375**: docs(chipalooza): gate the T1 sign-off scorecard, the third evidence tree (issue #121)
+- **PR #376**: feat(layout): draw a top-level analog GND pad, per DR-012
+- **PR #381**: docs(chipalooza): gate how much of Section 4 the freshness check reaches (issue #121)
+- **PR #382**: docs(layout): record the corrected klayout-tools#2139 reproducer re-run (issue #373)
+
+### 2026-09-23
+
+- **Issue #344** (closed): T1 item 11 (power delivery, structural): no klt erc supply spec or report in this repo
+- **Issue #347** (closed): 2am: reuse rule 9 — in-tree comparator duplicates sibling canary sky130-comparator — add reuse.lock.json in_tree entry (evaluate), then adopt or record
+- **PR #352**: layout: re-measure sar-adc-top on klayout-tools 0.6.0 -- LVS still not clean, real --abstract-cells mechanism located (#103)
+- **PR #353**: chore: record the in-tree comparator against sibling sky130-comparator
+- **PR #356**: feat(layout): commit klt erc supply spec and report for T1 item 11
+
+### 2026-09-22
+
+- **Issue #350** (closed): comparator noise: regeneration-inclusive measurement methodology (equivalent-source transient-noise MC) demonstrated on the sky130-comparator canary
+
 ### 2026-09-19
 
 - **Issue #333** (closed): layout/sar-sequencer + layout/seln-inverters: 145 place-and-route-generated metal shapes violate sky130A's m1.6/m2.6/m3.6/m5.4 minimum-area rules

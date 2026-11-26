@@ -6,6 +6,53 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-25
+
+- **PR #1090**: fix(sim): use the shared klt version probe for digital partition
+- **Issue #1088** (closed): digital-partition record writer keeps its own klt client-version placeholder
+- **PR #1087**: fix(sim): share klt --version probe in harness.klt_sim
+- **Issue #1086** (closed): Share the klt client version probe so a missing executable cannot abort record rendering
+
+### 2026-11-24
+
+- **PR #1085**: refactor: remove dead --dr027-candidate helpers from settling runners
+- **Issue #1084** (closed): Remove unused --dr027-candidate helpers and write-only _CODE_OF global in the settling runners
+- **Issue #1075** (closed): Remove duplicated streamed SHA-256 file helpers in favor of harness.evidence.sha256_bytes_file
+- **PR #1077**: refactor: dedupe streamed SHA-256 file helpers onto harness.evidence
+- **Issue #1078** (closed): chore: gitignore the daemon runtime artifact .loom/account-ranking.codex
+- **PR #1081**: chore: ignore .loom/account-ranking.* outside loom-managed block
+- **PR #1074**: docs: reword the 2026-11-21 census note's clause as historical
+- **Issue #1073** (closed): challenge-4-proposal: a "census above now states" clause re-drifted onto main after #1055 fixed the class
+- **PR #1072**: refactor: fold the three PEX run_pex.py main()/klt-pex argv copies into pex_flow
+- **Issue #1071** (closed): sim/ records cite per-corner ngspice.log files that are not committed (klt sim flow)
+- **Issue #1069** (closed): Fold the three run_pex.py main()/klt-pex argv copies into pex_flow.py (copies have already drifted)
+- **PR #1028**: signoff: declare item-5 analog spec rows and cite the comparator-noise klt sim envelope
+- **PR #1068**: refactor: drop local pass-through wrappers in schematic-parity gates
+- **Issue #930** (closed): Remove the three leftover pass-through wrappers in the two schematic-parity gates
+
+### 2026-11-23
+
+- **PR #1064**: fix: draw each GND mesh leg from the member pair it records
+- **Issue #1063** (closed): GND mesh member check records hand-copied literals, so a call-site change can still drift
+- **Issue #1034** (closed): Question for the operator: should the CDAC transfer campaign ever measure within-die DNL (shared-array testbench), given the cross-copy finding?
+- **PR #1024**: Add cdac-array-transfer ff-corner PDK A/B diagnostic record ruling out the pin bump
+- **Issue #1013** (closed): Isolate the ff_27c_1.80v 3e-5 V delta that parks #811 (klt sim batch vs baseline 20261001-120402-d24f700)
+- **Issue #921** (closed): Remove GND_MESH_MEMBERS: a declared-but-never-read member list the mesh builder does not consult
+- **PR #1062**: feat: assert GND_MESH_MEMBERS against the analog ground mesh's drawn legs
+- **PR #1061**: pex: finish comparator pex_flow delegation, drop #1017 leftovers
+- **PR #1060**: consolidate the last two private OAT request builders onto build_oat_request()
+- **PR #1037**: signoff: bind the digital item-5 Resolution row to a klt sim envelope
+- **PR #1057**: docs: reword stale census "now states" clauses as historical in challenge-4 proposal
+- **PR #1056**: sim: consolidate the four private OAT klt sim request builders into harness klt_sim
+- **Issue #917** (closed): Wire up or remove GND_MESH_MEMBERS: an inert declaration nothing reads
+- **Issue #1059** (closed): Remove #1017 PEX extraction leftovers and finish comparator pex_flow delegation
+- **Issue #1054** (closed): Consolidate the two remaining private OAT klt sim request builders (cdac-bit-trial-settling, sampling-cdac-handoff) onto klt_sim.build_oat_request()
+- **Issue #1023** (closed): T1 item 5: bind the Resolution N row (sar-sequencer behavioral bench) to the digital partition's item 5 row set
+- **Issue #1055** (closed): challenge-4 proposal: deck-census ledger double-counts issue #1023's two decks; "census above now states" clauses are stale
+- **Issue #1052** (closed): Consolidate four copy-pasted OAT klt sim request builders into sim/harness/klt_sim.py
+- **PR #1041**: sim: DR-027 candidate-plate settling/rate study and DRAFT sample-rate row verdict (3.3000 um)
+- **Issue #1033** (closed): Re-derive the settling / sample-rate budget at the DR-027 array size (C_tot ~12.4 pF/side) against DR-006
+
 ### 2026-11-22
 
 - **PR #1039**: fix(report): read plot data from the record each figure cites
@@ -646,44 +693,4 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 - **PR #442**: feat(sim): run the no-gnd-pad arm and price DR-012's rejected ground-pad option
 - **PR #443**: docs(chipalooza): record klayout-tools#2397's closure, the third of PR #352's findings (issue #121)
 - **PR #444**: docs(chipalooza): record #440's decoupling-cap placement requirement in §7 Item 1 (issue #121)
-
-### 2026-09-24
-
-- **Issue #345** (closed): Commit a klt signoff block manifest so this block's T1 state is graded, not hand-read
-- **Issue #346** (closed): comparator kickback: measured decomposition + mitigation option table from the sky130-comparator canary (same-PDK StrongARM prior art)
-- **Issue #355** (closed): Top-level digital rails VPWR/VGND each resolve to two disconnected islands — T1 item 11 finding
-- **Issue #361** (closed): spec: propose a DRAFT Kickback decision record for target-spec.md, informed by #346's baseline measurement
-- **Issue #362** (closed): Analog GND has no top-level pin — the same structural gap #355 fixed for the digital rails
-- **Issue #363** (closed): measure_metal_min_area.py under-merges its region, overstating sub-minimum-area counts (and its 'deck has no area rule' premise is stale)
-- **Issue #368** (closed): signoff evidence-hash checker rejects every candidate when REPO_ROOT contains a symlink (10 test failures on macOS)
-- **Issue #373** (closed): Withdraw klayout-tools#2139 upstream: its sub-minimum-area reproducer rested on this repo's own under-merging measurement
-- **Issue #374** (closed): npm run test:unit is red on main: 10 signoff evidence-hash fixtures assert a pre-#357 contract
-- **PR #339**: ci(layout): gate DRC-clean verdicts on curated-deck provenance (issue #121)
-- **PR #357**: feat(signoff): commit a klt signoff block manifest as the T1 verdict of record
-- **PR #358**: feat(sim): add comparator kickback probe testbench (issue #346)
-- **PR #359**: docs(chipalooza): carry the newly-graded power-delivery (ERC) gap (issue #121)
-- **PR #360**: docs(chipalooza): record #103's v0.6.0 re-measurement and operator escalation (issue #121)
-- **PR #365**: feat(layout): tie VPWR/VGND into one island each, out to top-level pins (#355)
-- **PR #366**: docs(spec): add a DRAFT Kickback row proposed by DR-011
-- **PR #367**: docs(chipalooza): gate the ERC supply readout, the second evidence tree (issue #121)
-- **PR #369**: docs(chipalooza): grade the DRC half on the pinned deck's own area rules (issue #121)
-- **PR #370**: docs(chipalooza): record klayout-tools#2396/#2398's closure-but-no-release
-- **PR #371**: fix(signoff): resolve REPO_ROOT before is_relative_to comparison (issue #368)
-- **PR #372**: fix: stop the metal min-area script under-merging its region
-- **PR #375**: docs(chipalooza): gate the T1 sign-off scorecard, the third evidence tree (issue #121)
-- **PR #376**: feat(layout): draw a top-level analog GND pad, per DR-012
-- **PR #381**: docs(chipalooza): gate how much of Section 4 the freshness check reaches (issue #121)
-- **PR #382**: docs(layout): record the corrected klayout-tools#2139 reproducer re-run (issue #373)
-
-### 2026-09-23
-
-- **Issue #344** (closed): T1 item 11 (power delivery, structural): no klt erc supply spec or report in this repo
-- **Issue #347** (closed): 2am: reuse rule 9 — in-tree comparator duplicates sibling canary sky130-comparator — add reuse.lock.json in_tree entry (evaluate), then adopt or record
-- **PR #352**: layout: re-measure sar-adc-top on klayout-tools 0.6.0 -- LVS still not clean, real --abstract-cells mechanism located (#103)
-- **PR #353**: chore: record the in-tree comparator against sibling sky130-comparator
-- **PR #356**: feat(layout): commit klt erc supply spec and report for T1 item 11
-
-### 2026-09-22
-
-- **Issue #350** (closed): comparator noise: regeneration-inclusive measurement methodology (equivalent-source transient-noise MC) demonstrated on the sky130-comparator canary
 

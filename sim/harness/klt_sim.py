@@ -28,6 +28,21 @@ sorted save set. The reference-drive budget and the input sweep had each
 carried a private copy of both, so a correction to card handling had to
 reach two campaigns at once.
 
+The request side of an OAT corners campaign is shared here for the same
+reason (issues #1052, #1054): `oat_corners()` expands a list of corner-id
+strings into the `corners` axis block plus the Cartesian-complement
+`exclude` list (`klt sim` has no one-at-a-time axis form), and
+`build_oat_request()` assembles the `klt sim` request dict around them.
+The six drivers that had each carried a private copy of that assembly are
+thin wrappers over it now, so a request-schema change is one edit, not six.
+
+The local `klt --version` metadata probe used during record rendering is
+shared here for the same reason (issue #1086): `client_version()` returns
+the stripped version string when available and `CLIENT_VERSION_UNAVAILABLE`
+when the client is absent, fails, or writes empty stdout, so a missing
+local executable cannot abort record generation after a simulation report
+already exists.
+
 Stdlib plus one pure harness sibling (`corners.corner_id` -- string
 formatting, still no PDK), and the subprocess runner is injectable
 (`runner=`), so these paths are unit-testable without `klt`, the PDK or
@@ -36,15 +51,17 @@ the fleet.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
-from .corners import corner_id
+from .corners import corner_id, parse_corner_id
 
 #: Seconds a non-`local` submit waits for fleet capacity instead of failing
 #: the step. CLAUDE.md's host rule ("pass `--wait-for-capacity 600` on every
@@ -129,10 +146,34 @@ def error_excerpt(text: str) -> str:
     return "..." + text[-ERROR_TEXT_CHARS:]
 
 
+#: Placeholder recorded in a simulation record's local client metadata field
+#: when `klt --version` cannot be probed or returns empty stdout (issue #1086).
+CLIENT_VERSION_UNAVAILABLE = "(klt --version unavailable)"
+
+
 def default_runner(argv: list[str]) -> tuple[int, str, str]:
     """Run `argv`, returning `(returncode, stdout, stderr)`."""
     done = subprocess.run(argv, capture_output=True, text=True, check=False)
     return done.returncode, done.stdout, done.stderr
+
+
+def client_version(*, runner=default_runner) -> str:
+    """Local `klt --version`, or `CLIENT_VERSION_UNAVAILABLE` when absent.
+
+    Used only for the submitting/rendering host's metadata field in evidence
+    records -- never for worker-reported versions (`run_info(report)["jobs"]`)
+    and never for simulation submission (where a missing client must still
+    fail). Falling back on `OSError`, non-zero exit, or empty stdout ensures
+    record rendering cannot abort after a simulation report already exists
+    (issue #1086).
+    """
+    try:
+        rc, out, _err = runner(["klt", "--version"])
+    except OSError:
+        return CLIENT_VERSION_UNAVAILABLE
+    if rc != 0:
+        return CLIENT_VERSION_UNAVAILABLE
+    return (out or "").strip() or CLIENT_VERSION_UNAVAILABLE
 
 
 def submit_argv(
@@ -155,6 +196,34 @@ def submit_argv(
     if backend != "local" and capacity_wait_s is not None:
         argv += ["--wait-for-capacity", f"{capacity_wait_s:g}"]
     return argv
+
+
+def write_inputs(workdir: Path, files: dict[str, str]) -> bool:
+    """Write the named input files under `workdir` and fence the report cache.
+
+    `submit()` reuses a `report.json` found beside the request by path alone,
+    so a work directory re-used after the deck or request changed would
+    attach the OLD report to the NEW inputs. This records a fingerprint of
+    every input in `inputs.sha256`; when an existing fingerprint differs (or
+    a report exists with none), the stale `report.json` is renamed to
+    `report.stale-<fingerprint>.json` -- never deleted -- so the next
+    `submit()` re-simulates. Returns True when a stale report was set aside.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    h = hashlib.sha256()
+    for name in sorted(files):
+        h.update(name.encode() + b"\0" + files[name].encode() + b"\0")
+    fp = h.hexdigest()
+    stamp = workdir / "inputs.sha256"
+    report = workdir / "report.json"
+    previous = stamp.read_text().strip() if stamp.is_file() else None
+    stale = report.is_file() and previous != fp
+    if stale:
+        report.rename(workdir / f"report.stale-{(previous or 'unfingerprinted')[:12]}.json")
+    for name, text in files.items():
+        (workdir / name).write_text(text)
+    stamp.write_text(fp + "\n")
+    return stale
 
 
 def submit(
@@ -267,6 +336,13 @@ def run_info(report: dict) -> dict:
     jobs = []
     pdks, ngs, features = set(), set(), set()
     for entry in entries:
+        # A LOST shard reports as a null fleet entry (a real campaign hit
+        # this: 5 of 9 corners `lost_shard`, and reading the report crashed
+        # run_info before the campaign could report the loss). A missing
+        # shard contributes no environment facts; the corners it carried
+        # report their own `lost_shard` status either way.
+        if not isinstance(entry, dict):
+            continue
         worker = entry.get("worker_environment") or {}
         pdk_stamp = (worker.get("pdk") or {}).get("stamp_text")
         variant = (worker.get("pdk") or {}).get("variant")
@@ -327,7 +403,7 @@ def finite(x) -> bool:
 
 
 def measurements_by_corner(
-    report: dict, supply_key: str
+    report: dict, supply_key: str, *, null_error_corners: bool = True
 ) -> tuple[dict[str, dict[str, float | None]], dict]:
     """`({corner_id: {"<step>.<name>": value}}, run_info(report))`.
 
@@ -341,6 +417,18 @@ def measurements_by_corner(
     `supply_key` selects the corner's supply out of its `supply_v` map; the
     campaign's module constant (`SUPPLY_KEY` = "vsup" today) moves to this
     argument rather than being baked into yet another module.
+
+    `null_error_corners=False` keeps each MEASUREMENT's own value at a corner
+    whose status is `error`/`inconclusive`. A corner can carry that status
+    because ONE measurement produced no value while every other measurement
+    solved -- the crossing-search case, where a threshold that is never
+    crossed is itself evidence the campaign must RETAIN (a settling study's
+    small-swing row), not a reason to throw away the corner's other values.
+    `klt` already reports per-measurement values and statuses; the default
+    nulling stays the safe read for campaigns where "any error" means "the
+    solve is suspect". (Found by the DR-027 candidate campaign: two corners
+    lost their whole measured grid to one legitimately-missing bit-0
+    crossing.)
     """
     if not isinstance(report, dict):
         raise ValueError("klt sim report is not a JSON object")
@@ -355,7 +443,7 @@ def measurements_by_corner(
             for m in (c.get("measurements") or [])
             if isinstance(m, dict) and "name" in m
         }
-        if c.get("status") in ("error", "inconclusive"):
+        if null_error_corners and c.get("status") in ("error", "inconclusive"):
             vals = {k: None for k in vals}
         out[cid] = vals
     return out, run_info(report)
@@ -464,3 +552,99 @@ def saved_vectors(meas_cards: list[str]) -> list[str]:
         for kind, node in _VECTOR_RE.findall(card):
             found.add(f"{kind.lower()}({node.strip().lower()})")
     return sorted(found)
+
+
+def oat_corners(
+    corner_ids: Sequence[str], supply_key: str
+) -> tuple[dict, list[dict]]:
+    """The `corners` axis block and `exclude` list for a one-at-a-time PVT
+    grid given as corner-id strings.
+
+    `klt sim` has no OAT axis form, so a campaign declares the full cross
+    product of its distinct process / temperature / supply values and lists
+    the points the grid omits under `exclude`. Six drivers carried
+    byte-identical private copies of this expansion (issues #1052, #1054);
+    this is the one copy. `exclude` is empty when the ids already cover the
+    full product (a single corner, or a complete grid).
+    """
+    pts = [parse_corner_id(c) for c in corner_ids]
+    procs = sorted({p for p, _, _ in pts})
+    temps = sorted({t for _, t, _ in pts})
+    vdds = sorted({v for _, _, v in pts})
+    want = set(pts)
+    exclude = [
+        {"process": p, "temperature_c": t, "supply_v": {supply_key: v}}
+        for p in procs
+        for t in temps
+        for v in vdds
+        if (p, t, v) not in want
+    ]
+    corners = {
+        "process": procs,
+        "supply_v": {supply_key: vdds},
+        "temperature_c": temps,
+    }
+    return corners, exclude
+
+
+def build_oat_request(
+    netlist_name: str,
+    corner_ids: Sequence[str],
+    supply_key: str,
+    *,
+    analysis_steps: list[dict] | None = None,
+    analysis: dict | None = None,
+    measurements: list[dict] | None = None,
+    timeout_s: float = 900.0,
+    keep_artifacts: bool = True,
+    pdk: str = "sky130A",
+    models_lib: str = "libs.tech/combined/sky130.lib.spice",
+    backend: str | None = None,
+    batch: dict | None = None,
+    hosts: int | None = None,
+) -> dict:
+    """One `klt sim` request for an OAT corners campaign (issues #1052,
+    #1054).
+
+    Two request shapes, one per campaign family, and never both or neither:
+    `analysis_steps=` (a step-per-point campaign) or the `analysis=` +
+    `measurements=` pair (a single-analysis campaign). The dict this
+    returns -- keys, values and insertion order -- is byte-for-byte what
+    the consolidated drivers assembled privately, so no committed request
+    artifact changes shape. `hosts` > 1 appends a `remote` block (the
+    shared-fleet sharding knob) after every other conditional key.
+    """
+    has_steps = analysis_steps is not None
+    if has_steps and (analysis is not None or measurements is not None):
+        raise ValueError(
+            "build_oat_request() takes analysis_steps= or the analysis= + "
+            "measurements= pair, never both at once"
+        )
+    if not has_steps and not (analysis is not None and measurements is not None):
+        raise ValueError(
+            "build_oat_request() takes analysis_steps= or the analysis= + "
+            "measurements= pair -- one of the two is required, and the pair "
+            "is all-or-nothing"
+        )
+    corners, exclude = oat_corners(corner_ids, supply_key)
+    req: dict = {
+        "netlist": netlist_name,
+        "engine": "ngspice",
+        "models": {"pdk": pdk, "lib": models_lib},
+        "corners": corners,
+    }
+    if has_steps:
+        req["analysis_steps"] = analysis_steps
+    else:
+        req["analysis"] = analysis
+        req["measurements"] = measurements
+    req["options"] = {"timeout_s": timeout_s, "keep_artifacts": keep_artifacts}
+    if exclude:
+        req["exclude"] = exclude
+    if backend:
+        req["backend"] = backend
+    if batch:
+        req["batch"] = dict(batch)
+    if hosts and hosts > 1:
+        req["remote"] = {"hosts": hosts}
+    return req

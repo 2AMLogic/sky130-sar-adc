@@ -1647,8 +1647,10 @@ def _check_halflsb_rail_taps(rails: dict[str, tuple[float, float, float, float]]
                 )
 
 
-def halflsb_leg(c: Canvas, net: str) -> tuple[float, float]:
-    """Drop `halflsb_offset`'s own `net` pin to that net's met1 row below the
+def halflsb_leg(
+    c: Canvas, net: str, origin: tuple[float, float, tuple[int, int]]
+) -> tuple[float, float]:
+    """Drop the resolved pin `origin` to `net`'s met1 row below the
     block and run the row out to `HALFLSB_DEST_X[net]`, returning the landing
     point so the caller can continue (or, for the four nets that tee onto an
     existing met4 column, so it can assert the landing).
@@ -1658,7 +1660,7 @@ def halflsb_leg(c: Canvas, net: str) -> tuple[float, float]:
     going all the way up in one `riser()` call is what keeps each landing's
     pad stack identical regardless of which layer the leg arrived on.
     """
-    hx, hy, native = global_pin("halflsb_offset", net)
+    hx, hy, native = origin
     assert native == MET2
     row = HALFLSB_ROW_Y[net]
     column_layer = MET4 if net in HALFLSB_MET4_COLUMNS else MET3
@@ -1886,7 +1888,9 @@ GND_MESH_Y = 165.0
 #: a conductor that block's OWN layout draws and labels, never a position this
 #: module invented. `comparator.GND` is the pin DR-012 built its pad on;
 #: issue #377 added the next two inside `sampling_frontend` and `cdac_array`,
-#: and issue #401 added `halflsb_offset` as the fourth.
+#: and issue #401 added `halflsb_offset` as the fourth. Now asserted against
+#: the legs `analog_ground_mesh()` actually draws: the build fails unless its
+#: four drawn `(block, pin)` pairs equal this list.
 GND_MESH_MEMBERS = (
     ("comparator", "GND"),
     ("sampling_frontend", "GND"),
@@ -1970,22 +1974,29 @@ def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]
     open item, #378), so no number here is claimed as measured.
     """
     segments: dict[str, tuple[float, float, float, float]] = {}
+    members: list[tuple[str, str]] = []
     half = WIRE_W / 2.0
 
     # --- comparator: DR-012's own riser + southward stub, unchanged except
     #     that the stub now continues past the pad label to the trunk.
-    gx, gy, native = global_pin("comparator", "GND")
+    member = ("comparator", "GND")
+    members.append(member)
+    gx, gy, native = global_pin(*member)
     assert native == MET1
     c.riser(gx, gy, MET1, MET4)
     segments["comparator_stub"] = (gx - half, GND_MESH_Y - half, gx + half, gy + half)
 
     # --- sampling_frontend: riser on its own drawn GND met2 track.
-    fx, fy = _riser_and_highway(c, "sampling_frontend", "GND", MET4)
+    member = ("sampling_frontend", "GND")
+    members.append(member)
+    fx, fy = _riser_and_highway(c, *member, MET4)
     segments["sampling_frontend_dropper"] = (fx - half, fy - half, fx + half, GND_MESH_Y + half)
 
     # --- cdac_array: riser on its own drawn VSS tap, west out of the array's
     #     confirmed-clear switch-row band, onto this mesh's corridor track.
-    vx, vy, vnative = global_pin("cdac_array", "VSS")
+    member = ("cdac_array", "VSS")
+    members.append(member)
+    vx, vy, vnative = global_pin(*member)
     assert vnative == MET1
     c.riser(vx, vy, MET1, MET3)
     wx = WEST_CORRIDOR_X["GND"]
@@ -2006,14 +2017,28 @@ def analog_ground_mesh(c: Canvas) -> dict[str, tuple[float, float, float, float]
     #     cdac_array corridor track this mesh already runs at `wx`. So the
     #     offset network's substrate taps join the mesh at the same conductor
     #     `cdac_array`'s own `VSS` tap does, rather than at a second place.
-    hl_x, hl_y, _hl_layer = global_pin("halflsb_offset", "GND")
-    hl_row = HALFLSB_ROW_Y["GND"]
-    halflsb_leg(c, "GND")
+    member = ("halflsb_offset", "GND")
+    members.append(member)
+    origin = global_pin(*member)
+    hl_x, hl_y, _hl_layer = origin
+    hl_dest, hl_row = halflsb_leg(c, member[1], origin)
     segments["halflsb_column"] = (hl_x - half, hl_row - half, hl_x + half, hl_y + half)
-    segments["halflsb_row"] = (wx - half, hl_row - half, hl_x + half, hl_row + half)
+    segments["halflsb_row"] = (hl_dest - half, hl_row - half, hl_x + half, hl_row + half)
 
     # --- the top-level pad label, at DR-012's own coordinate.
     c.label(MET4_PIN, gx, GND_PAD_Y, "GND")
+
+    # `GND_MESH_MEMBERS` and the legs above are the same list in two places;
+    # this makes them enforce each other (order aside -- the legs are drawn
+    # in routing order, the constant in provenance order).
+    if sorted(members) != sorted(GND_MESH_MEMBERS):
+        raise SystemExit(
+            f"build_layout.py: analog ground mesh members diverged from "
+            f"GND_MESH_MEMBERS: drawn {sorted(members)}, declared "
+            f"{sorted(GND_MESH_MEMBERS)}. The legs above and the constant "
+            "must name the same members -- add, drop or rename one on both "
+            "sides (the constant's comments record who added each member)."
+        )
     return segments
 
 
@@ -3027,7 +3052,7 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
     c.wire(MET4, wx, vrefp_y, wx, HALFLSB_ROW_Y["VREFP"], w=WIRE_W)
 
     for net in ("TOP_N", "TOP_P", "VDD", "VREFP", "VCM", "HALF_LSB_EN", "HALF_LSB_ENN"):
-        halflsb_leg(c, net)
+        halflsb_leg(c, net, global_pin("halflsb_offset", net))
     _check_halflsb_symmetry()
 
     # ------------------------------------------------------------------ #
@@ -3067,7 +3092,7 @@ def build(ablate_ground_mesh: bool = False) -> tuple[dict, dict]:
         c.wire(MET3, tap_x, tap_y, wx, tap_y, w=WIRE_W)
         c.riser(wx, tap_y, MET3, MET4)
         c.wire(MET4, wx, tap_y, wx, HALFLSB_ROW_Y[net], w=WIRE_W)
-        halflsb_leg(c, net)
+        halflsb_leg(c, net, global_pin("halflsb_offset", net))
     _check_halflsb_rail_taps(rails)
     rail_slice = (rail_lo, len(c.shapes))
 

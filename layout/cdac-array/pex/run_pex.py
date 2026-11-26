@@ -39,14 +39,11 @@ never touches `reports/LATEST` (the drawing flow's pointer).
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import re
 import shutil
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 PEX_DIR = Path(__file__).resolve().parent
@@ -55,7 +52,7 @@ sys.path.insert(0, str(PEX_DIR.parents[2] / "sim"))
 
 import pex_flow  # noqa: E402
 
-from harness import evidence, measure, toolchain  # noqa: E402
+from harness import measure, toolchain  # noqa: E402
 
 BLOCK_DIR = PEX_DIR.parent
 REPORTS_DIR = BLOCK_DIR / "reports"
@@ -197,23 +194,10 @@ def run(work_dir: Path, backend: str, pilot: bool, record: bool, quiet: bool = F
 
     (work_dir / ".klt").mkdir(exist_ok=True)
     pex_json = pex_flow.run_klt(
-        [
-            "pex",
-            gds_rel,
-            "pex_request.json",
-            "--deck",
-            "sky130",
-            "--pdk",
-            info.variant,
-            "--pdk-root",
-            str(info.root),
-            "-o",
-            str((work_dir / ".klt" / "pex-extracted.spice").resolve()),
-            "--outdir",
-            str((work_dir / ".klt" / "pex").resolve()),
-            "--backend",
-            backend,
-        ],
+        pex_flow.klt_pex_argv(
+            gds_rel, "pex_request.json", info, work_dir,
+            extracted_name="pex-extracted.spice", outdir_name="pex", backend=backend,
+        ),
         cwd=work_dir,
         backend=backend,
         quiet=quiet,
@@ -397,17 +381,6 @@ def write_record(
 ) -> Path:
     out = work_dir
     record_id = out.name
-    for name in (
-        "cdac_array.pex-extract.spice",
-        "extract.json",
-        "cdac_array_pex_reference.spice",
-        "testbench.spice",
-        "pex_request.json",
-        "pex.json",
-    ):
-        src, dst = work_dir / name, out / name
-        if src.resolve() != dst.resolve():
-            shutil.copy(src, dst)
 
     prov = extract_json["provenance"]
     body_bias = pex_json.get("body_bias", {})
@@ -638,36 +611,16 @@ def write_record(
     return out / "record.md"
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--check-env", action="store_true", help="verify klt/PDK/layout and exit")
-    ap.add_argument("--pilot", action="store_true", help="one corner (tt/27C/1.8V), local backend")
-    ap.add_argument("--record", action="store_true", help="mint an append-only record")
-    ap.add_argument("--backend", default=None, help="override klt pex backend (default: local for --pilot, batch otherwise)")
-    args = ap.parse_args()
-
-    if args.check_env:
-        info = pex_flow.resolve_pdk()
-        gds, latest = pex_flow.latest_layout(BLOCK_DIR, GDS_NAME)
-        ver = subprocess.run(
-            [str(pex_flow.klt_bin()), "--version"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-        print(f"klt: {pex_flow.klt_bin()} ({ver})")
-        print(f"PDK: {info.variant} at {info.root}")
-        print(f"layout: reports/{latest}/{GDS_NAME}")
-        return 0
-
-    if args.pilot and args.record:
-        print("--pilot and --record are separate invocations", file=sys.stderr)
-        return 2
-    if args.pilot:
-        with tempfile.TemporaryDirectory(prefix="cdac-pex-pilot-") as td:
-            return run(Path(td), "local", pilot=True, record=False)
-    if args.record:
-        backend = args.backend or "batch"
-        return run(REPORTS_DIR / evidence.new_record_id(), backend, pilot=False, record=True)
-    ap.print_help()
-    return 2
+def main(argv: list[str] | None = None) -> int:
+    return pex_flow.pex_main(
+        BLOCK_DIR,
+        GDS_NAME,
+        REPORTS_DIR,
+        run,
+        tmp_prefix="cdac-pex-pilot-",
+        description=__doc__.splitlines()[0],
+        argv=argv,
+    )
 
 
 if __name__ == "__main__":

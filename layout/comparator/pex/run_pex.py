@@ -42,11 +42,9 @@ scratch subtree).
 
 from __future__ import annotations
 
-import argparse
 import json
 import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 PEX_DIR = Path(__file__).resolve().parent
@@ -55,7 +53,7 @@ sys.path.insert(0, str(PEX_DIR.parents[2] / "sim"))
 
 import pex_flow  # noqa: E402
 
-from harness import evidence, pdk  # noqa: E402
+from harness import evidence  # noqa: E402
 
 BLOCK_DIR = PEX_DIR.parent
 REPORTS_DIR = BLOCK_DIR / "reports"
@@ -98,26 +96,13 @@ def oat_points(pilot: bool):
     def cal_n(v: float) -> float:
         return round(v / 2.0 - CAL_VINDIFF_MV / 2000.0, 6)
 
-    star = [
-        (p, t, v)
-        for p, t, v in pex_flow.corners_mod.ratified_oat_grid(
-            1.8,
-            pex_flow.corners_mod.RATIFIED_SUPPLY_TOLERANCE,
-            pex_flow.corners_mod.RATIFIED_PROCESS_CORNERS,
-            pex_flow.corners_mod.RATIFIED_TEMPS_C,
-        )
-    ]
-    if pilot:
-        star = [(p, t, v) for p, t, v in star if p == "tt" and t == 27.0 and v == 1.8]
-    zero = [
-        pex_flow.OatPoint(p, t, v, {"vdd": v, "vinp": half(v), "vinn": half(v)})
-        for p, t, v in star
-    ]
-    cal = [
-        pex_flow.OatPoint(p, t, v, {"vdd": v, "vinp": cal_p(v), "vinn": cal_n(v)})
-        for p, t, v in star
-    ]
-    return zero, cal
+    def star(vinp, vinn):
+        pts = pex_flow.ratified_oat_points({"vinp": vinp, "vinn": vinn})
+        if pilot:
+            pts = [p for p in pts if p.cid == "tt_27c_1.80v"]
+        return pts
+
+    return star(half, half), star(cal_p, cal_n)
 
 
 def build_request(points) -> dict:
@@ -142,18 +127,6 @@ def build_request(points) -> dict:
             },
         ],
         "options": {"timeout_s": 120, "keep_artifacts": False},
-    }
-
-
-def _pickoff_diffs(delta: list[dict], value_key: str) -> dict[str, tuple[float, float]]:
-    """`klt pex`'s `delta[]` -> corner_id -> (outp_v, outn_v), reading either
-    `schematic_value` or `extracted_value` (`value_key`) from each row."""
-    by_corner: dict[str, dict[str, float]] = {}
-    for row in delta:
-        by_corner.setdefault(row["corner_id"], {})[row["spec_row"]] = row[value_key]
-    return {
-        corner_id: (values["outp_pickoff"], values["outn_pickoff"])
-        for corner_id, values in by_corner.items()
     }
 
 
@@ -199,15 +172,11 @@ def run(work_dir: Path, backend: str, pilot: bool, record: bool, quiet: bool = F
         (work_dir / f"pex_request_{tag}.json").write_text(json.dumps(request, indent=2) + "\n")
         (work_dir / ".klt").mkdir(exist_ok=True)
         pex_json = pex_flow.run_klt(
-            [
-                "pex", gds_abs, f"pex_request_{tag}.json",
-                "--deck", "sky130",
-                "--pdk", info.variant,
-                "--pdk-root", str(info.root),
-                "-o", str((work_dir / ".klt" / f"pex-extracted-{tag}.spice").resolve()),
-                "--outdir", str((work_dir / ".klt" / f"pex-{tag}").resolve()),
-                "--backend", backend,
-            ],
+            pex_flow.klt_pex_argv(
+                gds_abs, f"pex_request_{tag}.json", info, work_dir,
+                extracted_name=f"pex-extracted-{tag}.spice", outdir_name=f"pex-{tag}",
+                backend=backend,
+            ),
             cwd=work_dir,
             backend=backend,
             quiet=quiet,
@@ -285,16 +254,7 @@ def write_record(
 ) -> Path:
     out = work_dir
     record_id = out.name
-    net_caps = {}
-    for net in extract_json.get("parasitics", {}).get("nets", []):
-        if net["net"] in ("OUTP", "OUTN", "VINP", "VINN"):
-            total_coupled = sum(c["capacitance_ff"] for c in net.get("coupled", []))
-            net_caps[net["net"]] = {
-                "r_ohm": net["resistance_ohm"],
-                "c_ground_ff": net["capacitance_ff"],
-                "c_coupled_total_ff": total_coupled,
-                "c_total_ff": net["capacitance_ff"] + total_coupled,
-            }
+    net_caps = pex_flow.net_table(extract_json, {"OUTP", "OUTN", "VINP", "VINN"})
     body_bias = results["zero"].get("body_bias", {})
     model = results["zero"].get("extraction", {}).get("model", {})
     prov = extract_json["provenance"]
@@ -516,44 +476,15 @@ def write_record(
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="comparator PEX flow (issues #112/#1017)")
-    ap.add_argument("--check-env", action="store_true")
-    ap.add_argument("--pilot", action="store_true", help="one corner (tt/27C/1.8V), local backend")
-    ap.add_argument("--record", action="store_true", help="write an evidence record under reports/")
-    ap.add_argument("--backend", default=None, help="override klt pex backend (default: local for --pilot, batch otherwise)")
-    ap.add_argument("--quiet", action="store_true")
-    args = ap.parse_args(argv)
-
-    if args.check_env:
-        import subprocess
-
-        info = pex_flow.resolve_pdk()
-        gds, latest = pex_flow.latest_layout(BLOCK_DIR, GDS_NAME)
-        ver = subprocess.run(
-            [str(pex_flow.klt_bin()), "--version"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-        print(f"klt: {pex_flow.klt_bin()} ({ver})")
-        print(f"PDK: variant={info.variant} root={info.root} found={info.found}")
-        if not info.found:
-            print(f"  error: {info.error}")
-            return 3
-        print(f"layout: reports/{latest}/{GDS_NAME}")
-        return 0
-
-    if args.pilot and args.record:
-        print("--pilot and --record are separate invocations", file=sys.stderr)
-        return 2
-    if args.pilot:
-        with tempfile.TemporaryDirectory(prefix="cmp-pex-pilot-") as td:
-            return run(Path(td), "local", pilot=True, record=False, quiet=args.quiet)
-    if args.record:
-        backend = args.backend or "batch"
-        return run(
-            REPORTS_DIR / evidence.new_record_id(), backend, pilot=False, record=True,
-            quiet=args.quiet,
-        )
-    ap.print_help()
-    return 2
+    return pex_flow.pex_main(
+        BLOCK_DIR,
+        GDS_NAME,
+        REPORTS_DIR,
+        run,
+        tmp_prefix="cmp-pex-pilot-",
+        description="comparator PEX flow (issues #112/#1017)",
+        argv=argv,
+    )
 
 
 if __name__ == "__main__":
