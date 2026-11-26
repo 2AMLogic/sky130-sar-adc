@@ -786,10 +786,7 @@ def write_record(
     windows = list(WINDOWS)
     complete = [c for c in cids if all(analysis[c][w] for w in windows)]
 
-    # What actually produced the numbers: the worker when it reported itself,
-    # otherwise the submitting host (stated as such, never silently).
     env = klt_sim.executing_environment(prov, info)
-    executing_pdk, executing_ngspice = env["pdk"], env["ngspice"]
 
     # open_record() starts `lines` with a generic `# Record <id>` title; give
     # this campaign's records the same descriptive heading shape every other
@@ -929,18 +926,14 @@ def write_record(
         "**Uncontrolled difference 1 -- submitting host vs. executing worker.** "
         + env["note"],
         "",
-        "**Uncontrolled difference 2 -- against the record cited for the control "
-        f"row.** [`{CONTROL_REFERENCE['record']}`](../../../{CONTROL_REFERENCE['record']}) "
-        f"(the {CONTROL_REFERENCE['value']} quoted above) was minted on "
-        f"`{CONTROL_REFERENCE['pdk']}` / `{CONTROL_REFERENCE['ngspice']}`; this record "
-        f"was produced on `{executing_pdk}` / `{executing_ngspice}`. "
-        + (
+    ]
+    if env["known"]:
+        same_pdk = (klt_sim.pdk_commit_token(CONTROL_REFERENCE["pdk"])
+                    == klt_sim.pdk_commit_token(env["pdk"]))
+        comparison = f"This record was produced on `{env['pdk']}` / `{env['ngspice']}`. "
+        comparison += (
             "Those are the same, so the two runs are directly comparable."
-            if (
-                klt_sim.pdk_commit_token(CONTROL_REFERENCE["pdk"])
-                == klt_sim.pdk_commit_token(executing_pdk)
-                and CONTROL_REFERENCE["ngspice"] in str(executing_ngspice)
-            )
+            if same_pdk and CONTROL_REFERENCE["ngspice"] == env["ngspice"].strip()
             else "**Those differ.** The control-row residual measured here is "
             "therefore NOT a controlled reproduction of that record's figure: a "
             "difference between the two is as readily a PDK or simulator-version "
@@ -948,14 +941,21 @@ def write_record(
             "as confirming or contradicting it. What the control row is used for "
             "here -- the per-corner reference every budget in this record is "
             "measured relative to -- is internal to THIS run and is unaffected."
-        ),
+        )
+    else:
+        comparison = "The executing worker's environment is unknown, so comparability is undetermined."
+    lines += [
+        "**Uncontrolled difference 2 -- against the record cited for the control "
+        f"row.** [`{CONTROL_REFERENCE['record']}`](../../../{CONTROL_REFERENCE['record']}) "
+        f"(the {CONTROL_REFERENCE['value']} quoted above) was minted on "
+        f"`{CONTROL_REFERENCE['pdk']}` / `{CONTROL_REFERENCE['ngspice']}`. {comparison}",
         "",
     ]
 
     klt_version = klt_sim.client_version()
     lines += evidence.environment_block(
-        executing_pdk,
-        executing_ngspice,
+        env["pdk"],
+        env["ngspice"],
         prov.netlist_sha,
         {
             "klt": klt_version,

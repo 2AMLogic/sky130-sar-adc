@@ -1094,28 +1094,29 @@ def _cross_check_uncontrolled_lines(run_pdk: str | None) -> list[str]:
     """The uncontrolled differences between THIS run and the committed
     full-conversion record every comparison above is made against.
 
-    Stated wherever the comparison is stated, not only in the Run section:
-    the two campaigns ran on different PDK commits, and an agreement across
-    two PDK commits is a different observation from an agreement within one
-    (issue #841 review)."""
+    State the PDK comparison beside the current measurements (issue #841)."""
     env = full_conversion_environment()
     them_pdk, them_ng = env.get("pdk"), env.get("ngspice")
     if not them_pdk:
         return ["**Uncontrolled difference not statable.** The compared record's "
                 "Environment block could not be read, so this record does not say what "
                 "the two runs differ in beyond the drive topology under test."]
+    if run_pdk:
+        same_pdk = klt_sim.pdk_commit_token(run_pdk) == klt_sim.pdk_commit_token(them_pdk)
+        comparison = ("Both runs report the same PDK commit." if same_pdk else
+                      "**That comparison is NOT controlled for PDK commit.**")
+        comparison += f" This run executed on `{run_pdk}`."
+    else:
+        comparison = ("The executing worker's environment is unknown, so PDK and simulator "
+                      "comparability with the full-conversion record is undetermined.")
     same_dut = env.get("dut_sha256") == evidence.sha256_file(DUT_NETLIST)
     return [
-        "**That comparison is NOT controlled for PDK commit.** This run executed on "
-        f"`{run_pdk or 'unknown'}`; the record compared with was produced on "
-        f"`{them_pdk}`"
-        + (f" (same simulator, `{them_ng}`)" if them_ng else "")
+        f"{comparison} The full-conversion record was produced on `{them_pdk}`"
+        + (f" with `{them_ng}`" if them_ng else "")
         + (", and against the same `design/sar_adc_top.spice` (sha256 "
            f"`{env.get('dut_sha256')}`)" if same_dut else
            ", and against a DIFFERENT `design/sar_adc_top.spice` than this run")
-        + ". The agreement above is therefore agreement ACROSS two PDK commits, not "
-        "within one, and the two runs also differ in submitting versus executing host. "
-        "Neither difference is controlled here.",
+        + ". The two runs also differ in execution route.",
     ]
 
 
@@ -1201,9 +1202,9 @@ def control_vs_ideal_drive_lines(analysis: dict, points: list) -> list[str]:
             "rung. So a 1 LSB movement here is not resolved beyond the "
             "run-to-run agreement of the two campaigns themselves, and the 0 LSB tier's "
             "boundary at such a corner is uncertain by that much. The multi-LSB "
-            "movements at the top of the sweep are well clear of it. Two candidate "
-            "explanations are visible in the records and this run separates NEITHER: the "
-            "uncontrolled PDK-commit difference named above, and the 1e-12 Ohm series "
+            "movements at the top of the sweep are well clear of it. This comparison "
+            "separates NEITHER the effect of a possible PDK-commit difference nor "
+            "the effect of the 1e-12 Ohm series "
             "element that stands in for `R_ref = 0` here but is absent from that "
             "record's deck.",
         ]
@@ -1320,10 +1321,10 @@ def write_record(analysis: dict, points: list, r_values: list[float], info: dict
                 + (f" {sorted(set(row['errors']))}" if row["errors"] else "")
                 + " |"
             )
-    lines += ["", *reference_current_lines(analysis, points, r_values,
-                                           run_pdk=info.get("worker_pdk"))]
-    lines += ["", *interpretation_lines(analysis, points, r_values)]
     env = klt_sim.executing_environment(prov, info)
+    lines += ["", *reference_current_lines(analysis, points, r_values,
+                                           run_pdk=env["pdk"] if env["known"] else None)]
+    lines += ["", *interpretation_lines(analysis, points, r_values)]
     lines += [
         "",
         "## What this testbench does not model",
@@ -1350,9 +1351,8 @@ def write_record(analysis: dict, points: list, r_values: list[float], info: dict
         f"- ONE `klt sim` request, {len(points) * len(r_values)} units, status "
         f"`{info.get('status')}`, backend `{info.get('resolved_backend')}`, sharded "
         f"into {len(info.get('jobs') or [])} batch job(s) (`remote.hosts`).",
-        f"- Executing PDK `{info.get('worker_pdk')}`, executing simulator "
-        f"`{info.get('worker_ngspice')}` -- reported only because every shard agrees "
-        f"(seen: {info.get('worker_pdks_seen')}, {info.get('worker_ngspice_seen')}).",
+        f"- PDKs reported by shards: {info.get('worker_pdks_seen') or []}. "
+        f"Simulator versions reported: {info.get('worker_ngspice_seen') or []}.",
         f"- `corners.params` support on the worker image: "
         f"`{info.get('request_feature_status')}`. klt refuses rather than silently "
         "ignoring the axis, and this reader additionally refuses any corner that does "

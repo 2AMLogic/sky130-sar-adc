@@ -18,6 +18,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 TESTS_DIR = Path(__file__).resolve().parent
@@ -1051,6 +1052,23 @@ class TestWriteRecordExecutingEnvironment(unittest.TestCase):
     SAVED_RECORD_ID = "20261113-113808-6b72b9f3"
     WORKER_PDK = "sky130A @ f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
 
+    def test_complementary_partial_shards_cannot_establish_a_worker_pair(self):
+        saved_dir = m.EXPERIMENT_DIR / "corners" / self.SAVED_RECORD_ID
+        report = json.loads((saved_dir / "report.json").read_text())
+        fleet = report["environment"]["remote"]["fleet"]
+        for i, shard in enumerate(fleet):
+            del shard["worker_environment"]["simulator" if i % 2 == 0 else "pdk"]
+        _, info = m.read_report(report)
+        self.assertEqual(info["worker_pdks_seen"], [self.WORKER_PDK])
+        self.assertEqual(info["worker_ngspice_seen"], ["ngspice-47"])
+        self.assertIsNone(info["worker_pdk"])
+        self.assertIsNone(info["worker_ngspice"])
+        prov = SimpleNamespace(pdk_line=provenance_fixture.PDK_LINE,
+                               ng_version=provenance_fixture.NG_VERSION)
+        env = m.klt_sim.executing_environment(prov, info)
+        self.assertFalse(env["known"])
+        self.assertEqual((env["pdk"], env["ngspice"]), (prov.pdk_line, prov.ng_version))
+
     def _render(self, **worker) -> str:
         saved_dir = m.EXPERIMENT_DIR / "corners" / self.SAVED_RECORD_ID
         report = json.loads((saved_dir / "report.json").read_text())
@@ -1100,10 +1118,12 @@ class TestWriteRecordExecutingEnvironment(unittest.TestCase):
                 self.assertIn(f"- ngspice: {provenance_fixture.NG_VERSION}", text)
                 self.assertNotIn(f"- PDK: {self.WORKER_PDK}", text)
                 self.assertNotIn("- ngspice: ngspice-47", text)
+                self.assertNotIn("every shard agrees", text)
+                self.assertIn("comparability with the full-conversion record is undetermined", text)
                 self.assertIn(
                     "- PDK / ngspice above: submitting host "
-                    "(executing worker did not report)", text)
-                self.assertIn("The worker did NOT report them for this run", text)
+                    "(worker environment unknown)", text)
+                self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
                 self.assertNotIn("They differ for this run", text,
                                  "an unreported worker is not a difference")
 

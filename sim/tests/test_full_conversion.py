@@ -1397,9 +1397,10 @@ class TestInputSweepSubmitPath(unittest.TestCase):
                 self.assertIn(f"- ngspice: {provenance_fixture.NG_VERSION}", text)
                 self.assertNotIn("- PDK: sky130A @ f6eeac7", text)
                 self.assertNotIn("- ngspice: ngspice-47", text)
+                self.assertNotIn("every shard agrees", text)
                 self.assertIn("- PDK / ngspice above: submitting host "
-                              "(executing worker did not report)", text)
-                self.assertIn("The worker did NOT report them for this run", text)
+                              "(worker environment unknown)", text)
+                self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
                 self.assertNotIn("They differ for this run", text,
                                  "an unreported worker is not a difference")
 

@@ -646,10 +646,8 @@ def write_record(rows: dict[float, dict], info: dict, req: dict, tag_dir: Path,
         f"status `{info.get('status')}`, backend `{info.get('backend')}`, "
         f"resolved backend `{info.get('resolved_backend')}`, sharded into "
         f"{len(info.get('jobs') or [])} batch job(s) (`remote.hosts`).",
-        f"- Executing PDK `{info.get('worker_pdk')}`, executing simulator "
-        f"`{info.get('worker_ngspice')}` -- reported only because every shard "
-        f"agrees (seen: {info.get('worker_pdks_seen')}, "
-        f"{info.get('worker_ngspice_seen')}).",
+        f"- PDKs reported by shards: {info.get('worker_pdks_seen') or []}. "
+        f"Simulator versions reported: {info.get('worker_ngspice_seen') or []}.",
         f"- `corners.params` support on the worker image: "
         f"`{info.get('request_feature_status')}`. This reader additionally "
         f"refuses any corner that does not echo back its own "

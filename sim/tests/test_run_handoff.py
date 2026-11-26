@@ -84,7 +84,7 @@ class TestCandidateRecordExecutingEnvironment(unittest.TestCase):
                 self.assertNotIn("- PDK: sky130A @ deadbeef", text)
                 self.assertNotIn("- ngspice: ngspice-47", text)
                 self.assertIn("- PDK / ngspice above: submitting host "
-                              "(executing worker did not report)", text)
+                              "(worker environment unknown)", text)
 
 
 class TestCornerGridIsTheSharedRatifiedGrid(unittest.TestCase):

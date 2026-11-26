@@ -1626,32 +1626,30 @@ def corners_klt_run_lines(prov, info: dict | None, sweep: str, window: str,
     ]
 
     prev_ref = f"[`records/{prev['record']}.md`]({prev['record']}.md)"
-    if prev["pdk"] and prev["ngspice"]:
-        same_pdk = str(prev["pdk"]).split("@")[-1].strip() == str(env["pdk"]).split("@")[-1].strip()
-        same_ng = str(prev["ngspice"]).strip() == str(env["ngspice"]).strip()
-        lines.append(
-            f"- **PDK commit and simulator version.** {prev_ref} was minted on "
+    prev_known = bool(prev["pdk"] and prev["ngspice"])
+    if prev_known:
+        previous = (
+            f"{prev_ref} was minted on "
             f"`{prev['pdk']}` / `{prev['ngspice']}` (read from that record's own "
-            f"Environment block); this record was produced on `{env['pdk']}` / "
-            f"`{env['ngspice']}`. "
-            + (
-                "Those are the same, so neither is an uncontrolled difference "
-                "between the two runs."
-                if (same_pdk and same_ng)
-                else "**Those differ.** Any change in a figure between the two "
-                "records is as readily a PDK or simulator-version difference as "
-                "a circuit or harness one; nothing here is a controlled "
-                "comparison against that record, and no figure in it is "
-                "corrected by this one."
-            )
+            "Environment block)."
         )
     else:
-        lines.append(
-            f"- **PDK commit and simulator version.** {prev_ref}'s own "
-            "Environment block could not be read from this tree, so the "
-            "comparison is not stated rather than guessed. This record was "
-            f"produced on `{env['pdk']}` / `{env['ngspice']}`."
+        previous = f"{prev_ref}'s Environment block could not be read from this tree."
+    current = (f"This record was produced on `{env['pdk']}` / `{env['ngspice']}`."
+               if env["known"] else "The executing worker's environment is unknown.")
+    if prev_known and env["known"]:
+        same_pdk = klt_sim.pdk_commit_token(prev["pdk"]) == klt_sim.pdk_commit_token(env["pdk"])
+        comparison = (
+            "Those are the same, so neither is an uncontrolled difference between the two runs."
+            if same_pdk and prev["ngspice"].strip() == env["ngspice"].strip()
+            else "**Those differ.** Any change in a figure between the two "
+            "records is as readily a PDK or simulator-version difference as "
+            "a circuit or harness one; nothing here is a controlled "
+            "comparison against that record, and no figure in it is corrected by this one."
         )
+    else:
+        comparison = "PDK and simulator comparability is undetermined."
+    lines.append(f"- **PDK commit and simulator version.** {previous} {current} {comparison}")
     lines += [
         "- **Execution route.** The superseded record's grid was solved by an "
         "in-process `ngspice` loop on the submitting host, one subprocess per "

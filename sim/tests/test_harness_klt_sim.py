@@ -519,6 +519,14 @@ class TestRunInfo(unittest.TestCase):
         info = self._info({"fleet": [self._shard("a"), self._shard("b", ng="ngspice-46")]})
         self.assertIsNone(info["worker_ngspice"])
 
+    def test_a_lost_shard_prevents_consensus_and_preserves_reported_values(self):
+        info = self._info({"fleet": [self._shard("a"), None]})
+        self.assertIsNone(info["worker_pdk"])
+        self.assertIsNone(info["worker_ngspice"])
+        self.assertEqual(info["worker_pdks_seen"], ["sky130A @ f6eeac7"])
+        self.assertEqual(info["worker_ngspice_seen"], ["ngspice-47"])
+        self.assertEqual([j["job_id"] for j in info["jobs"]], ["a"])
+
     def test_every_shards_version_skew_facts_reach_jobs(self):
         """Issue #888: `runner_compatibility` / `client_klt_version` are
         PER-SHARD and absent from `environment.remote` on a sharded run, so a
@@ -652,8 +660,8 @@ class TestExecutingEnvironment(unittest.TestCase):
                 self.assertEqual(env["ngspice"], self.HOST[1])
                 self.assertEqual(
                     env["attribution_extra"]["PDK / ngspice above"],
-                    "submitting host (executing worker did not report)")
-                self.assertIn("The worker did NOT report them for this run",
+                    "submitting host (worker environment unknown)")
+                self.assertIn("The worker reports do not establish a single PDK and simulator pair",
                               env["note"])
 
     def test_no_run_info_falls_back_to_the_submitting_host(self):
@@ -672,7 +680,7 @@ class TestExecutingEnvironment(unittest.TestCase):
                 env = self._env(self._info(pdk=blank, ng=blank))
                 self.assertFalse(env["known"])
                 self.assertEqual(env["attribution_extra"]["PDK / ngspice above"],
-                                 "submitting host (executing worker did not report)")
+                                 "submitting host (worker environment unknown)")
 
     def test_matches_host_compares_the_pdk_commit_and_the_whole_version(self):
         def matches(*host, pdk="sky130A @ deadbeef", ng="ngspice-47") -> bool:
@@ -725,8 +733,8 @@ class TestExecutingEnvironment(unittest.TestCase):
                          "as run by the executing worker")
 
         env = self._env(None)
-        self.assertIn("The worker did NOT report them for this run", env["note"])
-        self.assertIn("names the SUBMITTING host's instead", env["note"])
+        self.assertIn("The worker reports do not establish a single PDK and simulator pair", env["note"])
+        self.assertIn("names the SUBMITTING host's PDK and ngspice", env["note"])
         self.assertNotIn("differ", env["note"].lower())
         self.assertTrue(env["attribution_extra"]["PDK / ngspice above"]
                         .startswith("submitting host"))

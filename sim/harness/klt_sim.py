@@ -351,18 +351,16 @@ def run_info(report: dict) -> dict:
         # A LOST shard reports as a null fleet entry (a real campaign hit
         # this: 5 of 9 corners `lost_shard`, and reading the report crashed
         # run_info before the campaign could report the loss). A missing
-        # shard contributes no environment facts; the corners it carried
-        # report their own `lost_shard` status either way.
+        # shard has unknown environment values and cannot establish consensus.
         if not isinstance(entry, dict):
-            continue
+            entry = {}
         worker = entry.get("worker_environment") or {}
-        pdk_stamp = (worker.get("pdk") or {}).get("stamp_text")
+        pdk_stamp = ((worker.get("pdk") or {}).get("stamp_text") or "").strip()
         variant = (worker.get("pdk") or {}).get("variant")
         ng = ngspice_from_banner((worker.get("simulator") or {}).get("version_banner") or "")
-        if pdk_stamp:
-            pdks.add(f"{variant} @ {pdk_stamp.split()[-1]}" if variant else pdk_stamp)
-        if ng:
-            ngs.add(ng)
+        pdk = f"{variant} @ {pdk_stamp.split()[-1]}" if variant and pdk_stamp else pdk_stamp
+        pdks.add(pdk or None)
+        ngs.add(ng)
         feats = entry.get("runner_request_features") or {}
         if feats.get("status"):
             features.add(str(feats["status"]))
@@ -397,8 +395,8 @@ def run_info(report: dict) -> dict:
         # letting one shard's environment stand for the whole run.
         "worker_pdk": next(iter(pdks)) if len(pdks) == 1 else None,
         "worker_ngspice": next(iter(ngs)) if len(ngs) == 1 else None,
-        "worker_pdks_seen": sorted(pdks),
-        "worker_ngspice_seen": sorted(ngs),
+        "worker_pdks_seen": sorted(pdks - {None}),
+        "worker_ngspice_seen": sorted(ngs - {None}),
         "request_feature_status": next(iter(features)) if len(features) == 1 else None,
     }
 
@@ -420,9 +418,8 @@ def pdk_commit_token(text) -> str:
 
 
 def executing_environment(prov, info) -> dict:
-    """What actually produced the numbers: the executing fleet worker when it
-    reported itself, otherwise the SUBMITTING host -- stated as such, never
-    silently substituted (issue #1094).
+    """Resolve the worker environment for a record, with a labelled fallback
+    to the submitting host's provenance (issue #1094).
 
     `info` is one `run_info()` dict, any iterable of them (a campaign that
     submits one request per variant gets one per variant, and its numbers
@@ -474,18 +471,16 @@ def executing_environment(prov, info) -> dict:
         and pdk_commit_token(prov.pdk_line) == pdk_commit_token(worker_pdk)
         and str(prov.ng_version).strip() == str(worker_ng).strip()
     )
-    note = ("The Environment block below names the PDK and ngspice of the "
-            "EXECUTING worker when it reported them")
-    if not known:
-        note += (". The worker did NOT report them for this run, so the block "
-                 "below names the SUBMITTING host's instead, and no figure here "
-                 "is attributable to a known executing environment.")
-    else:
-        note += (f"; the submitting host resolved `{prov.pdk_line}` / "
-                 f"`{prov.ng_version}`. ")
+    if known:
+        note = ("The Environment block below names the PDK and ngspice of the "
+                "EXECUTING worker when it reported them; the submitting host "
+                f"resolved `{prov.pdk_line}` / `{prov.ng_version}`. ")
         note += ("They are the same for this run." if matches_host else
                  "**They differ for this run**, so no figure here is controlled "
                  "for PDK or simulator version against a locally run record.")
+    else:
+        note = ("The worker reports do not establish a single PDK and simulator pair. "
+                "The Environment block below names the SUBMITTING host's PDK and ngspice.")
     return {
         "known": known,
         "pdk": worker_pdk if known else prov.pdk_line,
@@ -494,7 +489,7 @@ def executing_environment(prov, info) -> dict:
         "matches_host": matches_host,
         "attribution_extra": {
             "PDK / ngspice above": "as run by the executing worker" if known
-            else "submitting host (executing worker did not report)",
+            else "submitting host (worker environment unknown)",
             "submitting host PDK / ngspice": f"{prov.pdk_line} / {prov.ng_version}",
         },
         "note": note,

@@ -599,6 +599,16 @@ class TestRecordExecutingEnvironment(unittest.TestCase):
         self.assertIn("They are the same for this run.", text)
         self.assertNotIn("They differ for this run", text)
 
+    def test_only_a_known_worker_can_match_the_control_environment(self):
+        with mock.patch.dict(m.CONTROL_REFERENCE, pdk=self.HOST[0], ngspice=self.HOST[1]):
+            known = self._record_text(worker_pdk=self.HOST[0], worker_ngspice=self.HOST[1])
+            unknown = self._record_text(worker_ngspice=None)
+        self.assertIn("the two runs are directly comparable", known)
+        self.assertIn("comparability is undetermined", unknown)
+        self.assertNotIn("this record was produced on", unknown.lower())
+        self.assertNotIn("the two runs are directly comparable", unknown)
+        self.assertNotIn("Those differ", unknown)
+
     def test_a_run_reporting_only_its_pdk_names_the_submitting_hosts_pair(self):
         for half in ({"worker_ngspice": None}, {"worker_pdk": None}):
             with self.subTest(worker=half):
@@ -609,8 +619,8 @@ class TestRecordExecutingEnvironment(unittest.TestCase):
                 self.assertNotIn("- ngspice: ngspice-47", text)
                 self.assertIn(
                     "- PDK / ngspice above: submitting host "
-                    "(executing worker did not report)", text)
-                self.assertIn("The worker did NOT report them for this run", text)
+                    "(worker environment unknown)", text)
+                self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
                 self.assertNotIn("They differ for this run", text,
                                  "an unreported worker is not a difference")
 

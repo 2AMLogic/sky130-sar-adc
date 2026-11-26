@@ -29,6 +29,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 SIM_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SIM_DIR))
@@ -912,6 +913,18 @@ class TestPredecessorEnvironment(unittest.TestCase):
             self.assertIsNone(env["pdk"])
             self.assertIsNone(env["ngspice"])
 
+    def test_only_a_known_worker_can_match_the_predecessor_environment(self):
+        prev = rt.predecessor_environment("rsource", "worst")
+        host = SimpleNamespace(pdk_line=prev["pdk"], ng_version=prev["ngspice"])
+        worker = {"worker_pdk": prev["pdk"], "worker_ngspice": prev["ngspice"]}
+        known = " ".join(rt.corners_klt_run_lines(host, worker, "rsource", "worst", "REC"))
+        unknown = " ".join(rt.corners_klt_run_lines(host, {}, "rsource", "worst", "REC"))
+        self.assertIn("Those are the same", known)
+        self.assertIn("comparability is undetermined", unknown)
+        self.assertNotIn("this record was produced on", unknown.lower())
+        self.assertNotIn("Those are the same", unknown)
+        self.assertNotIn("Those differ", unknown)
+
 
 class TestCornersRecordPortSections(TestCornersRecordTtNoteWiring):
     """What a post-port `--corners` record must say (issue #881).
@@ -956,8 +969,11 @@ class TestCornersRecordPortSections(TestCornersRecordTtNoteWiring):
 
     def test_an_unreported_worker_falls_back_to_the_submitting_host_and_says_so(self):
         text = self._record_text(100e3, info={"status": "pass"})
-        self.assertIn("submitting host (executing worker did not report)", text)
-        self.assertIn("The worker did NOT report them for this run", text)
+        self.assertIn("could not be read from this tree", text)
+        self.assertIn("comparability is undetermined", text)
+        self.assertNotIn("this record was produced on", text.lower())
+        self.assertIn("submitting host (worker environment unknown)", text)
+        self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
 
     def test_a_half_reported_worker_falls_back_on_both_lines(self):
         """Issue #1094: the block's PDK and ngspice lines are one claim, so a
@@ -970,8 +986,8 @@ class TestCornersRecordPortSections(TestCornersRecordTtNoteWiring):
                 self.assertIn("- ngspice: ngspice-46", text)
                 self.assertNotIn("- PDK: sky130A @ deadbeef", text)
                 self.assertNotIn("- ngspice: ngspice-47", text)
-                self.assertIn("submitting host (executing worker did not report)", text)
-                self.assertIn("The worker did NOT report them for this run", text)
+                self.assertIn("submitting host (worker environment unknown)", text)
+                self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
 
     def test_every_deck_change_the_port_made_is_stated(self):
         text = self._record_text(100e3, info=self.INFO)

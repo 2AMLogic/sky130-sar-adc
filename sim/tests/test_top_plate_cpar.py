@@ -179,8 +179,8 @@ class TestRecordExecutingEnvironment(unittest.TestCase):
         self.assertIn("- ngspice: ngspice-46", text)
         self.assertNotIn("- PDK: sky130A @ deadbeef", text)
         self.assertIn("- PDK / ngspice above: submitting host "
-                      "(executing worker did not report)", text)
-        self.assertIn("The worker did NOT report them for this run", text)
+                      "(worker environment unknown)", text)
+        self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
 
     def test_one_variant_half_reporting_names_the_submitting_hosts_pair(self):
         """A variant reporting its PDK but not its simulator is no PDK for the
@@ -190,7 +190,7 @@ class TestRecordExecutingEnvironment(unittest.TestCase):
         self.assertIn("- ngspice: ngspice-46", text)
         self.assertNotIn("- PDK: sky130A @ deadbeef", text)
         self.assertNotIn("- ngspice: ngspice-47", text)
-        self.assertIn("The worker did NOT report them for this run", text)
+        self.assertIn("The worker reports do not establish a single PDK and simulator pair", text)
 
 
 if __name__ == "__main__":
