@@ -31,12 +31,18 @@ in [`signoff/README.md`](../signoff/README.md). Counts below are copied from it.
   Sample rate, ENOB, INL/DNL, kickback, gain error and power are DRAFT.
   DR-022 is accepted as a DRAFT row; DR-007, DR-011, DR-018, DR-020, DR-021,
   DR-023, DR-024 and DR-025 are `proposed`.
-- **Conversion: overall FAIL.** The newest full-conversion record
-  (`sim/full-conversion-transient/records/LATEST`, pointing at
+- **Conversion: overall FAIL.** The newest full-conversion **corner-campaign**
+  record (`sim/full-conversion-transient/records/LATEST`, pointing at
   `20261011-112119-188e94c.md`) resolves 3 of 5 inputs within ±1 LSB at each
   of the nine ratified corners; the two near-full-scale inputs do not
-  converge. DR-021 proposes the fix and DR-025 the gain-error closure path;
-  neither is ratified or implemented.
+  converge. An informational boundary sweep
+  (`sim/full-conversion-transient/records/20261115-084232-ad7393c6.md`,
+  issue #913 — baseline corner `tt_27c_1.80v` only, DC inputs, ideal sources,
+  no noise; grades no spec row and supersedes nothing) locates where
+  conversion stops being correct: inputs converge up to `+0.30·V_REF` /
+  `-0.35·V_REF` and first fail at `+0.35·V_REF` / `-0.40·V_REF`, resolved to
+  the sweep's `0.05·V_REF` step. DR-021 proposes the fix and DR-025
+  the gain-error closure path; neither is ratified or implemented.
 - **Pins and freshness.** `layout/requirements.txt` is `klayout-tools==0.6.0`;
   the grader in `signoff/requirements.txt` is `0.8.0`. `sim/pdk.json` pins
   open_pdks `f6eeac7`, superseding `c6d73a3`. The manifest cites top-level run

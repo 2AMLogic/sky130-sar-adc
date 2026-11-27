@@ -70,7 +70,7 @@ roadmap-level view of the same evidence.
   [`signoff/README.md`](signoff/README.md).
 - **Conversion: partial, overall FAIL** — the full-conversion transient
   campaign ([`sim/full-conversion-transient/`](sim/full-conversion-transient/README.md);
-  newest record:
+  newest corner-campaign record:
   [`records/20261011-112119-188e94c.md`](sim/full-conversion-transient/records/20261011-112119-188e94c.md),
   named in `records/LATEST`) resolves the three mid-scale inputs to within
   ±1 LSB at all nine ratified corners. It is still recorded as an overall
