@@ -34,7 +34,7 @@
       "path": "spec/target-spec.md",
       "passed": true,
       "executed": true,
-      "content_hash": "sha256:5dd8c1a81d3ca43de813a06b46cabd70056f3579619f3dcac8324d5c476cd8c4"
+      "content_hash": "sha256:b12d94798a66552f77f93fce9afc39c822855920bb48838ffa040ebaef940b07"
     },
     {
       "check": "present",
