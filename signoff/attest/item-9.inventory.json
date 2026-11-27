@@ -5,6 +5,8 @@
   "description": "Every testbench indexed by sim/spec-coverage.json (gated by sim/check_spec_coverage.py), the documented cold start, and the PDK and tool pins.",
   "testbenches": [
     "design/sar_adc_top.spice",
+    "sim/cdac-array-transfer/testbench/klt/request-graded.json",
+    "sim/cdac-array-transfer/testbench/klt/tb_body.spice",
     "sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice",
     "sim/comparator-decision/testbench/comparator_core.spice",
     "sim/full-conversion-transient/testbench/coherent_sine_tb_fragment.spice",

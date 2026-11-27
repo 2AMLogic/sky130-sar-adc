@@ -510,28 +510,53 @@ ROWS: tuple[Row, ...] = (
         spec_row="`V_REF`",
         status="RATIFIED",
         conditions=(
-            "Full ratified corner set, 9 OAT points. V_REF is a fixed design "
-            "constant per DR-003's own scope table, not itself a simulated "
-            "quantity -- the cited record confirms the CDAC array correctly "
-            "consumes `VREFP={vdd_val}`/`VREFN=0` at each corner's own supply "
-            "point, not that a reference-generator circuit meets a tolerance "
-            "(none is ratified)."
+            "The CDAC bench drives VREFP and VDD with ideal sources set to the "
+            "corner supply and drives VREFN at 0 V. The archived batch reports "
+            "a reference-to-supply ratio of 1 and VREFN of 0 V at all nine corners."
         ),
-        verdict="PASS (structural + functional/monotonicity check, 9/9 corners)",
+        verdict=(
+            "GAP (#1021). These stimulus readbacks cannot measure a change in "
+            "the reference delivered under CDAC load."
+        ),
         notes="See spec/decision-records/DR-003-numeric-spec-derivation.md for the full derivation.",
-        sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
+        sim_citations=(
+            "sim/cdac-array-transfer/records/20261126-070822-ce736573.md",
+            "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
+        ),
     ),
     Row(
         id="lsb",
         spec_row="LSB (differential)",
         status="RATIFIED",
-        conditions="Full ratified corner set, 9 OAT points (same record as `V_REF` above).",
-        verdict="PASS (structural + functional/monotonicity check, 9/9 corners)",
+        conditions=(
+            "Full ratified corner set, 9 OAT points. GAP declared by issue "
+            "#1021: no ratified tolerance exists for the measured "
+            "differential step's deviation from `2*V_REF/2^N = 3.5156 mV`, "
+            "so no committed record grades the row's magnitude. At five sampled "
+            "codes, the largest voltage-level error is 1.1656 mV in the baseline "
+            "and 1.1556 mV in the graded run (about 0.33 nominal LSB). Across "
+            "the nine corners, the largest relative interval error per corner "
+            "ranges from 0.012% to 0.191%, using code spans of 128, 128, 128 "
+            "and 127. Both measurements are informational."
+        ),
+        verdict=(
+            "GAP (measurement not graded: no ratified tolerance; decision "
+            "owned by spec/decision-records/DR-026-cdac-row-tolerance-"
+            "decisions.md, proposed). Functional monotonicity/polarity "
+            "PASSes at every corner in both cited records; the magnitude "
+            "figure above is informational only and is not a full PASS of "
+            "this row."
+        ),
         notes=(
             "3.5156 mV differential; used as the reporting unit for the INL/DNL "
-            "row above and the ENOB row's quantization-noise term."
+            "row above and the ENOB row's quantization-noise term. "
+            "sim/spec-coverage.json indexes this row as claim_class "
+            "`ratified-gap` naming DR-026."
         ),
-        sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
+        sim_citations=(
+            "sim/cdac-array-transfer/records/20261126-070822-ce736573.md",
+            "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
+        ),
     ),
     Row(
         id="sampling-cap",
@@ -539,19 +564,29 @@ ROWS: tuple[Row, ...] = (
         status="RATIFIED",
         conditions=(
             "sim: structural check (unit-cap geometry + per-side weight totals) "
-            "at every corner of the ratified sim record. layout: drawn/extracted "
-            "physical geometry, DRC + LVS against design/cdac/cdac_array.sch, "
-            "plus `klt precheck` on BOTH the 1 nm database grid and sky130's "
-            "5 nm manufacturing grid (gating since DR-019), single-point (no "
-            "corner sweep -- DRC/LVS/precheck are corner-invariant structural "
-            "checks, not PVT-dependent measurements)."
+            "at every corner of the ratified sim record -- exact values, "
+            "machine-checked again inside the graded `klt sim` envelope "
+            "(issue #1021). electrical: the envelope's reference-charge "
+            "observable `cu_elec` (8.59-9.54 fF across the 9 corners vs the "
+            "ratified `C_u ~= 8.66 fF` design estimate) is informational "
+            "ONLY -- no ratified tolerance exists for the electrical unit "
+            "cap, so it carries no pass condition (GAP, decision owned by "
+            "spec/decision-records/DR-026-cdac-row-tolerance-decisions.md, "
+            "proposed). layout: drawn/extracted physical geometry, DRC + "
+            "LVS against design/cdac/cdac_array.sch, plus `klt precheck` on "
+            "BOTH the 1 nm database grid and sky130's 5 nm manufacturing "
+            "grid (gating since DR-019), single-point (no corner sweep -- "
+            "DRC/LVS/precheck are corner-invariant structural checks, not "
+            "PVT-dependent measurements)."
         ),
         verdict=(
-            "PASS (sim structural check, 9/9 corners) + PASS (layout: DRC clean, "
-            "LVS match, unit-cap count 1024 = 512/side x 2, common-centroid "
-            "checks all pass, precheck passes on both the 1 nm database grid "
-            "and sky130's 5 nm manufacturing grid). Drawn unit cap 8.6640 fF "
-            "vs. ratified C_u ~= 8.66 fF."
+            "PASS (sim structural check, exact ratified values, 9/9 corners) "
+            "+ GAP (electrical C_u measurement: no ratified tolerance, "
+            "DR-026 proposed; `cu_elec` reported informationally) + PASS "
+            "(layout: DRC clean, LVS match, unit-cap count 1024 = 512/side "
+            "x 2, common-centroid checks all pass, precheck passes on both "
+            "the 1 nm database grid and sky130's 5 nm manufacturing grid). "
+            "Drawn unit cap 8.6640 fF vs. ratified C_u ~= 8.66 fF."
         ),
         notes=(
             "Layout evidence is independent, physical confirmation of the "
@@ -565,9 +600,14 @@ ROWS: tuple[Row, ...] = (
             "sky130's 5 nm manufacturing grid), so it no longer evidences the "
             "ratified row this table grades -- the cited record is the "
             "post-resize re-run, whose 1.9000 um plate is exactly the "
-            "schematic value and passes the 5 nm grid check."
+            "schematic value and passes the 5 nm grid check. sim/spec-"
+            "coverage.json indexes this row as claim_class `ratified-gap` "
+            "naming DR-026 until the tolerance decision lands."
         ),
-        sim_citations=("sim/cdac-array-transfer/records/20261001-120402-d24f700.md",),
+        sim_citations=(
+            "sim/cdac-array-transfer/records/20261126-070822-ce736573.md",
+            "sim/cdac-array-transfer/records/20261001-120402-d24f700.md",
+        ),
         layout_citations=("layout/cdac-array/reports/20261001-133221-7487784/record.md",),
     ),
     Row(

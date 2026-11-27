@@ -3,12 +3,12 @@
   "kind": "generic",
   "t1_item": 9,
   "status": "pass",
-  "summary": "Testbenches shipped: 11 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
+  "summary": "Testbenches shipped: 13 testbench files indexed by sim/spec-coverage.json are present, the PDK revision and tool versions are pinned. The cold-start command needs ngspice and the PDK and is run by CI's pdk-smoke job, not here.",
   "source": "signoff/attest/item-9.inventory.json",
   "provenance": {
     "input": {
       "path": "signoff/attest/item-9.inventory.json",
-      "content_hash": "sha256:07029f0347aa26e7d04d5161edc30b4746db944f5367825b4797368b3afea33b"
+      "content_hash": "sha256:3f47205dede8b63e25d9608989d0911e75f1846c1f6c131884347f248ea03ffa"
     }
   },
   "checks": [
@@ -19,6 +19,22 @@
       "passed": true,
       "executed": true,
       "content_hash": "sha256:3a519b41e0bea4e82ec20828066ea31d123fe6879d922077ab0c0c5eec0d83e6"
+    },
+    {
+      "check": "present",
+      "role": "testbench",
+      "path": "sim/cdac-array-transfer/testbench/klt/request-graded.json",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:c1fff1ed5732f604b920a39a19c753ae505f9b080ed5b080c5253b9fa808ce51"
+    },
+    {
+      "check": "present",
+      "role": "testbench",
+      "path": "sim/cdac-array-transfer/testbench/klt/tb_body.spice",
+      "passed": true,
+      "executed": true,
+      "content_hash": "sha256:b37a17835893b2de5f16c313761c79995629860c232d1fc48a76da4965e83bea"
     },
     {
       "check": "present",

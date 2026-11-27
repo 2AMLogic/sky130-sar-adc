@@ -1,0 +1,5 @@
+
+Checking parameters for BSIM 4.5 model xp_0p0:pshort_model.32
+Warning: A2 = 1.14755 is larger than 1. A2 is set to 1 and A1 is set to 0.
+Warning: Pdibl1 = -0.0511426 is negative.
+Warning: Pdibl2 = -0.00103143 is negative.

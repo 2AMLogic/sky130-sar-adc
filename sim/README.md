@@ -63,8 +63,8 @@ between is **`sim/harness/klt_sim.py`**, not a per-campaign copy:
 - `submit(request, outdir, backend=..., capacity_wait_s=...)` writes the argv,
   runs `klt sim`, reads the JSON report off stdout (or off stderr, where the
   client writes its error envelope), refuses an error ENVELOPE rather than
-  reading it as zero corners, and caches `report.json` beside the request so a
-  campaign that died partway resumes without re-spending completed fleet jobs.
+  reading it as zero corners, and caches `report.json` beside the request by
+  default. A retry that uses the same report path reuses the saved result.
 - **One fleet-capacity policy.** `--wait-for-capacity` (default 600 s) is
   passed on every submit that is not explicitly `--backend local`, per
   `CLAUDE.md`'s host rule: the Spot fleet is vCPU-budgeted, so a burst is
@@ -208,6 +208,12 @@ fail proves nothing):
   so the evidence is recorded without being graded against an unratified
   number. Neither row is thereby closed: see each row's `note` in
   `sim/spec-coverage.json`.
+- A RATIFIED row with a bench and insufficient evidence to grade its full
+  claim is `ratified-gap`. Its note names the owning issue or decision record.
+  The CDAC bench checks an ideal reference stimulus. Issue #1021 tracks
+  the V_REF evidence gap. The LSB step error and electrical unit capacitance
+  lack ratified pass conditions. Their decisions are proposed in
+  `spec/decision-records/DR-026-cdac-row-tolerance-decisions.md`.
 - Each bench's **cold-start invocation** appears verbatim in the file the index
   says documents it, passes only flags/subcommands its runner actually accepts,
   and names the same script the record's own `Written by` footer names — so the

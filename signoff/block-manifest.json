@@ -169,34 +169,22 @@
     "      form for the digital half needs a ratified spec Status (klayout-",
     "      tools#2865), which the DRAFT table cannot give it.",
     "",
-    "  5.analog  (partition-qualified, issue #1014) ONE `klt sim` envelope cited",
-    "      beside the spec_rows.\"5.analog\" declaration covering every analog row",
-    "      of spec/target-spec.md (the multi-citation + derived-coverage form the",
-    "      pinned 0.8.0 grader takes, klayout-tools#2959/#3778). The citation is",
-    "      the 2026-11-21 comparator input-referred-noise envelope (record",
-    "      sim/comparator-decision/records/20261121-010219-75b91e8.md) for row",
-    "      `comparator_noise`: the campaign's reduced sub-model, 1 kHz-1 GHz",
-    "      band, differential figure sqrt(2) x inoise_total as a limits-bearing,",
-    "      spec_row-tagged `expr` measurement, graded per corner against the",
-    "      RATIFIED baseline threshold <=1.0148 mV rms. PASS 9/9 corners,",
-    "      binding tt_125c_1.80v at 0.9051 mV rms (10.8 % under); the stretch",
-    "      threshold is met at NO corner of this run and grades nothing",
-    "      (recorded as found). The envelope supersedes nothing: the 2026-08-27",
-    "      campaign record stays the row's indexed evidence and this envelope",
-    "      is the machine-graded citation beside it. The pinned content_hash is",
-    "      the deck's provenance.input.content_hash; check_evidence_hashes.py's",
-    "      sim leg re-hashes the deck AND its netlist_closure on every push.",
-    "      Every OTHER declared row is deliberately NOT covered:",
-    "        (a) v_ref, lsb, sampling_cap -- RATIFIED rows whose FULL claims the",
-    "            transfer bench's ten top-plate voltages cannot substantiate",
-    "            (V_REF is the applied rail itself; LSB a formula with no",
-    "            tolerance on its deviation; sampling cap structural plate",
-    "            geometry + array population plus functional). Declared gaps",
-    "            naming #1021, which owns the observable/tolerance decision",
-    "            record per row. #811's November CDAC envelope stays uncited:",
-    "            it carries no limits/spec_row (citing it would grade nothing)",
-    "            and it FAILS #811's baseline-agreement rule -- that gate is",
-    "            #811's, untouched here.",
+    "  5.analog  The comparator klt sim report supplies coverage for one of the",
+    "      twelve analog rows in spec/target-spec.md (issues #1014 and #1021).",
+    "      The grader reads spec_row tags on passing, limits-bearing measurements.",
+    "      comparator_noise: the reduced comparator model measures differential",
+    "      input-referred noise over 1 kHz-1 GHz as sqrt(2) x inoise_total.",
+    "      All nine corners pass the ratified baseline of <=1.0148 mV rms. The",
+    "      highest value is 0.9051 mV rms at tt_125c_1.80v. All nine exceed",
+    "      the stretch threshold, which is informational. The earlier campaign",
+    "      record (20260827-212404-e13bc1e) remains the row's indexed evidence.",
+    "      v_ref: the CDAC bench reads back the ideal sources that drive its rails.",
+    "      The archived 20261122-103440-000e61e7 envelope tagged those stimulus",
+    "      checks as v_ref. It is excluded from grading. Issue #1021 tracks the gap.",
+    "        (a) lsb and sampling_cap are declared gaps pending proposed DR-026",
+    "            (#1021). The record reports five-code level and interval errors, checks",
+    "            the exact plate dimensions and array population, and reports",
+    "            charge-derived unit capacitance. DR-026 owns the grading decisions.",
     "        (b) corners -- a RATIFIED methodology row no single measurement can",
     "            grade; the grader has no form deriving it from the campaigns'",
     "            corner matrices (klayout-tools#6969). Declared a gap; whether a",
@@ -206,14 +194,9 @@
     "            power -- DRAFT rows, declared ratified:false; the grader lists",
     "            them under unratified_rows (and uncovered_rows) and the item",
     "            can never render met against a draft.",
-    "      Resolution N is NOT in the analog row set: per partition_boundary.",
-    "      digital the (N+1)-stage sequencer and 10-bit SAR register are the",
-    "      digital partition's own row set -- #1023 owns that machine-graded",
-    "      binding; sim/sar-sequencer-behavioral record 20260827-211956-",
-    "      e13bc1e.md stays its indexed evidence. Net verdict:",
-    "      unmet/partial_coverage -- exactly one row derived-covered, four",
-    "      declared gaps, seven unratified draft rows, none uncovered by",
-    "      accident.",
+    "      The digital partition covers Resolution N under 5.digital. The analog",
+    "      verdict is unmet/partial_coverage with one row derived from evidence,",
+    "      four declared gaps and seven unratified rows.",
     "",
     "WHAT IS DELIBERATELY NOT CITED (against this tree, 2026-11-21)",
     "  6   the four OLDER `klt yield` envelopes (cdac 2026-08-28, enob 2026-08-28",
@@ -319,7 +302,7 @@
     },
     "9": {
       "file": "signoff/evidence/item-9.attestation.generic.json",
-      "content_hash": "sha256:07029f0347aa26e7d04d5161edc30b4746db944f5367825b4797368b3afea33b"
+      "content_hash": "sha256:3f47205dede8b63e25d9608989d0911e75f1846c1f6c131884347f248ea03ffa"
     },
     "10": {
       "file": "signoff/evidence/item-10.attestation.generic.json",
@@ -369,7 +352,7 @@
     ],
     "8.analog": {
       "file": "signoff/evidence/characterization-report.generic.json",
-      "content_hash": "sha256:17fafa484d152f8f0096ed6c39ca6de1852fda782f74e6e4165c6e2662114c33"
+      "content_hash": "sha256:ea5fe454157fe3633b9f2e9a7046c3247d2469422ca2b1a405fa988bc7b6b19a"
     },
     "8.digital": {
       "file": "signoff/evidence/digital-characterization.generic.json",
@@ -408,15 +391,15 @@
       },
       {
         "id": "v_ref",
-        "gap": "#1021: V_REF is the applied corner rail (an input the bench wires in as VREFP={vdd_val}), not an observed quantity; a measured rail would read back the applied source, a fixed 1.8 V limit would fail every +-10 % supply corner by construction, and no ratified tolerance exists against which any observable for this row could be graded -- the observable/tolerance decision record #1021 owns is a spec change, not a manifest choice"
+        "gap": "#1021: ideal sources set VREFP, VREFN and VDD. Their voltage readbacks cannot measure the reference delivered under CDAC load."
       },
       {
         "id": "lsb",
-        "gap": "#1021: LSB is the derived formula 2*V_REF/2^N = 3.5156 mV; the transfer bench's five codes exercise polarity and strict monotonicity with their deviation from ideal reported for information only, and no ratified tolerance exists on that deviation -- grading one would invent one (a #1021 decision record)"
+        "gap": "The CDAC run reports sampled voltage-level errors at five codes and interval errors over four spans. A pass condition for deviation from 2*V_REF/2^N awaits the proposed DR-026 decision (#1021)."
       },
       {
         "id": "sampling_cap",
-        "gap": "#1021: the claim is structural (C_u ~8.66 fF from a 1.9000 um square plate, 2^9 = 512 positions/side -- the deck's own device sizing and array population) plus functional (monotonicity, polarity); a .meas cannot grade the structural half, and the functional half alone is one part of the claim, which the gap path exists for"
+        "gap": "The structural check verifies the 1.9000 um plate side and 512 positions per side. Charge-derived unit capacitance is informational. Proposed DR-026 (#1021) owns the choice of a structural grade or an electrical tolerance."
       },
       {
         "id": "comparator_noise",

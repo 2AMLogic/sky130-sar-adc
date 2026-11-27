@@ -30,7 +30,7 @@ in [`signoff/README.md`](../signoff/README.md). Counts below are copied from it.
   LSB, unit cap, comparator noise budget and corner set (DR-003) are RATIFIED.
   Sample rate, ENOB, INL/DNL, kickback, gain error and power are DRAFT.
   DR-022 is accepted as a DRAFT row; DR-007, DR-011, DR-018, DR-020, DR-021,
-  DR-023, DR-024 and DR-025 are `proposed`.
+  DR-023, DR-024, DR-025 and DR-026 are `proposed`.
 - **Conversion: overall FAIL.** The newest full-conversion record
   (`sim/full-conversion-transient/records/LATEST`, pointing at
   `20261011-112119-188e94c.md`) resolves 3 of 5 inputs within ±1 LSB at each

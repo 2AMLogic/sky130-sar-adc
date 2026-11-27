@@ -32,9 +32,9 @@ followed by the per-bench command in the table below. Each of those commands is 
 | Sample rate | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-bit-trial-settling`<br>`sim/sequencer-logic-delay`<br>`sim/sampling-acquisition-settling`<br>`sim/vcm-drive-budget`<br>`sim/input-drive-budget`<br>`sim/reference-drive-budget`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient` | `20261001-140017-7487784.md`<br>`20260906-230516-0904419.md`<br>`20260908-051436-6ccd72d.md`<br>`20260908-100413-f3e2914.md`<br>`20261113-110421-e03343e.md`<br>`20261113-113808-6b72b9f3.md`<br>`20261011-112119-188e94c.md`<br>`20261001-105439-c324f80.md`<br>`20261011-064547-a6dcdd7.md`<br>`20261115-084232-ad7393c6.md` |
 | ENOB | DRAFT | benched (DRAFT row, evidence informational) | `sim/enob-estimate`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient`<br>`sim/full-conversion-transient` | `20260828-005033-0c70212.md`<br>`20261011-110009-320dbc6.md`<br>`20261010-070734-f968286.md`<br>`20261010-204225-57a55c1.md`<br>`20261011-021527-8d0c19a.md`<br>`20261011-022915-877794b.md`<br>`20261011-023419-877794b.md`<br>`20261011-064924-ad4bfff.md`<br>`20261011-064408-ad4bfff.md` |
 | INL / DNL | DRAFT | benched (DRAFT row, evidence informational) | `sim/cdac-array-transfer` | `20261001-124049-5207381.md` |
-| `V_REF` | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
-| LSB (differential) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
-| Sampling cap (CDAC unit × array) | RATIFIED | benched (ratified, graded pass/fail) | `sim/cdac-array-transfer` | `20261001-120402-d24f700.md` |
+| `V_REF` | RATIFIED | ratified-gap | `sim/cdac-array-transfer`<br>`sim/cdac-array-transfer` | `20261001-120402-d24f700.md`<br>`20261126-070822-ce736573.md` |
+| LSB (differential) | RATIFIED | ratified-gap | `sim/cdac-array-transfer`<br>`sim/cdac-array-transfer` | `20261001-120402-d24f700.md`<br>`20261126-070822-ce736573.md` |
+| Sampling cap (CDAC unit × array) | RATIFIED | ratified-gap | `sim/cdac-array-transfer`<br>`sim/cdac-array-transfer` | `20261001-120402-d24f700.md`<br>`20261126-070822-ce736573.md` |
 | Comparator input-referred noise | RATIFIED | benched (ratified, graded pass/fail) | `sim/comparator-decision` | `20260827-212404-e13bc1e.md` |
 | Kickback | DRAFT | benched (DRAFT row, evidence informational) | `sim/comparator-decision` | `20261106-190623-7bdf8c4.md` |
 | Gain error, systematic | DRAFT | NOT benched -- deliberately, see reason | — | — |
@@ -272,8 +272,8 @@ followed by the per-bench command in the table below. Each of those commands is 
 ### `V_REF`
 
 - **Status**: RATIFIED
-- **Claim class**: `ratified-measured`
-- **Note**: V_REF = V_DD = 1.8 V, RATIFIED (DR-003 via #27). A fixed design constant wired into the testbench as VREFP={vdd_val} rather than a free-running simulated quantity; the campaign below grades the consequences (structural sizing, monotonicity, polarity) across the full ratified corner set.
+- **Claim class**: `ratified-gap`
+- **Note**: DR-003 ratifies V_REF = V_DD (1.8 V nominal). Ideal sources set VREFP, VREFN and VDD in this bench. Reading them back verifies the applied stimulus at each corner. Issue #1021 tracks the missing evidence of the reference delivered to the DUT.
 
 **`sim/cdac-array-transfer`** — Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).
 
@@ -282,12 +282,20 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
 - Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
+
+**`sim/cdac-array-transfer`** — The batch run checks the applied reference, five-code transfer and structural unit-cap census at nine corners. The ideal-source readbacks check stimulus setup. Level and interval errors and charge-derived unit capacitance are informational (#1021).
+
+- Testbench: `sim/cdac-array-transfer/testbench/klt/tb_body.spice`, `sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice`, `sim/cdac-array-transfer/testbench/klt/request-graded.json`
+- Runner: `sim/cdac-array-transfer/run_klt_graded.py`
+- Cold start: `python3 sim/cdac-array-transfer/run_klt_graded.py --record`
+- Documented in: `sim/cdac-array-transfer/README.md`
+- Evidence: `sim/cdac-array-transfer/records/20261126-070822-ce736573.md`
 
 ### LSB (differential)
 
 - **Status**: RATIFIED
-- **Claim class**: `ratified-measured`
-- **Note**: LSB = 2*V_REF/2^N = 3.5156 mV, RATIFIED (DR-003 via #27). Derived from V_REF and N, so it is graded by the same campaign record as V_REF -- one run, three ratified rows, each named explicitly in that record rather than left implicit.
+- **Claim class**: `ratified-gap`
+- **Note**: LSB = 2*V_REF/2^N = 3.5156 mV, RATIFIED (DR-003 via #27). GAP (declared by issue #1021): no ratified tolerance exists for the measured differential step's deviation from the ideal value, so no committed record grades the row's magnitude -- the largest sampled voltage-level error is 1.1656 mV in the baseline and 1.1556 mV in the graded run (about 0.33 nominal LSB). Across the nine corners, the largest relative interval error per corner ranges from 0.012% to 0.191%, using code spans of 128, 128, 128 and 127. These LSB observables are informational and untagged. The tolerance decision is owned by spec/decision-records/DR-026-cdac-row-tolerance-decisions.md (proposed); until it is ratified (or superseded), this row must not be read as a full PASS.
 
 **`sim/cdac-array-transfer`** — Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).
 
@@ -296,12 +304,20 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
 - Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
+
+**`sim/cdac-array-transfer`** — The batch run checks the applied reference, five-code transfer and structural unit-cap census at nine corners. The ideal-source readbacks check stimulus setup. Level and interval errors and charge-derived unit capacitance are informational (#1021).
+
+- Testbench: `sim/cdac-array-transfer/testbench/klt/tb_body.spice`, `sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice`, `sim/cdac-array-transfer/testbench/klt/request-graded.json`
+- Runner: `sim/cdac-array-transfer/run_klt_graded.py`
+- Cold start: `python3 sim/cdac-array-transfer/run_klt_graded.py --record`
+- Documented in: `sim/cdac-array-transfer/README.md`
+- Evidence: `sim/cdac-array-transfer/records/20261126-070822-ce736573.md`
 
 ### Sampling cap (CDAC unit × array)
 
 - **Status**: RATIFIED
-- **Claim class**: `ratified-measured`
-- **Note**: C_u ~= 8.66 fF (1.9000 um square plate, 5 nm-grid-legal), 2^9 = 512 positions/side, RATIFIED (DR-003 via #27; plate resized to a grid-legal side by DR-019 via #496). UPDATE (2026-09-30, DR-019 via #496): the ratified unit-cap plate side moved from 1.8988 um to 1.9000 um -- the smallest 5 nm manufacturing-grid-legal side at or above this row's own matching floor -- so C_u moved 8.65 -> 8.66 fF (+0.116%); this note previously restated the pre-resize 8.65 fF figure as the current ratified value. Graded structurally (the deck's own device sizing and array population) plus functionally (monotonicity and polarity) at every point of the ratified corner set.
+- **Claim class**: `ratified-gap`
+- **Note**: C_u ~= 8.66 fF (1.9000 um square plate, 5 nm-grid-legal), 2^9 = 512 positions/side, RATIFIED (DR-003 via #27; plate resized to a grid-legal side by DR-019 via #496). GAP (declared by issue #1021): the exact structural values are machine-checked (run_transfer.check_structural_sizing() inside both indexed records: cap_mim_m3_1 W=L=1.9000 um, weights 1..256 + termination = 512/side), but the ELECTRICAL unit cap has no ratified tolerance -- the graded envelope's reference-charge observable cu_elec (8.59-9.54 fF across the 9 corners, vs the ratified approx-8.66 fF design estimate) is informational only and carries no spec_row tag. The tolerance (or a structural-only grade) decision is owned by spec/decision-records/DR-026-cdac-row-tolerance-decisions.md (proposed); until it is ratified (or superseded), this row must not be read as a full PASS.
 
 **`sim/cdac-array-transfer`** — Ratified V_REF / LSB / CDAC sizing campaign across the full ratified corner set (issue #28).
 
@@ -310,6 +326,14 @@ followed by the per-bench command in the table below. Each of those commands is 
 - Cold start: `python3 sim/cdac-array-transfer/run_transfer.py --ratified-record`
 - Documented in: `sim/cdac-array-transfer/README.md`
 - Evidence: `sim/cdac-array-transfer/records/20261001-120402-d24f700.md`
+
+**`sim/cdac-array-transfer`** — The batch run checks the applied reference, five-code transfer and structural unit-cap census at nine corners. The ideal-source readbacks check stimulus setup. Level and interval errors and charge-derived unit capacitance are informational (#1021).
+
+- Testbench: `sim/cdac-array-transfer/testbench/klt/tb_body.spice`, `sim/cdac-array-transfer/testbench/tb_cdac_array_transfer.spice`, `sim/cdac-array-transfer/testbench/klt/request-graded.json`
+- Runner: `sim/cdac-array-transfer/run_klt_graded.py`
+- Cold start: `python3 sim/cdac-array-transfer/run_klt_graded.py --record`
+- Documented in: `sim/cdac-array-transfer/README.md`
+- Evidence: `sim/cdac-array-transfer/records/20261126-070822-ce736573.md`
 
 ### Comparator input-referred noise
 

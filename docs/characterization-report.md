@@ -13,9 +13,9 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 | Sample rate | DRAFT | UNMEASURED as an end-to-end sample-rate figure (four mechanisms probed individually, not combined);… | 10 record(s), see detail below |
 | ENOB | DRAFT (target value) | DOES NOT MEET the DRAFT baseline target (>9.0 bit), informationally: 8.506 bit (mean-case CDAC mism… | 1 record(s), see detail below |
 | INL / DNL | DRAFT (target value) | DOES NOT MEET the DRAFT target (<= +-1 LSB, target_yield=0.99), informationally: empirical yield 0.… | 2 record(s), see detail below |
-| `V_REF` | RATIFIED | PASS (structural + functional/monotonicity check, 9/9 corners) | 1 record(s), see detail below |
-| LSB (differential) | RATIFIED | PASS (structural + functional/monotonicity check, 9/9 corners) | 1 record(s), see detail below |
-| Sampling cap (CDAC unit × array) | RATIFIED | PASS (sim structural check, 9/9 corners) + PASS (layout: DRC clean, LVS match, unit-cap count 1024… | 2 record(s), see detail below |
+| `V_REF` | RATIFIED | GAP (#1021). These stimulus readbacks cannot measure a change in the reference delivered under CDAC… | 2 record(s), see detail below |
+| LSB (differential) | RATIFIED | GAP (measurement not graded: no ratified tolerance; decision owned by spec/decision-records/DR-026-… | 2 record(s), see detail below |
+| Sampling cap (CDAC unit × array) | RATIFIED | PASS (sim structural check, exact ratified values, 9/9 corners) + GAP (electrical C_u measurement:… | 3 record(s), see detail below |
 | Comparator input-referred noise | RATIFIED | PASS vs. baseline (<=1.0148 mV rms) at every corner, binding corner `tt_125c_1.80v` = 0.8643 mV rms… | 1 record(s), see detail below |
 | Kickback | DRAFT | INFORMATIONAL (DRAFT row, no ratified line to grade against). Worst-case peak pin disturbance 73.36… | 1 record(s), see detail below |
 | Gain error, systematic | DRAFT (new row, DR-022 candidate) | INFORMATIONAL (DRAFT row, no ratified line to grade against). Extracted gain g = 0.99200 at tt_27c_… | 1 record(s), see detail below |
@@ -126,12 +126,16 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 ### `V_REF`
 
 - **Status**: RATIFIED
-- **Conditions**: Full ratified corner set, 9 OAT points. V_REF is a fixed design constant per DR-003's own scope table, not itself a simulated quantity -- the cited record confirms the CDAC array correctly consumes `VREFP={vdd_val}`/`VREFN=0` at each corner's own supply point, not that a reference-generator circuit meets a tolerance (none is ratified).
-- **Verdict**: PASS (structural + functional/monotonicity check, 9/9 corners)
+- **Conditions**: The CDAC bench drives VREFP and VDD with ideal sources set to the corner supply and drives VREFN at 0 V. The archived batch reports a reference-to-supply ratio of 1 and VREFN of 0 V at all nine corners.
+- **Verdict**: GAP (#1021). These stimulus readbacks cannot measure a change in the reference delivered under CDAC load.
 - **Notes**: See spec/decision-records/DR-003-numeric-spec-derivation.md for the full derivation.
 
 **Evidence:**
 
+- `sim/cdac-array-transfer/records/20261126-070822-ce736573.md` (Record ID `20261126-070822-ce736573`, Supersedes: 20261126-040720-de9c8405)
+  - Overall: PASS (envelope status 'pass', 9/9 corners passed; stimulus checks + structural census + functional monotonicity all as stated above)
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- checks the applied reference, CDAC structure and five-code transfer over the ratified corner set. V_REF coverage is a GAP (#1021): ideal sources set VREFP, VREF…
 - `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
@@ -140,12 +144,16 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 ### LSB (differential)
 
 - **Status**: RATIFIED
-- **Conditions**: Full ratified corner set, 9 OAT points (same record as `V_REF` above).
-- **Verdict**: PASS (structural + functional/monotonicity check, 9/9 corners)
-- **Notes**: 3.5156 mV differential; used as the reporting unit for the INL/DNL row above and the ENOB row's quantization-noise term.
+- **Conditions**: Full ratified corner set, 9 OAT points. GAP declared by issue #1021: no ratified tolerance exists for the measured differential step's deviation from `2*V_REF/2^N = 3.5156 mV`, so no committed record grades the row's magnitude. At five sampled codes, the largest voltage-level error is 1.1656 mV in the baseline and 1.1556 mV in the graded run (about 0.33 nominal LSB). Across the nine corners, the largest relative interval error per corner ranges from 0.012% to 0.191%, using code spans of 128, 128, 128 and 127. Both measurements are informational.
+- **Verdict**: GAP (measurement not graded: no ratified tolerance; decision owned by spec/decision-records/DR-026-cdac-row-tolerance-decisions.md, proposed). Functional monotonicity/polarity PASSes at every corner in both cited records; the magnitude figure above is informational only and is not a full PASS of this row.
+- **Notes**: 3.5156 mV differential; used as the reporting unit for the INL/DNL row above and the ENOB row's quantization-noise term. sim/spec-coverage.json indexes this row as claim_class `ratified-gap` naming DR-026.
 
 **Evidence:**
 
+- `sim/cdac-array-transfer/records/20261126-070822-ce736573.md` (Record ID `20261126-070822-ce736573`, Supersedes: 20261126-040720-de9c8405)
+  - Overall: PASS (envelope status 'pass', 9/9 corners passed; stimulus checks + structural census + functional monotonicity all as stated above)
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- checks the applied reference, CDAC structure and five-code transfer over the ratified corner set. V_REF coverage is a GAP (#1021): ideal sources set VREFP, VREF…
 - `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
@@ -154,12 +162,16 @@ Aggregated, generated artifact tying every `spec/target-spec.md` Target-table ro
 ### Sampling cap (CDAC unit × array)
 
 - **Status**: RATIFIED
-- **Conditions**: sim: structural check (unit-cap geometry + per-side weight totals) at every corner of the ratified sim record. layout: drawn/extracted physical geometry, DRC + LVS against design/cdac/cdac_array.sch, plus `klt precheck` on BOTH the 1 nm database grid and sky130's 5 nm manufacturing grid (gating since DR-019), single-point (no corner sweep -- DRC/LVS/precheck are corner-invariant structural checks, not PVT-dependent measurements).
-- **Verdict**: PASS (sim structural check, 9/9 corners) + PASS (layout: DRC clean, LVS match, unit-cap count 1024 = 512/side x 2, common-centroid checks all pass, precheck passes on both the 1 nm database grid and sky130's 5 nm manufacturing grid). Drawn unit cap 8.6640 fF vs. ratified C_u ~= 8.66 fF.
-- **Notes**: Layout evidence is independent, physical confirmation of the sim-only structural check. Supersedes layout/cdac-array/reports/20260825-132454-51cbdd4/, whose LVS 'match' verdict did not reproduce on its own committed artefacts -- see layout/cdac-array/README.md and issue #148. The layout citation moved off layout/cdac-array/reports/20260905-220338-9fb9b04/ at #498: that record draws the pre-DR-019 1.898 um plate (8.6473 fF, off sky130's 5 nm manufacturing grid), so it no longer evidences the ratified row this table grades -- the cited record is the post-resize re-run, whose 1.9000 um plate is exactly the schematic value and passes the 5 nm grid check.
+- **Conditions**: sim: structural check (unit-cap geometry + per-side weight totals) at every corner of the ratified sim record -- exact values, machine-checked again inside the graded `klt sim` envelope (issue #1021). electrical: the envelope's reference-charge observable `cu_elec` (8.59-9.54 fF across the 9 corners vs the ratified `C_u ~= 8.66 fF` design estimate) is informational ONLY -- no ratified tolerance exists for the electrical unit cap, so it carries no pass condition (GAP, decision owned by spec/decision-records/DR-026-cdac-row-tolerance-decisions.md, proposed). layout: drawn/extracted physical geometry, DRC + LVS against design/cdac/cdac_array.sch, plus `klt precheck` on BOTH the 1 nm database grid and sky130's 5 nm manufacturing grid (gating since DR-019), single-point (no corner sweep -- DRC/LVS/precheck are corner-invariant structural checks, not PVT-dependent measurements).
+- **Verdict**: PASS (sim structural check, exact ratified values, 9/9 corners) + GAP (electrical C_u measurement: no ratified tolerance, DR-026 proposed; `cu_elec` reported informationally) + PASS (layout: DRC clean, LVS match, unit-cap count 1024 = 512/side x 2, common-centroid checks all pass, precheck passes on both the 1 nm database grid and sky130's 5 nm manufacturing grid). Drawn unit cap 8.6640 fF vs. ratified C_u ~= 8.66 fF.
+- **Notes**: Layout evidence is independent, physical confirmation of the sim-only structural check. Supersedes layout/cdac-array/reports/20260825-132454-51cbdd4/, whose LVS 'match' verdict did not reproduce on its own committed artefacts -- see layout/cdac-array/README.md and issue #148. The layout citation moved off layout/cdac-array/reports/20260905-220338-9fb9b04/ at #498: that record draws the pre-DR-019 1.898 um plate (8.6473 fF, off sky130's 5 nm manufacturing grid), so it no longer evidences the ratified row this table grades -- the cited record is the post-resize re-run, whose 1.9000 um plate is exactly the schematic value and passes the 5 nm grid check. sim/spec-coverage.json indexes this row as claim_class `ratified-gap` naming DR-026 until the tolerance decision lands.
 
 **Evidence:**
 
+- `sim/cdac-array-transfer/records/20261126-070822-ce736573.md` (Record ID `20261126-070822-ce736573`, Supersedes: 20261126-040720-de9c8405)
+  - Overall: PASS (envelope status 'pass', 9/9 corners passed; stimulus checks + structural census + functional monotonicity all as stated above)
+  - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40.0, 27.0, 125.0], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
+  - Claim: `spec/target-spec.md#numeric-rows--ratified-2026-08-19` -- checks the applied reference, CDAC structure and five-code transfer over the ratified corner set. V_REF coverage is a GAP (#1021): ideal sources set VREFP, VREF…
 - `sim/cdac-array-transfer/records/20261001-120402-d24f700.md` (Record ID `20261001-120402-d24f700`, Supersedes: 20260827-213107-e13bc1e)
   - Overall: PASS
   - Corner matrix run: process=['ff', 'fs', 'sf', 'ss', 'tt'], temperature_c=[-40, 27.0, 125], supply_v=[1.62, 1.8, 1.98] (9 points, one-at-a-time per sim/README.md)
