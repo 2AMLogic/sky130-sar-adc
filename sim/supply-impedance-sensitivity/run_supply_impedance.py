@@ -215,6 +215,18 @@ import run_conversion as fc
 # --------------------------------------------------------------------------
 
 
+def _usage_error(message: str) -> int:
+    """Report an invocation the CLI refuses: `message` on stderr, status 2.
+
+    One implementation of the convention every usage guard in `main()` follows,
+    so a refused invocation prints nothing on stdout and exits 2 -- argparse's
+    own status for bad input. Simulation and preflight failures are not usage
+    errors and keep their `return 1`.
+    """
+    print(message, file=sys.stderr)
+    return 2
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--check-env", action="store_true", help="only check toolchain/PDK pin")
@@ -387,33 +399,26 @@ def main() -> int:
     ]
     unknown = [name for name in arm_names if name not in ARMS_BY_NAME]
     if unknown:
-        print(
+        return _usage_error(
             f"FAIL: unknown arm(s) {unknown} -- available: "
-            f"{[arm.name for arm in ARMS]}",
-            file=sys.stderr,
+            f"{[arm.name for arm in ARMS]}"
         )
-        return 2
     if CONTROL_ARM not in arm_names:
-        print(
+        return _usage_error(
             f"FAIL: the `{CONTROL_ARM}` control arm must be included -- every number "
-            "this campaign reports is a difference against it.",
-            file=sys.stderr,
+            "this campaign reports is a difference against it."
         )
-        return 2
 
     corner_points = [cid.strip() for cid in (args.corner_points or "").split(",") if cid.strip()]
     if corner_points and args.corners:
-        print(
+        return _usage_error(
             "FAIL: --corners and --corner-points are the same axis stated two ways "
-            "(all nine ratified points, or a named subset of them). Pick one.",
-            file=sys.stderr,
+            "(all nine ratified points, or a named subset of them). Pick one."
         )
-        return 2
     try:
         grid = resolve_grid(args.corners, corner_points)
     except ValueError as exc:
-        print(f"FAIL: {exc}", file=sys.stderr)
-        return 2
+        return _usage_error(f"FAIL: {exc}")
     # Ratified-grid order, so the footer names the subset the same way the
     # record's tables order it however the caller typed the list.
     corner_points = [corners_mod.corner_id(*point) for point in grid] if corner_points else []
@@ -436,50 +441,40 @@ def main() -> int:
     # The `--sweep` + `--null-sweep` pair keeps its own, older message below;
     # this guard covers every pairing that involves the decap-ESR ladder.
     if args.decap_esr and len(modes) > 1:
-        print(
+        return _usage_error(
             f"FAIL: {' and '.join(modes)} are different experiments (two topologies "
             "and a netlist transformation) and each writes its own record. Run them "
-            "one at a time.",
-            file=sys.stderr,
+            "one at a time."
         )
-        return 2
     if args.decap_esr:
         if args.arms is not None:
-            print(
+            return _usage_error(
                 "FAIL: --arms is not meaningful with --decap-esr. The ladder "
                 f"synthesizes its own rungs over the `{DECAP_ESR_BASE_ARM}` topology "
                 f"and always runs the `{CONTROL_ARM}` control; pick the ladder with "
-                "--decap-esr-mult instead.",
-                file=sys.stderr,
+                "--decap-esr-mult instead."
             )
-            return 2
         if args.corners or args.corner_points:
-            print(
+            return _usage_error(
                 "FAIL: --decap-esr with --corners/--corner-points is refused, for the "
                 "same reason --sweep is: it multiplies a ladder of the campaign's "
                 "most expensive arm shape by the ratified grid, which is a campaign in "
                 "its own right rather than a longer version of this one -- see this "
-                "experiment's README.md.",
-                file=sys.stderr,
+                "experiment's README.md."
             )
-            return 2
         try:
             decap_mults = tuple(float(v) for v in args.decap_esr_mult.split(",") if v.strip())
         except ValueError as exc:
-            print(f"FAIL: could not parse the decap-ESR ladder: {exc}", file=sys.stderr)
-            return 2
+            return _usage_error(f"FAIL: could not parse the decap-ESR ladder: {exc}")
         if not decap_mults:
-            print("FAIL: the decap-ESR ladder needs at least one rung", file=sys.stderr)
-            return 2
+            return _usage_error("FAIL: the decap-ESR ladder needs at least one rung")
         if 0.0 not in decap_mults:
-            print(
+            return _usage_error(
                 "FAIL: the decap-ESR ladder must include the `0` rung -- it is the "
                 "committed netlist card for card, and it is what ties this record's "
                 "numbers to the campaign's existing decoupled records. Without it "
-                "the ladder measures a resistance against nothing.",
-                file=sys.stderr,
+                "the ladder measures a resistance against nothing."
             )
-            return 2
         try:
             decap_ties = load_decap_ties()
             ladder = decap_esr_arms(decap_mults, decap_ties)
@@ -490,151 +485,120 @@ def main() -> int:
             for arm in ladder:
                 patch_dut_decap_ties(body, arm)
         except RuntimeError as exc:
-            print(f"FAIL: {exc}", file=sys.stderr)
-            return 2
+            return _usage_error(f"FAIL: {exc}")
         if not decap_esr_anchor_matches_base_arm(decap_ties):
-            print(
+            return _usage_error(
                 "FAIL: the decap-ESR ladder's `0x` rung is no longer card-for-card "
                 f"the `{DECAP_ESR_BASE_ARM}` arm on the committed netlist -- the "
                 "ladder would not be a one-element walk away from what this campaign "
-                "has already recorded. Re-derive it before running.",
-                file=sys.stderr,
+                "has already recorded. Re-derive it before running."
             )
-            return 2
     if args.sweep and args.null_sweep:
-        print(
+        return _usage_error(
             "FAIL: --sweep and --null-sweep are different experiments on different "
             f"topologies (the as-built `{SWEEP_BASE_ARM}` network and DR-012's "
             f"rejected `{NULL_SWEEP_BASE_ARM}` one) and each writes its own record. "
-            "Run them one at a time.",
-            file=sys.stderr,
+            "Run them one at a time."
         )
-        return 2
     if args.null_sweep:
         if args.arms is not None:
-            print(
+            return _usage_error(
                 "FAIL: --arms is not meaningful with --null-sweep. The ladder "
                 f"synthesizes its own points over the `{NULL_SWEEP_BASE_ARM}` "
                 f"topology and always runs the `{CONTROL_ARM}` control; pick the "
-                "ladder with --null-sweep-rsub instead.",
-                file=sys.stderr,
+                "ladder with --null-sweep-rsub instead."
             )
-            return 2
         if args.corners or args.corner_points:
-            print(
+            return _usage_error(
                 "FAIL: --null-sweep with --corners/--corner-points is refused, for "
                 "the same reason --sweep is: it multiplies a swept ladder by the "
                 "ratified grid, which is a campaign in its own right rather than a "
-                "longer version of this one -- see this experiment's README.md.",
-                file=sys.stderr,
+                "longer version of this one -- see this experiment's README.md."
             )
-            return 2
         try:
             null_rsub_values = tuple(
                 float(v) for v in args.null_sweep_rsub.split(",") if v.strip()
             )
         except ValueError as exc:
-            print(f"FAIL: could not parse the null-sweep axis: {exc}", file=sys.stderr)
-            return 2
+            return _usage_error(f"FAIL: could not parse the null-sweep axis: {exc}")
         if not null_rsub_values:
-            print("FAIL: the null-sweep axis needs at least one value", file=sys.stderr)
-            return 2
+            return _usage_error("FAIL: the null-sweep axis needs at least one value")
         try:
             null_sweep_arms(null_rsub_values)
         except RuntimeError as exc:
-            print(f"FAIL: {exc}", file=sys.stderr)
-            return 2
+            return _usage_error(f"FAIL: {exc}")
         if not null_sweep_anchor_matches_base_arm():
-            print(
+            return _usage_error(
                 f"FAIL: the null sweep's anchor point (R = {R_SUBX_OHM:g} Ohm) is no "
                 f"longer card-for-card the `{NULL_SWEEP_BASE_ARM}` arm -- the ladder "
                 "would not be a walk away from DR-015's assumption point. Re-derive "
-                "it before running.",
-                file=sys.stderr,
+                "it before running."
             )
-            return 2
     if args.sweep:
         if args.arms is not None:
-            print(
+            return _usage_error(
                 "FAIL: --arms is not meaningful with --sweep. The sweep synthesizes "
                 f"its own grid points over the as-built `{SWEEP_BASE_ARM}` topology "
                 f"and always runs the `{CONTROL_ARM}` control; pick the box with "
-                "--sweep-l-mult / --sweep-rsubx instead.",
-                file=sys.stderr,
+                "--sweep-l-mult / --sweep-rsubx instead."
             )
-            return 2
         if args.corners or args.corner_points:
-            print(
+            return _usage_error(
                 "FAIL: --sweep with --corners/--corner-points is refused. It is two "
                 "of issue #409's costs multiplied together (a 2-D box at every "
                 "ratified corner) -- nine boxes of whole-ADC transients, a campaign "
                 "in its own right rather than a longer version of this one. See this "
-                "experiment's README.md.",
-                file=sys.stderr,
+                "experiment's README.md."
             )
-            return 2
         try:
             l_mults = tuple(float(v) for v in args.sweep_l_mult.split(",") if v.strip())
             rsubx_values = tuple(float(v) for v in args.sweep_rsubx.split(",") if v.strip())
         except ValueError as exc:
-            print(f"FAIL: could not parse a sweep axis: {exc}", file=sys.stderr)
-            return 2
+            return _usage_error(f"FAIL: could not parse a sweep axis: {exc}")
         if not l_mults or not rsubx_values:
-            print("FAIL: both sweep axes need at least one value", file=sys.stderr)
-            return 2
+            return _usage_error("FAIL: both sweep axes need at least one value")
         try:
             sweep_arms(l_mults, rsubx_values)
         except RuntimeError as exc:
-            print(f"FAIL: {exc}", file=sys.stderr)
-            return 2
+            return _usage_error(f"FAIL: {exc}")
         if not sweep_anchor_matches_base_arm():
-            print(
+            return _usage_error(
                 "FAIL: the sweep's anchor point (1x DR-015's L, "
                 f"R_SUBX = {R_SUBX_OHM:g} Ohm) is no longer card-for-card the "
                 f"`{SWEEP_BASE_ARM}` arm -- the sweep would not be a walk around the "
-                "campaign's own assumption point. Re-derive it before running.",
-                file=sys.stderr,
+                "campaign's own assumption point. Re-derive it before running."
             )
-            return 2
 
     probe_variants: tuple[str, ...] = ()
     probe_corner = MIDSCALE_PROBE_CORNER
     if args.midscale_probe:
         if args.sweep or args.null_sweep or args.cost_probe is not None:
-            print(
+            return _usage_error(
                 "FAIL: --midscale-probe is a diagnostic about this campaign's own "
                 "code comparison, not a swept network box or a cost probe. Each "
-                "writes its own record; run them one at a time.",
-                file=sys.stderr,
+                "writes its own record; run them one at a time."
             )
-            return 2
         if args.arms is not None:
-            print(
+            return _usage_error(
                 "FAIL: --arms is not meaningful with --midscale-probe: the probe "
                 "names its own (arm, perturbation) variants. Use "
-                "--midscale-probe-variants instead.",
-                file=sys.stderr,
+                "--midscale-probe-variants instead."
             )
-            return 2
         if args.corners:
-            print(
+            return _usage_error(
                 "FAIL: --midscale-probe --corners is refused. The probe is a "
                 "mechanism trace at the ONE point the anomaly was recorded at; the "
                 "ratified grid's mid-scale codes are already recorded (see "
                 f"records/{MIDSCALE_PROBE_REFERENCE_RECORD}.md), and this probe "
                 "exists to say what they mean. Name a different single point with "
-                "--corner-points if needed.",
-                file=sys.stderr,
+                "--corner-points if needed."
             )
-            return 2
         if len(grid) != 1:
-            print(
+            return _usage_error(
                 f"FAIL: --midscale-probe runs at exactly one corner point, got "
                 f"{len(grid)}. Pass a single --corner-points id, or none for the "
-                f"default {corners_mod.corner_id(*MIDSCALE_PROBE_CORNER)}.",
-                file=sys.stderr,
+                f"default {corners_mod.corner_id(*MIDSCALE_PROBE_CORNER)}."
             )
-            return 2
         probe_corner = (
             grid[0] if corner_points else MIDSCALE_PROBE_CORNER
         )
@@ -642,84 +606,70 @@ def main() -> int:
             v.strip() for v in args.midscale_probe_variants.split(",") if v.strip()
         )
         if not probe_variants:
-            print("FAIL: --midscale-probe-variants needs at least one variant", file=sys.stderr)
-            return 2
+            return _usage_error(
+                "FAIL: --midscale-probe-variants needs at least one variant"
+            )
         for spec in probe_variants:
             arm_name, sep, pert_name = spec.partition(":")
             if not sep or arm_name not in ARMS_BY_NAME or pert_name not in PERTURBATIONS_BY_NAME:
-                print(
+                return _usage_error(
                     f"FAIL: unknown probe variant {spec!r}. Expected `arm:perturbation` "
                     f"with arm in {[a.name for a in ARMS]} and perturbation in "
-                    f"{[p.name for p in PERTURBATIONS]}.",
-                    file=sys.stderr,
+                    f"{[p.name for p in PERTURBATIONS]}."
                 )
-                return 2
         if f"{CONTROL_ARM}:as-committed" not in probe_variants:
-            print(
+            return _usage_error(
                 f"FAIL: the probe's variant list must include `{CONTROL_ARM}:"
                 "as-committed`. It is the reproduction control: without it there is "
                 "nothing to say whether this host reproduces the recorded point at "
-                "all, and every perturbation row would be a delta against nothing.",
-                file=sys.stderr,
+                "all, and every perturbation row would be a delta against nothing."
             )
-            return 2
 
     if args.cost_probe is not None:
         if not (args.sweep or args.null_sweep or args.decap_esr):
-            print(
+            return _usage_error(
                 "FAIL: --cost-probe prices a synthesized box or ladder; pass "
                 "--sweep, --null-sweep or --decap-esr too. The named arms already have "
-                "measured per-run wall clock in the campaign's arm-comparison records.",
-                file=sys.stderr,
+                "measured per-run wall clock in the campaign's arm-comparison records."
             )
-            return 2
         if args.record:
-            print(
+            return _usage_error(
                 "FAIL: --cost-probe --record is refused. A truncated transient "
                 "measures nothing about this DUT -- the stimulus fragment's .meas "
                 "cards sit at conversion times outside the sliced span -- so no "
-                "record may be minted from one.",
-                file=sys.stderr,
+                "record may be minted from one."
             )
-            return 2
         if args.log_cache:
-            print(
+            return _usage_error(
                 "FAIL: --cost-probe --log-cache is refused. A probe's log is keyed "
                 "by the same point-id as the real run of that point, so caching one "
                 "would overwrite the stored log the real campaign restarts from. A "
-                "probe is minutes; it does not need to be restartable.",
-                file=sys.stderr,
+                "probe is minutes; it does not need to be restartable."
             )
-            return 2
         if args.supersedes:
-            print(
+            return _usage_error(
                 "FAIL: --cost-probe --supersedes is refused: a probe writes no "
-                "record, so it can supersede nothing.",
-                file=sys.stderr,
+                "record, so it can supersede nothing."
             )
-            return 2
         if args.cost_probe <= 0.0:
-            print("FAIL: --cost-probe takes a positive number of nanoseconds", file=sys.stderr)
-            return 2
+            return _usage_error(
+                "FAIL: --cost-probe takes a positive number of nanoseconds"
+            )
         stimulus_ns = fragment_tran_stop_ns()
         if stimulus_ns is not None and args.cost_probe >= stimulus_ns:
-            print(
+            return _usage_error(
                 f"FAIL: a {args.cost_probe:g} ns probe is not shorter than the "
                 f"{stimulus_ns:g} ns stimulus it exists to price -- run the campaign "
-                "itself instead of probing it.",
-                file=sys.stderr,
+                "itself instead of probing it."
             )
-            return 2
 
     if args.supersedes and not (
         common.EXPERIMENT_DIR / "records" / f"{args.supersedes}.md"
     ).is_file():
-        print(
+        return _usage_error(
             f"FAIL: --supersedes {args.supersedes}: no such record under "
-            f"{os.path.relpath(common.EXPERIMENT_DIR / 'records', REPO_ROOT)}/",
-            file=sys.stderr,
+            f"{os.path.relpath(common.EXPERIMENT_DIR / 'records', REPO_ROOT)}/"
         )
-        return 2
 
     check = toolchain.check_env()
     if args.check_env:
