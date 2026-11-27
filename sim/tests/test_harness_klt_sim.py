@@ -571,6 +571,66 @@ class TestRunInfo(unittest.TestCase):
         self.assertIsNone(klt_sim.ngspice_from_banner(""))
         self.assertIsNone(klt_sim.ngspice_from_banner("no version here"))
 
+    # -- the executing worker's ngspice binary digest (issue #811) -----------
+    # `klt sim`'s collector reports ONE digest for the workers that executed
+    # the run, and only when every worker supplied the same 64-hex value; a
+    # missing or disagreeing capture is a null digest plus a reason.
+
+    WORKER_DIGEST = "39ca1adb826660324c3626f72bd946ec40704f0f3fc8e243c623f76e24b3eee2"
+
+    def _engine_report(self, digest, host="worker", reason=None):
+        report = {"status": "pass", "corners": [], "environment": {
+            "engine_host": host,
+            "engine_build": {"probe": "ok", "binary_sha256": digest,
+                             "reason": reason},
+            "remote": self._shard("solo"),
+            "backend": {"resolved": "batch"},
+        }}
+        return klt_sim.run_info(report)
+
+    def test_a_single_worker_digest_is_reported_whole(self):
+        info = self._engine_report(self.WORKER_DIGEST)
+        self.assertEqual(info["engine_host"], "worker")
+        self.assertEqual(info["worker_ngspice_binary_sha256"], self.WORKER_DIGEST)
+        self.assertIsNone(info["worker_ngspice_binary_sha256_reason"])
+
+    def test_a_null_digest_is_none_and_keeps_the_collectors_reason(self):
+        """A missing or mixed worker digest leaves the record's worker-hash
+        condition unmet: None, never the host's own binary standing in."""
+        for reason in ("worker_digest_disagreement", None):
+            with self.subTest(reason=reason):
+                info = self._engine_report(None, reason=reason)
+                self.assertIsNone(info["worker_ngspice_binary_sha256"])
+                self.assertEqual(info["worker_ngspice_binary_sha256_reason"], reason)
+
+    def test_anything_but_a_lowercase_64_hex_string_is_not_a_digest(self):
+        for bad in (self.WORKER_DIGEST[:32], self.WORKER_DIGEST.upper(),
+                    f"sha256:{self.WORKER_DIGEST}", 39, True, ""):
+            with self.subTest(bad=bad):
+                info = self._engine_report(bad)
+                self.assertIsNone(info["worker_ngspice_binary_sha256"])
+
+    def test_an_engine_that_ran_on_the_submitting_host_is_not_a_worker(self):
+        info = self._engine_report(self.WORKER_DIGEST, host="local")
+        self.assertIsNone(info["worker_ngspice_binary_sha256"])
+
+    def test_the_clients_own_digest_is_never_read_as_the_workers(self):
+        """klayout-tools#7356 preserves the submitting build beside the
+        workers' (same banner, possibly a different executable)."""
+        info = klt_sim.run_info({"status": "pass", "environment": {
+            "engine_host": "worker",
+            "engine_build": {"binary_sha256": None},
+            "client_engine_build": {"binary_sha256": self.WORKER_DIGEST},
+            "remote": self._shard("solo"),
+        }})
+        self.assertIsNone(info["worker_ngspice_binary_sha256"])
+
+    def test_a_report_without_an_engine_build_reports_no_digest(self):
+        info = klt_sim.run_info({"status": "pass", "environment": {}})
+        self.assertIsNone(info["engine_host"])
+        self.assertIsNone(info["worker_ngspice_binary_sha256"])
+        self.assertIsNone(info["worker_ngspice_binary_sha256_reason"])
+
 
 class TestExecutingEnvironment(unittest.TestCase):
     """Issue #1094: ONE worker-vs-submitting-host resolution for every batch
