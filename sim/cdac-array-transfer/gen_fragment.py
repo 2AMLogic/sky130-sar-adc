@@ -36,11 +36,17 @@ from __future__ import annotations
 WEIGHTS = [1, 2, 4, 8, 16, 32, 64, 128, 256]  # bit i (lsb-first) -> MF
 
 
-def gen_side(code: int, side: str, side_code: int) -> str:
+def gen_side(code: int, side: str, side_code: int, unit_side_um: float = 1.9000) -> str:
     """Emit one side ('p' or 'n') of one code's array copy. `side_code` is
     the 9-bit value actually driving this side's bits (== `code` for side
     'p', == `511 - code` for side 'n', by construction of the differential
-    mirrored-drive convention #53's fragment documents)."""
+    mirrored-drive convention #53's fragment documents).
+
+    `unit_side_um` is the MiM unit-cap plate side (DR-019's 1.9000 um by
+    default, byte-identical to the hand-authored fragment). Issue #1016's
+    closure study passes a candidate value to simulate a resized array
+    without editing design/cdac. The card uses the new W and L for both
+    nominal capacitance and mismatch. The bit weights are unchanged."""
     bits = [(side_code >> i) & 1 for i in range(9)]
     side_label = "P" if side == "p" else "N"
     lines = [f"* ---- code={code} side={side_label} (side_code={side_code}, bits lsb-first={bits})"]
@@ -49,7 +55,7 @@ def gen_side(code: int, side: str, side_code: int) -> str:
         wt = WEIGHTS[i]
         cname = f"bot_{code}{side}{i}"
         top = f"top_{code}{side}"
-        cap = f"Xc_{code}{side}{i}  {cname} {top}   sky130_fd_pr__cap_mim_m3_1 W=1.9000 L=1.9000 MF={wt} m={wt}"
+        cap = f"Xc_{code}{side}{i}  {cname} {top}   sky130_fd_pr__cap_mim_m3_1 W={unit_side_um:.4f} L={unit_side_um:.4f} MF={wt} m={wt}"
         if bit == 0:
             lines.append(cap)
             lines.append(f"Xn_{code}{side}{i}  {cname} vdd vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1")
@@ -60,18 +66,18 @@ def gen_side(code: int, side: str, side_code: int) -> str:
             lines.append(cap)
             lines.append(f"Xn_{code}{side}{i}  {cname} {selnode} vrefn vss sky130_fd_pr__nfet_01v8 L=0.15 W=1 nf=1")
             lines.append(f"Xp_{code}{side}{i}  {cname} {selnode} vrefp vdd  sky130_fd_pr__pfet_01v8 L=0.15 W=2 nf=1")
-    lines.append(f"Xterm_{code}{side} vrefn top_{code}{side} sky130_fd_pr__cap_mim_m3_1 W=1.9000 L=1.9000 MF=1 m=1")
+    lines.append(f"Xterm_{code}{side} vrefn top_{code}{side} sky130_fd_pr__cap_mim_m3_1 W={unit_side_um:.4f} L={unit_side_um:.4f} MF=1 m=1")
     lines.append(f"Sreset_{code}{side} top_{code}{side} vcm nctrl_reset 0 SWMOD")
     lines.append(f"Rdc_{code}{side} top_{code}{side} vcm 1T")
     return "\n".join(lines)
 
 
-def gen_code_block(code: int) -> str:
+def gen_code_block(code: int, unit_side_um: float = 1.9000) -> str:
     """Both sides (P driven by `code`, N driven by its complement
     `511-code`) for one code, blank-line separated exactly as the
     hand-authored fragment does between code blocks."""
-    p = gen_side(code, "p", code)
-    n = gen_side(code, "n", 511 - code)
+    p = gen_side(code, "p", code, unit_side_um)
+    n = gen_side(code, "n", 511 - code, unit_side_um)
     return p + "\n\n" + n
 
 
@@ -129,15 +135,16 @@ Vctrl_reset nctrl_reset 0 pwl(0 {vdd_val} 0.9n {vdd_val} 1.1n 0 500n 0)
 """
 
 
-def gen_fragment(codes: list[int]) -> str:
+def gen_fragment(codes: list[int], unit_side_um: float = 1.9000) -> str:
     """Full fragment text (header + one block per code, in the order
     given), matching #53's hand-authored file's own formatting exactly
     (verified for codes=[0,128,256,384,511] by
-    sim/tests/test_cdac_fragment_gen.py)."""
+    sim/tests/test_cdac_fragment_gen.py). `unit_side_um` overrides the MiM
+    unit-cap plate side for issue #1016's closure study (see gen_side)."""
     parts = [HEADER.rstrip("\n")]
     for code in codes:
         parts.append("")
-        parts.append(gen_code_block(code))
+        parts.append(gen_code_block(code, unit_side_um))
     return "\n".join(parts) + "\n\n"
 
 

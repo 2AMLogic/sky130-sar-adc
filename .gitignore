@@ -21,6 +21,14 @@ __pycache__/
 # the two runs it holds is on a testbench-only MODIFIED netlist and must
 # never be read as a ratified-corner result, but it is evidence, not scratch.
 !sim/*/diagnostics/**/*.log
+# sim/cdac-array-transfer/analysis/ (issue #1016): the caps-only isolation
+# probe's raw ngspice logs under analysis/probe-caps-only-*/ are committed
+# evidence cited directly by the attribution analysis record's section 3b
+# -- kept in their own probe directory (not mc-draws/) because the probe
+# runs a MODIFIED netlist (ideal drives instead of the design's FET
+# switches) and must never be read as a campaign draw, but it is evidence,
+# not scratch.
+!sim/*/analysis/probe-caps-only-*/**/*.log
 # Staging tree for runs stored through the fleet artifact store (issue #717,
 # sim/harness/evidence_store.py): bytes are staged here, stored with
 # `klt artifact put`, and never committed; git keeps only the manifest under
@@ -155,6 +163,10 @@ layout/.venv-*/
 # `python3 -m venv .venv-plots` per sim/report/plots-requirements.txt. The
 # rendered SVGs are committed; the renderer's dependency never is.
 /.venv-plots/
+# Yield-envelope venv (issue #625): created by `python3 -m venv .venv-yield`
+# per sim/yield-requirements.txt when the PATH klt lacks klt_yield_native.
+# The minted envelopes are committed; the venv never is.
+/.venv-yield/
 .aider*
 
 # Repo Skills Codex-side machine-local install metadata (never committed)

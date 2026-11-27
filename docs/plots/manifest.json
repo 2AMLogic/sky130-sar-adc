@@ -31,7 +31,7 @@
       "inputs": {
         "sim/cdac-array-transfer/records/20261115-014818-7adcfe77.md": "d96e4bf111bed34b9df445d7d947a94622d1d18d3b7a4a939b9268d8506e9a1f",
         "sim/cdac-array-transfer/yield-reports/20261115-014818-7adcfe77.json": "6b18a44e5baf6b57e60d0a91d61b07925c009bedd0ad1da92da1dd8bd9f03468",
-        "sim/cdac-array-transfer/run_mc.py": "3922bb84c3c61131b994acfdb61661743383139c1cf4f81c462662a1cfda4a8f",
+        "sim/cdac-array-transfer/run_mc.py": "cfaadb5975d2357415cd8bbc3516260b177bd68e1cebdc5738a3513f2695c408",
         "sim/harness/measure.py": "0da7201767ff85feda02cb55d77fb0f451cda5182a22b1de0d50eed53965bbe0",
         "sim/cdac-array-transfer/mc-draws/20261115-014818-7adcfe77/draw_0_seed1.log": "b5dc6a86e5ec82b69502dc33307af9fb6b5416dbe065dd041db08a21a3843db3",
         "sim/cdac-array-transfer/mc-draws/20261115-014818-7adcfe77/draw_1_seed2.log": "0ec2964f363d622e1b0686ead728a1bd706de10af94ff9afed2727ec635d6d35",

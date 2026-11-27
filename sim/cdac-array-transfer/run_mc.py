@@ -38,13 +38,14 @@ top-level differential sign structure (design/sar_adc_top.spice), which
 this array-only experiment does not exercise (same scope limitation #53's
 own record already states: "informs, but does not substantiate" the
 DNL/INL row). DNL/INL below are computed in units of the ratified ADC LSB
-(matching spec/target-spec.md's own "<=1 LSB" row), NOT this array's own
+(matching the units of the INL/DNL row in spec/target-spec.md), NOT this array's own
 7.03 mV code step -- see `_parse_draw()`.
 """
 
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import shutil
 import statistics
@@ -71,12 +72,9 @@ SETTLE_T = "500n"
 TRAN_STEP = "0.5n"
 
 RATIFIED_LSB_V = 3.5156e-3  # spec/target-spec.md ratified LSB (2*V_REF/2^N), DR-003 via #27
-DRAFT_INL_DNL_TARGET_LSB = 1.0  # spec/target-spec.md DRAFT target row: "INL / DNL <= +-1 LSB
-# (target)" -- NOT ratified (target-spec.md's own "Not ratified by this
-# record" list names ENOB/INL-DNL target values as still open, gated on
-# THIS issue's own MC campaign). Used below ONLY as an informational `klt
-# yield` limit, explicitly labeled DRAFT throughout the record -- never
-# presented as a pass/fail against a ratified spec/target-spec.md line.
+# Original DRAFT INL/DNL limit selected by issue #1016. The target table
+# now lists the DR-007 candidate (2.0 LSB) and identifies 1.0 LSB as the prior value.
+DRAFT_INL_DNL_TARGET_LSB = 1.0
 
 # Reduced code set: major-carry PAIRS (worst-case DNL location for a
 # binary-weighted CDAC, per the McCreary & Wooley combinatorics
@@ -100,19 +98,33 @@ ADJACENT_PAIRS_MC: list[tuple[int, int]] = [
 
 ENDPOINT_LO, ENDPOINT_HI = 0, 511
 ARRAY_IDEAL_STEP_V = 2 * NOMINAL_SUPPLY_V / 512  # this array's own ideal code-to-code step
+DR019_SIDE_UM = 1.9000
 
 
-def build_netlist(info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float, rndseed: int | None) -> str:
+def tt_mim_sigma(side_um: float) -> float:
+    """Relative mismatch SD of one square cap_mim_m3_1 at combined tt_mm (mult=1)."""
+    return 0.0047 / (side_um + 0.150)
+
+
+def tt_mim_cap_ff(side_um: float) -> float:
+    """Nominal unit capacitance of the same card, with sw_cap_mim_ca = 2 fF/um²."""
+    return 2.0 * (side_um + 0.150) ** 2
+
+
+def build_netlist(info: pdk.PdkInfo, corner: str, temp_c: float, supply_v: float, rndseed: int | None, unit_side_um: float = 1.9000) -> str:
     lines: list[str] = []
     a = lines.append
-    a(f"* cdac-array-transfer Monte Carlo -- corner={corner} temp={temp_c}C supply={supply_v}V seed={rndseed} (issue #29)")
+    title = f"* cdac-array-transfer Monte Carlo -- corner={corner} temp={temp_c}C supply={supply_v}V seed={rndseed} (issue #29)"
+    if unit_side_um != 1.9000:
+        title += f" unit-cap-plate={unit_side_um:.4f}um (issue #1016 candidate study; DR-019 as-built is 1.9000um)"
+    a(title)
     a(f".lib {info.ngspice_lib} {corner}")
     a(f".temp {temp_c}")
     a(f".param vdd_val = {supply_v}")
     if rndseed is not None:
         a(f".option rndseed={rndseed}")
     a("")
-    a(gen_fragment(CODES_MC))
+    a(gen_fragment(CODES_MC, unit_side_um=unit_side_um))
     a("")
     a(".control")
     a(f"tran {TRAN_STEP} {SETTLE_T}")
@@ -218,8 +230,8 @@ def gain_error_summary(result: "McResult") -> dict:
     }
 
 
-def _one_draw(info: pdk.PdkInfo, corner: str, seed: int | None, scratch_dir: Path, log_name: str) -> Draw:
-    netlist = build_netlist(info, corner, TEMP_C, NOMINAL_SUPPLY_V, seed)
+def _one_draw(info: pdk.PdkInfo, corner: str, seed: int | None, scratch_dir: Path, log_name: str, unit_side_um: float = 1.9000) -> Draw:
+    netlist = build_netlist(info, corner, TEMP_C, NOMINAL_SUPPLY_V, seed, unit_side_um=unit_side_um)
     log_text = toolchain.run_ngspice(netlist, scratch_dir, log_name)
     return _parse_draw(seed, log_text)
 
@@ -233,16 +245,17 @@ class McResult:
     draws: list[Draw] = field(default_factory=list)
     negctrl: list[Draw] = field(default_factory=list)
     source_record_id: str | None = None  # set only by reanalyze_from_logs()
+    sample_netlist: str = ""  # first mismatch draw's deck, including the original .lib
 
 
-def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = False) -> McResult:
+def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = False, unit_side_um: float = 1.9000) -> McResult:
     info = pdk.resolve()
     if not info.found:
         raise RuntimeError(f"PDK not resolvable: {info.error}")
     mismatch_corner = corners_mod.mismatch_corner_for(corner)
 
     def one_draw(draw_corner: str, this_seed: int, scratch_dir: Path, log_name: str) -> Draw:
-        return _one_draw(info, draw_corner, this_seed, scratch_dir, log_name)
+        return _one_draw(info, draw_corner, this_seed, scratch_dir, log_name, unit_side_um=unit_side_um)
 
     def describe(d: Draw) -> str:
         return f"DNLmax={d.dnl_max_lsb:.4f} LSB INLmax={d.inl_max_lsb:.4f} LSB"
@@ -257,13 +270,35 @@ def run_mc(seed: int = 1, n: int = 50, corner: str = BASE_CORNER, quiet: bool = 
             one_draw, corner, seed, n,
             scratch_dir, quiet, log_prefix="negctrl", label="negctrl", describe_fn=describe,
         )
-    return McResult(seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner, draws=draws, negctrl=negctrl)
+    return McResult(seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner, draws=draws, negctrl=negctrl,
+                    sample_netlist=build_netlist(info, mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, seed, unit_side_um))
 
 
 _LOG_NAME_RE = re.compile(r"^(?P<kind>draw|negctrl)_(?P<idx>\d+)_seed(?P<seed>-?\d+)\.log$")
 
 
-def reanalyze_from_logs(source_record_id: str, corner: str = BASE_CORNER) -> McResult:
+def plate_side_um(netlist: str, requested: float | None = None) -> float:
+    """Read W and L from every MiM instance, including the terminating units."""
+    sides = set()
+    for line in netlist.splitlines():
+        fields = line.lower().split()
+        if not fields or not fields[0].startswith("x") or "sky130_fd_pr__cap_mim_m3_1" not in fields:
+            continue
+        params = dict(field.split("=", 1) for field in fields if "=" in field)
+        if "w" not in params or "l" not in params:
+            raise ValueError("missing MiM W or L in campaign snapshot")
+        sides.update((float(params["w"]), float(params["l"])))
+    if len(sides) != 1:
+        raise ValueError("expected one uniform square MiM plate size in campaign snapshot")
+    side = sides.pop()
+    if not math.isfinite(side) or side <= 0:
+        raise ValueError("invalid MiM plate size in campaign snapshot")
+    if requested is not None and requested != side:
+        raise ValueError(f"requested plate {requested:g} um conflicts with simulated plate {side:g} um")
+    return side
+
+
+def reanalyze_from_logs(source_record_id: str, corner: str | None = None) -> McResult:
     """Re-derive an McResult from a PRIOR record's already-committed
     `mc-draws/<source_record_id>/*.log` files -- NO new ngspice invocation.
     Used to re-score already-collected evidence against a DIFFERENT
@@ -277,7 +312,14 @@ def reanalyze_from_logs(source_record_id: str, corner: str = BASE_CORNER) -> McR
     if not draws_dir.is_dir():
         raise FileNotFoundError(f"no mc-draws/ directory for source record {source_record_id}: {draws_dir}")
 
-    mismatch_corner = corners_mod.mismatch_corner_for(corner)
+    snapshot = (EXPERIMENT_DIR / "netlist-snapshots" / f"{source_record_id}.spice").read_text()
+    lib = re.search(r"^\.lib\s+\S+\s+(\w+)_mm\s*$", snapshot, re.MULTILINE | re.IGNORECASE)
+    if not lib:
+        raise ValueError(f"{source_record_id}: missing mismatch corner in source snapshot")
+    source_corner = lib[1]
+    if corner is not None and corner != source_corner:
+        raise ValueError(f"requested corner {corner} conflicts with source corner {source_corner}")
+    mismatch_corner = corners_mod.mismatch_corner_for(source_corner)
     by_idx: dict[str, dict[int, tuple[int, Path]]] = {"draw": {}, "negctrl": {}}
     for log_path in draws_dir.glob("*.log"):
         m = _LOG_NAME_RE.match(log_path.name)
@@ -302,8 +344,8 @@ def reanalyze_from_logs(source_record_id: str, corner: str = BASE_CORNER) -> McR
         raise ValueError(f"mc-draws/{source_record_id}: {n} draw logs but {len(negctrl)} negctrl logs (expected equal)")
     seed = min(s for s, _ in by_idx["draw"].values())
     return McResult(
-        seed=seed, n=n, corner=corner, mismatch_corner=mismatch_corner,
-        draws=draws, negctrl=negctrl, source_record_id=source_record_id,
+        seed=seed, n=n, corner=source_corner, mismatch_corner=mismatch_corner,
+        draws=draws, negctrl=negctrl, source_record_id=source_record_id, sample_netlist=snapshot,
     )
 
 
@@ -366,72 +408,33 @@ class TargetProvenance(NamedTuple):
 
 
 def target_provenance_prose(
-    target_limit_lsb: float, target_yield: float
+    target_limit_lsb: float, target_yield: float, unit_side_um: float = DR019_SIDE_UM
 ) -> TargetProvenance:
-    """Target-provenance prose for a record's **Claim** line and its `klt
-    yield` target description, keyed on the LIMIT actually used -- not on
-    whether the run is a reanalysis (issue #912). At
-    `DRAFT_INL_DNL_TARGET_LSB` the target is `spec/target-spec.md`'s DRAFT
-    INL/DNL row; at any other limit it is DR-007's CANDIDATE REVISED
-    proposal. DR-007 proposes 2.0 LSB, so describing a 1.0 LSB evaluation
-    as "DR-007's proposal" would write a false provenance claim about a
-    spec target into an append-only record. Returns a `TargetProvenance`
-    (see its docstring for the three fields). Both branches' Claim bodies
-    share the single DRAFT-vs-DR-007 predicate below, so the fresh branch
-    cannot drift from the reanalysis branch's attribution (issue #948:
-    the fresh branch's claim previously hardcoded the DRAFT row's limit)."""
-    limit = f"{target_limit_lsb:g} LSB"
+    """Name the evaluated limit and the plate represented in the simulated deck."""
+    limit = f"±{target_limit_lsb:g} LSB"
     if target_limit_lsb == DRAFT_INL_DNL_TARGET_LSB:
-        claim_body = (
-            "`spec/target-spec.md#target-table` -- INL/DNL row, re-scored "
-            f"against the DRAFT target ({limit}, target_yield="
-            f"{target_yield:g}) from `spec/target-spec.md`'s own INL/DNL row "
-            "(target value, NOT ratified: target-spec.md's own \"Not ratified "
-            "by this record\" list names ENOB/INL-DNL target values as still "
-            "open pending this Monte-Carlo campaign, issue #29). This record "
-            "supplies that re-scoring: the SAME underlying DNL/INL draws, "
-            "re-evaluated against that DRAFT row's own limit, inform (do not "
-            "by themselves ratify) the row's target value."
-        )
         target_desc = (
-            f"spec/target-spec.md's DRAFT (not ratified) INL/DNL target row (`<= +-{limit}`)"
+            f"the original DRAFT INL/DNL limit ({limit}) selected for the closure study "
+            "in issue #1016 and listed as the earlier value in `spec/target-spec.md#target-table`"
         )
-        fresh_claim_body = (
-            f"`spec/target-spec.md#target-table` -- DNL/INL DRAFT target row "
-            f"(`<= +-{limit}`, target value, NOT ratified: target-spec.md's own \"Not "
-            "ratified by this record\" list names ENOB/INL-DNL target values as still "
-            "open pending this Monte-Carlo campaign, issue #29). This record supplies "
-            "that campaign's DNL/INL evidence: mismatch-driven Monte Carlo statistics "
-            "of design/cdac/cdac_array.sch's own DAC transfer characteristic, in "
-            "isolation from the sampling front end, comparator, and SAR logic -- "
-            "informs, but (per #53's own precedent) does not by itself substantiate a "
-            "full end-to-end ADC DNL/INL claim (see the UNITS/scope note below)."
-        )
+    elif target_limit_lsb == 2.0:
+        target_desc = f"DR-007's CANDIDATE REVISED INL/DNL target ({limit}), pending ratification"
     else:
-        claim_body = (
-            "`spec/target-spec.md#target-table` -- INL/DNL row, re-scored "
-            f"against a CANDIDATE REVISED target ({limit}, target_yield="
-            f"{target_yield:g}) that issue #129's `spec/decision-records/DR-007-*.md` "
-            "proposes (evidence-derived, per #29's shortfall against the original DRAFT "
-            "`<= +-1 LSB` row -- see that record). This record supplies that re-scoring: "
-            "the SAME underlying DNL/INL draws, re-evaluated against the candidate revised "
-            "bound, informs (does not by itself ratify) DR-007's proposal."
-        )
-        target_desc = (
-            f"DR-007's CANDIDATE REVISED (proposed, not ratified) INL/DNL target "
-            f"(`<= +-{limit}`)"
-        )
-        fresh_claim_body = (
-            f"issue #129's `spec/decision-records/DR-007-*.md` CANDIDATE REVISED "
-            f"(proposed, not ratified) INL/DNL target (`<= +-{limit}`, "
-            "evidence-derived per issue #29's shortfall -- see that record). This "
-            "record supplies that campaign's DNL/INL evidence: mismatch-driven Monte "
-            "Carlo statistics of design/cdac/cdac_array.sch's own DAC transfer "
-            "characteristic, in isolation from the sampling front end, comparator, "
-            "and SAR logic -- informs, but (per #53's own precedent) does not by "
-            "itself substantiate a full end-to-end ADC DNL/INL claim (see the "
-            "UNITS/scope note below)."
-        )
+        target_desc = f"the user-specified INL/DNL study limit ({limit})"
+
+    dut = (
+        f"the generated CDAC study variant with {unit_side_um:.4f} um square unit plates"
+        if unit_side_um != DR019_SIDE_UM else
+        f"the generated CDAC array with the as-built {DR019_SIDE_UM:.4f} um square unit plates"
+    )
+    claim_body = (
+        f"Archived Monte Carlo draws for {dut} are re-scored against {target_desc} "
+        f"at target_yield={target_yield:g}. The measurements cover the isolated DAC transfer."
+    )
+    fresh_claim_body = (
+        f"Mismatch Monte Carlo measures the isolated DAC transfer of {dut} against {target_desc} "
+        f"at target_yield={target_yield:g}."
+    )
     return TargetProvenance(claim_body, target_desc, fresh_claim_body)
 
 
@@ -449,10 +452,38 @@ def reanalysis_prose_line(source_record_id: str) -> str:
         "derived/composite -- NO new ngspice invocation. Re-parses the already-committed "
         f"`mc-draws/{source_record_id}/`"
         f" logs from source record `sim/cdac-array-transfer/records/{source_record_id}.md` "
-        "(issue #29) with the SAME DNL/INL computation `_parse_draw()` uses, then re-runs "
+        "with the SAME DNL/INL computation `_parse_draw()` uses, then re-runs "
         "`klt yield` against the target limit named above -- mirrors "
         "`sim/enob-estimate/run_enob.py`'s own 'derived/composite' provenance convention."
     )
+
+
+def stdev_precision_prose(n: int) -> str:
+    """Evaluate the campaign's precision target for its estimated standard deviation."""
+    if n < 2:
+        return f"N={n} is too small to estimate the standard deviation."
+    rel_se_pct = 100.0 / (2 * (n - 1)) ** 0.5
+    verdict = "meeting" if rel_se_pct <= 10 else "exceeding"
+    return f"N={n} gives {rel_se_pct:.1f}%, {verdict} the 10% relative standard error limit."
+
+
+def _negative_control_measurements(negctrl_record: str) -> dict[str, list[float]]:
+    """Per-measurement known-bad sample lists for the `klt yield` envelope's
+    `negative_control` declaration (issue #1016), re-derived from a PRIOR
+    record's already-committed `mc-draws/<negctrl_record>/` logs with NO new
+    ngspice run. The envelope reports whether the declared control is
+    distinguishable from nominal in `negative_control.verdict`."""
+    record = EXPERIMENT_DIR / "records" / f"{negctrl_record}.md"
+    if not record.read_text().strip():
+        raise ValueError(f"empty negative-control record: {record}")
+    res = reanalyze_from_logs(negctrl_record)
+    for d in res.draws:
+        if not all(math.isfinite(level) for level in d.vdiff.values()):
+            raise ValueError(f"negative-control record {negctrl_record}: missing or invalid level at seed {d.seed}")
+    return {
+        "dnl_max_lsb": [d.dnl_max_lsb for d in res.draws],
+        "inl_max_lsb": [d.inl_max_lsb for d in res.draws],
+    }
 
 
 def write_evidence(
@@ -461,9 +492,12 @@ def write_evidence(
     target_limit_lsb: float = DRAFT_INL_DNL_TARGET_LSB,
     target_yield: float = 0.99,
     supersedes: str = "",
+    unit_side_um: float | None = None,
+    negctrl_record: str | None = None,
 ) -> tuple[Path, bool]:
-    sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed)
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, sample_netlist)
+    unit_side_um = plate_side_um(result.sample_netlist, unit_side_um)
+    negctrl_samples = _negative_control_measurements(negctrl_record) if negctrl_record is not None else None
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, result.sample_netlist)
     record_id = prov.record_id
     record_path = prov.record_path
     netlist_sha = prov.netlist_sha
@@ -489,31 +523,38 @@ def write_evidence(
     positive_ok = dnl_stdev > 0 and inl_stdev > 0
 
     n = result.n
-    rel_se_pct = 100.0 / (2 * (n - 1)) ** 0.5 if n > 1 else float("inf")
 
     yield_json_path = EXPERIMENT_DIR / "yield-reports" / f"{record_id}.json"
+    negctrl_desc = (
+        f"declared known-bad control: committed draws of record {negctrl_record} "
+        "(plate size and empirical yields are in that record). Declaration only -- "
+        "whether this envelope's statistics distinguish it from the nominal draw is "
+        "reported by negative_control.verdict, not asserted here"
+    ) if negctrl_samples else ""
+
+    def _measurement(name: str, samples: list[float]) -> dict:
+        m = {
+            "name": name,
+            "unit": "LSB",
+            "samples": samples,
+            "limits": {
+                "min": -target_limit_lsb,
+                "max": target_limit_lsb,
+                "target_yield": target_yield,
+            },
+        }
+        if negctrl_samples:
+            m["negative_control"] = {
+                "samples": negctrl_samples[name],
+                "errored": 0, "failed_unmeasurable": 0, "censored": 0,
+                "description": negctrl_desc,
+            }
+        return m
+
     yield_report = evidence.run_klt_yield(
         [
-            {
-                "name": "dnl_max_lsb",
-                "unit": "LSB",
-                "samples": dnl_draws,
-                "limits": {
-                    "min": -target_limit_lsb,
-                    "max": target_limit_lsb,
-                    "target_yield": target_yield,
-                },
-            },
-            {
-                "name": "inl_max_lsb",
-                "unit": "LSB",
-                "samples": inl_draws,
-                "limits": {
-                    "min": -target_limit_lsb,
-                    "max": target_limit_lsb,
-                    "target_yield": target_yield,
-                },
-            },
+            _measurement("dnl_max_lsb", dnl_draws),
+            _measurement("inl_max_lsb", inl_draws),
         ],
         yield_json_path,
     )
@@ -523,41 +564,59 @@ def write_evidence(
     a(f"# Monte Carlo record {record_id}")
     a("")
     a(f"- **Record ID**: {record_id}")
+    provenance = target_provenance_prose(target_limit_lsb, target_yield, unit_side_um)
     if result.source_record_id:
-        provenance = target_provenance_prose(target_limit_lsb, target_yield)
         a(f"- **Claim**: {provenance.claim_body}")
         a(f"- **Reanalysis, not a new simulation**: {reanalysis_prose_line(result.source_record_id)}")
+        a(f"- **Netlist provenance**: copied from `netlist-snapshots/{result.source_record_id}.spice`. "
+          f"All MiM unit plates in that source deck have W = L = {unit_side_um:.4f} um.")
     else:
+        a(f"- **Claim**: {provenance.fresh_claim_body}")
+        if unit_side_um != DR019_SIDE_UM:
+            a(
+                "- **Netlist provenance**: schematic, generated STUDY VARIANT -- unit-cap plate side "
+                f"resized to {unit_side_um:.4f} um (issue #1016 closure study; the as-committed "
+                "design/cdac/cdac_array.sch still carries DR-019's 1.9000 um plate -- this record "
+                "simulates the candidate, it does not implement it). Generated by "
+                "`sim/cdac-array-transfer/gen_fragment.py` (byte-for-byte verified against #53's "
+                "hand-authored fragment at the default 1.9000 um plate by "
+                "`sim/tests/test_cdac_fragment_gen.py`)."
+            )
+        else:
+            a(
+                "- **Netlist provenance**: schematic, generated (`sim/cdac-array-transfer/gen_fragment.py`, "
+                "verified byte-for-byte against #53's hand-authored `testbench/tb_cdac_array_transfer.spice` "
+                "for that fragment's own 5 codes -- see `sim/tests/test_cdac_fragment_gen.py`)"
+            )
+    if result.mismatch_corner == "tt_mm" and "libs.tech/combined/sky130.lib.spice" in result.sample_netlist:
+        a(f"- **Combined MiM card at tt_mm**: for the {unit_side_um:.4f} um square plate, "
+          f"nominal C = {tt_mim_cap_ff(unit_side_um):.3f} fF and sigma(C)/C = "
+          f"0.0047/(W + 0.150) = {100 * tt_mim_sigma(unit_side_um):.4f}% (W in um, mult=1). "
+          "The deck weights each bit with MF and m. The card's mult parameter retains its default of one.")
+    if negctrl_samples:
         a(
-            "- **Claim**: "
-            f"{target_provenance_prose(target_limit_lsb, target_yield).fresh_claim_body}"
-        )
-        a(
-            "- **Netlist provenance**: schematic, generated (`sim/cdac-array-transfer/gen_fragment.py`, "
-            "verified byte-for-byte against #53's hand-authored `testbench/tb_cdac_array_transfer.spice` "
-            "for that fragment's own 5 codes -- see `sim/tests/test_cdac_fragment_gen.py`)"
+            "- **Declared negative control (klt yield)**: the populations "
+            f"of committed record `sim/cdac-array-transfer/records/{negctrl_record}.md` "
+            "(re-derived from its committed mc-draws, no new ngspice run), declared as a known-bad "
+            "variant against the same limit. This is a declaration, not a result: whether the "
+            "envelope's statistics detect the degradation is the envelope's own "
+            "`negative_control.verdict` (see the klt yield section below)"
         )
     a(
         f"- **Statistical convention**: mismatch corner `{result.mismatch_corner}`, N={n}, "
         f"seed={result.seed} (draws use seed, seed+1, ..., seed+N-1), PVT point "
-        f"process={result.corner} temp={TEMP_C}C supply={NOMINAL_SUPPLY_V}V. **Subset-corner "
-        "justification**: nominal PVT point only -- a full corner x mismatch sweep multiplies "
-        "this campaign's cost by the corner count for a second-order refinement (mismatch "
-        "sigma varies only weakly with PVT relative to its own draw-to-draw spread); combining "
-        "with the item-5 PVT corner evidence (issue #28, sim/cdac-array-transfer/records/"
-        "20260827-213107-e13bc1e.md) covers the PVT axis for this same DUT (structural sizing "
-        "+ monotonicity across the full ratified corner set) -- this record adds the mismatch "
-        "axis at the nominal corner rather than re-deriving both simultaneously."
+        f"process={result.corner} temp={TEMP_C}C supply={NOMINAL_SUPPLY_V}V. "
+        f"The {unit_side_um:.4f} um plate was sampled at this PVT point only. "
+        "The separate five-code transfer sweeps checked structure and monotonicity at "
+        "1.8988 um (records/20260827-213107-e13bc1e.md) and 1.9000 um "
+        "(records/20261001-120402-d24f700.md). For the 3.3000 um candidate, #1033 "
+        "measured acquisition and bit-trial settling. Transfer monotonicity and mismatch "
+        "yield across corners remain unmeasured for that geometry."
     )
     a(
-        f"- **N justification**: target relative standard error on the estimated stdev <= 10%, "
-        f"via the standard result SE(s)/s ~= 1/sqrt(2(N-1)) for an approximately-Gaussian "
-        f"per-draw statistic; N={n} gives {rel_se_pct:.1f}%, meeting that target. This is NOT a "
-        "sample size adequate for a tight (+-1 percentage point) yield-fraction claim at 95% "
-        "confidence (that needs O(100s), see the klt yield sample-size verdict below) -- N is "
-        "sized for the distribution-shape claim this record makes, not chosen for runtime "
-        "convenience (stated honestly per sim/README.md, matching the sim/comparator-decision/ "
-        "offset record's own convention)."
+        "- **N justification**: for an approximately Gaussian per-draw statistic, the relative "
+        "standard error of the estimated standard deviation is SE(s)/s ~= 1/sqrt(2(N-1)). "
+        f"{stdev_precision_prose(n)} Yield confidence is assessed separately by `klt yield`."
     )
     a(
         "- **Linearity methodology**: `reduced-code-set-major-carry`, extended Monte Carlo "
@@ -592,7 +651,7 @@ def write_evidence(
         a(f"- **Note**: {note}")
     overall_ok = negctrl_ok and positive_ok
     a(f"- **Overall**: {'PASS' if overall_ok else 'FAIL'} (harness/negative-control validity; "
-      "DNL/INL magnitude itself is reported informationally below against the DRAFT target, "
+      "DNL/INL magnitude itself is reported informationally below against the selected limit, "
       "not gated as pass/fail -- the target row is not yet ratified)")
     a("")
     a("## DNL/INL distributions (mismatch-enabled draws, worst-case per draw across the sampled code set)")
@@ -612,9 +671,8 @@ def write_evidence(
     a("## Machine-checkable yield evidence (`klt yield`)")
     a("")
     if yield_report is not None:
-        target_desc = target_provenance_prose(target_limit_lsb, target_yield).target_desc
         a(
-            f"Against {target_desc}, target_yield={target_yield:g}, 95% confidence -- "
+            f"Against {provenance.target_desc}, target_yield={target_yield:g}, 95% confidence -- "
             "reported here as INFORMATIONAL evidence toward a future ratification decision "
             "record, NOT a pass/fail against a ratified spec/target-spec.md line (per "
             "CLAUDE.md, a DRAFT value is never quoted as if settled). Full JSON report: "
@@ -653,12 +711,11 @@ def write_evidence(
             "known, already-filed environment gap, not a new one filed by this record."
         )
         a("")
-    a(
-        "No spec row is relaxed to make this result pass or fail -- the target above is "
-        "quoted verbatim from its source (spec/target-spec.md's DRAFT row, or DR-007's "
-        "candidate revised proposal) and explicitly labeled DRAFT/candidate throughout, per "
-        "CLAUDE.md's 'do not invent settled numbers to replace the drafts' rule."
-    )
+    if target_limit_lsb == DRAFT_INL_DNL_TARGET_LSB:
+        a("Issue #1016 evaluates the historical ±1 LSB target. The INL/DNL row now lists "
+          "DR-007’s proposed ±2.0 LSB target. Ratification remains open.")
+    else:
+        a(f"This evaluation uses {provenance.target_desc}. Target ratification remains open.")
     a("")
     extra_env = {"MC seed": str(result.seed), "MC N": str(n)}
     if result.source_record_id:
@@ -684,8 +741,9 @@ ANALYTIC_GAIN_3SIGMA_LSB = 1.4191  # DR-003 Item 3 as updated by DR-019: 3*32*si
 def write_gain_error_evidence(result: McResult, supersedes: str = "", note: str = "") -> tuple[Path, bool]:
     """Mint a gain-error (mismatch half) record from a McResult, normally a
     `reanalyze_from_logs()` one. Informational: no spec row is touched."""
-    sample_netlist = build_netlist(pdk.resolve(), result.mismatch_corner, TEMP_C, NOMINAL_SUPPLY_V, result.seed)
-    prov = evidence.resolve_provenance(EXPERIMENT_DIR, sample_netlist)
+    if plate_side_um(result.sample_netlist) != DR019_SIDE_UM:
+        raise ValueError("gain-error evidence requires the 1.9000 um DR-019 plate for its analytic reference")
+    prov = evidence.resolve_provenance(EXPERIMENT_DIR, result.sample_netlist)
     g = gain_error_summary(result)
     n = result.n
     neg_spans = g["plain_span_v"]
@@ -812,7 +870,7 @@ def main() -> int:
     ap.add_argument("--record", action="store_true")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--n", type=int, default=50)
-    ap.add_argument("--corner", default=BASE_CORNER)
+    ap.add_argument("--corner", help="process corner (fresh run default: tt; reanalysis: source snapshot)")
     ap.add_argument("--note", default="")
     evidence.add_supersedes_argument(ap)
     ap.add_argument("--quiet", action="store_true")
@@ -832,11 +890,28 @@ def main() -> int:
     )
     ap.add_argument(
         "--target-limit-lsb", type=float, default=DRAFT_INL_DNL_TARGET_LSB,
-        help="candidate INL/DNL |limit| in ratified LSB for the klt yield evaluation (default: the DRAFT spec row's 1.0)",
+        help="candidate INL/DNL |limit| in ratified LSB for the klt yield evaluation (default: the original DRAFT limit of 1.0 LSB)",
     )
     ap.add_argument(
         "--target-yield", type=float, default=0.99,
         help="target_yield passed to klt yield (default: 0.99, matching the DRAFT spec row's convention)",
+    )
+    ap.add_argument(
+        "--unit-cap-side-um", type=float,
+        help=(
+            "MiM unit-cap plate side for a CANDIDATE-array study run (issue #1016). "
+            "Fresh runs default to DR-019's 1.9000 um plate. Reanalysis uses the "
+            "source snapshot and checks any explicit value against it. Other fresh-run "
+            "sizes simulate a resized array without editing design/cdac."
+        ),
+    )
+    ap.add_argument(
+        "--negative-control-record", default=None, metavar="RECORD_ID",
+        help=(
+            "declare a klt yield negative_control in the minted envelope, re-derived "
+            "from this prior record's committed mc-draws (issue #1016: the as-built "
+            "1.9000 um campaign is the known-bad control for a candidate-resize study)"
+        ),
     )
     args = ap.parse_args()
 
@@ -845,13 +920,21 @@ def main() -> int:
         print(f"PDK: found={info.found} variant={info.variant} error={info.error!r}")
         return 0 if info.found else 3
 
+    if args.negative_control_record is not None and (args.gain_error or not args.record):
+        ap.error("--negative-control-record requires a DNL/INL --record run")
     if args.reanalyze:
         result = reanalyze_from_logs(args.reanalyze, corner=args.corner)
+        plate_side_um(result.sample_netlist, args.unit_cap_side_um)
         if not args.quiet:
             for i, d in enumerate(result.draws):
                 print(f"  draw {i} (seed={d.seed}, {result.mismatch_corner}): DNLmax={d.dnl_max_lsb:.4f} LSB INLmax={d.inl_max_lsb:.4f} LSB")
     else:
-        result = run_mc(seed=args.seed, n=args.n, corner=args.corner, quiet=args.quiet)
+        side = DR019_SIDE_UM if args.unit_cap_side_um is None else args.unit_cap_side_um
+        if not math.isfinite(side) or side <= 0 or round(side, 4) == 0:
+            ap.error("unit plate must have a positive finite side at the deck's four-decimal precision")
+        if args.gain_error and side != DR019_SIDE_UM:
+            ap.error("gain-error evidence requires the 1.9000 um DR-019 plate")
+        result = run_mc(seed=args.seed, n=args.n, corner=args.corner or BASE_CORNER, quiet=args.quiet, unit_side_um=side)
     exit_code = 0
     if args.record and args.gain_error:
         record_path, ok = write_gain_error_evidence(result, supersedes=args.supersedes, note=args.note)
@@ -863,6 +946,7 @@ def main() -> int:
             result, note=args.note,
             target_limit_lsb=args.target_limit_lsb, target_yield=args.target_yield,
             supersedes=args.supersedes,
+            negctrl_record=args.negative_control_record,
         )
         print(f"wrote {record_path}")
         print("PASS" if ok else "FAIL")
@@ -871,4 +955,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except (OSError, ValueError) as exc:
+        sys.exit(f"error: {exc}")
