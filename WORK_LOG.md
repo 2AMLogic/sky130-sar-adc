@@ -6,6 +6,11 @@ Merged pull requests and closed issues from the preceding 30 days. Entries recor
 
 - [2026-09](work_log/WORK_LOG_2026-09.md)
 
+### 2026-11-27
+
+- **PR #1106**: refactor(sim): add _usage_error() to the supply-impedance runner
+- **Issue #1105** (closed): Consolidate 39 repeated CLI error returns in the supply-impedance runner
+
 ### 2026-11-26
 
 - **PR #1097**: fix(sim): share executing-worker environment in klt_sim
