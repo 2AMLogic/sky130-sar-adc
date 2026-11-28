@@ -92,7 +92,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "bin"))
 
 from _geometry_common import DBU, nm  # noqa: E402
 from _geometry_common import Rect as _Rect  # noqa: E402
+from _geometry_common import compose_request as _compose_request  # noqa: E402
+from _geometry_common import draw_request as _draw_request  # noqa: E402
 from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
+from _geometry_common import write_build_artifacts  # noqa: E402
 
 # --- layer table (sky130A GDS numbers, as klt's own curated deck names them) --
 # L_TAP/L_LICON/L_LI1 (the tap/well-tie structure's own layers) and
@@ -696,31 +699,9 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
 
     router.finish_trunks()
 
-    draw_params = {
-        "shapes": [
-            {"layer": list(layer), "rect_um": rect.as_um()} for layer, rect in router.shapes
-        ],
-        "labels": [
-            {"layer": list(layer), "text": text, "at_um": [x, y]}
-            for layer, text, x, y in router.labels
-        ],
-    }
+    draw_params = _draw_request(router.shapes, router.labels)
 
-    order = list(BLOCK_X) + ["route"]
-    compose_request = {
-        "schema": "klt.gen_compose.request/1",
-        "pdk": {"variant": "sky130A"},
-        "blocks": [{"id": bid, "generator_report": f"{bid}.json"} for bid in BLOCK_X]
-        + [{"id": "route", "generator_report": "draw.json"}],
-        "placement": {
-            "strategy": "explicit",
-            "order": order,
-            "origins_um": {**origins, "route": {"x": 0.0, "y": 0.0}},
-        },
-        # Deliberately no `routing` block: `klt gen-compose` is used here purely
-        # as a placer.  Every wire is in the `route` block above.
-        "connectivity": [],
-    }
+    compose_request = _compose_request(origins, list(BLOCK_X))
 
     per_net = router.summary()
     route_summary = {
@@ -768,16 +749,12 @@ def main() -> int:
     args = parser.parse_args()
 
     draw_params, compose_request, route_summary = build(args.reports_dir)
-    (args.reports_dir / "draw.request.json").write_text(json.dumps(draw_params, indent=2) + "\n")
-    (args.reports_dir / "compose.request.json").write_text(
-        json.dumps(compose_request, indent=2) + "\n"
-    )
-    (args.reports_dir / "route.summary.json").write_text(
-        json.dumps(route_summary, indent=2) + "\n"
-    )
-    print(
-        f"build_layout.py: {len(draw_params['shapes'])} shapes, "
-        f"{len(draw_params['labels'])} labels, {len(compose_request['blocks'])} blocks"
+    write_build_artifacts(
+        args.reports_dir,
+        draw_params,
+        compose_request,
+        route_summary,
+        "route.summary.json",
     )
     for entry in route_summary["differential_symmetry"]:
         print(

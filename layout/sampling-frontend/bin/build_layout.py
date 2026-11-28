@@ -112,7 +112,6 @@ and met2 are unused by every block, so this module owns both outright.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -123,9 +122,14 @@ from _geometry_common import BuildError  # noqa: E402
 from _geometry_common import Rect  # noqa: E402
 from _geometry_common import _assert_column_pitch as _assert_column_pitch_shared  # noqa: E402
 from _geometry_common import _assert_well_isolation as _assert_well_isolation_shared  # noqa: E402
+from _geometry_common import compose_request as _compose_request  # noqa: E402
+from _geometry_common import draw_request as _draw_request  # noqa: E402
 from _geometry_common import floorplan_pfet_well_islands  # noqa: E402
+from _geometry_common import load_block  # noqa: E402
 from _geometry_common import step_down_to_met1  # noqa: E402
+from _geometry_common import summarize_pfet_domains  # noqa: E402
 from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
+from _geometry_common import write_build_artifacts  # noqa: E402
 from gen_blocks import (  # noqa: E402
     CAP_DEVICES,
     DOMAIN_TAP_NET,
@@ -292,23 +296,6 @@ PIN_NETS = (
 INTERNAL_BODY_TIE_LABELS = ("BOOST_P", "BOOST_N")
 
 
-def load_block(report_path: Path) -> dict:
-    """Read a `klt gen` report -> ``{"ports": {name: (x, y, width, dir, layer)},
-    "bbox"}``."""
-    report = json.loads(report_path.read_text())
-    ports = {}
-    for port in report["ports"]:
-        layer = (port["layer"]["layer"], port["layer"]["datatype"])
-        ports[port["name"]] = (
-            port["x_um"],
-            port["y_um"],
-            port["width_um"],
-            port["direction_deg"],
-            layer,
-        )
-    return {"ports": ports, "bbox": report["bbox_um"]}
-
-
 # --------------------------------------------------------------------------- #
 # Row 1: PFETs, unchanged from layout/sampling-frontend-wells/ -- and since
 # issue #909 literally the same code, not a second copy of it: the plan lives
@@ -466,27 +453,11 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
             "pin_count": len(xs),
         }
 
-    draw_params = {
-        "shapes": [{"layer": list(layer), "rect_um": rect.as_um()} for layer, rect in shapes],
-        "labels": [
-            {"layer": list(layer), "text": text, "at_um": [x, y]} for layer, text, x, y in labels
-        ],
-    }
+    draw_params = _draw_request(shapes, labels)
 
-    order = list(origins) + ["route"]
-    compose_request = {
-        "schema": "klt.gen_compose.request/1",
-        "pdk": {"variant": "sky130A"},
-        "blocks": [{"id": bid, "generator_report": f"{bid}.json"} for bid in origins]
-        + [{"id": "route", "generator_report": "draw.json"}],
-        "placement": {
-            "strategy": "explicit",
-            "order": order,
-            "origins_um": {**origins, "route": {"x": 0.0, "y": 0.0}},
-        },
-        "connectivity": [],
-    }
+    compose_request = _compose_request(origins)
 
+    domains_summary, island_gaps_um = summarize_pfet_domains(domains, PFET_DEVICES)
     layout_summary = {
         "row1_x_range_um": [0.0, row1_x1],
         "row2_x_range_um": [row2_x0, row2_x1],
@@ -494,22 +465,8 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
         "track_y0_um": track_y0,
         "well_gap_drawn_um": WELL_GAP_UM,
         "nwell_2a_rule_um": 1.27,
-        "domains": [
-            {
-                "id": domain["id"],
-                "tap_net": domain["net"],
-                "members": domain["members"],
-                "schematic_devices": [
-                    row[1] for row in PFET_DEVICES if row[2] == domain["id"]
-                ],
-                "well_um": {k: round(v, 3) for k, v in domain["well"].items()},
-                "tap_um": {k: round(v, 3) for k, v in domain["tap"].items()},
-            }
-            for domain in domains
-        ],
-        "island_gaps_um": [
-            round(b["well"]["x0"] - a["well"]["x1"], 3) for a, b in zip(domains, domains[1:])
-        ],
+        "domains": domains_summary,
+        "island_gaps_um": island_gaps_um,
         "substrate_tap_um": {k: round(v, 3) for k, v in substrate_tap_spec.items()},
         "block_origins_um": origins,
         "nets": summary_nets,
@@ -517,14 +474,29 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
     return draw_params, compose_request, layout_summary
 
 
-def _route_mos_pins(shapes, add_column, block, origin, prefix, d_net, g_net, s_net) -> None:
-    """Route one device's D/G/S pins: mcon to met1, jog by direction, add a
-    column for the shared per-net met2 track pass to pick up later."""
+def _route_pins(
+    shapes,
+    add_column,
+    block,
+    origin,
+    pins,
+    met4_escape_y: float | None = None,
+) -> None:
+    """Walk one block's named ports down to met1, jog each by the direction
+    it faces, and add a column for the shared per-net met2 track pass to pick
+    up later.
+
+    ``pins`` is ``[(port suffix, net)]`` in the order the ports are routed;
+    ``met4_escape_y`` is `step_down_to_met1`'s own, and is only ever a cap
+    unit's (see `_route_cap_pins`).
+    """
     ox, oy = origin["x"], origin["y"]
-    for suffix, net in ((f"{prefix}_D", d_net), (f"{prefix}_G", g_net), (f"{prefix}_S", s_net)):
+    for suffix, net in pins:
         x, y, _width, direction, layer = block["ports"][suffix]
         px, py = ox + x, oy + y
-        px, py = step_down_to_met1(shapes, px, py, layer, direction)
+        px, py = step_down_to_met1(
+            shapes, px, py, layer, direction, met4_escape_y=met4_escape_y
+        )
         if direction == 180.0:  # faces -x: jog left
             col_x = px - CHANNEL_LEFT_UM
         elif direction == 0.0:  # faces +x: jog right
@@ -536,24 +508,30 @@ def _route_mos_pins(shapes, add_column, block, origin, prefix, d_net, g_net, s_n
         add_column(net, col_x, py)
 
 
+def _route_mos_pins(shapes, add_column, block, origin, prefix, d_net, g_net, s_net) -> None:
+    """Route one device's D/G/S pins: mcon to met1, jog by direction, add a
+    column for the shared per-net met2 track pass to pick up later."""
+    _route_pins(
+        shapes,
+        add_column,
+        block,
+        origin,
+        ((f"{prefix}_D", d_net), (f"{prefix}_G", g_net), (f"{prefix}_S", s_net)),
+    )
+
+
 def _route_cap_pins(shapes, add_column, block, origin, unit_index, top_net, bot_net) -> None:
-    ox, oy = origin["x"], origin["y"]
     # Above the whole cell's own bbox top (the bottom plate's own met3 sheet
     # spans that full height) -- see step_down_to_met1's L_MET4 case.
-    escape_y = oy + block["bbox"]["y1"] + CAP_MET4_ESCAPE_MARGIN_UM
-    for suffix, net in ((f"C{unit_index}_TOP", top_net), (f"C{unit_index}_BOT", bot_net)):
-        x, y, _width, direction, layer = block["ports"][suffix]
-        px, py = ox + x, oy + y
-        px, py = step_down_to_met1(shapes, px, py, layer, direction, met4_escape_y=escape_y)
-        if direction == 180.0:
-            col_x = px - CHANNEL_LEFT_UM
-        elif direction == 0.0:
-            col_x = px + CHANNEL_RIGHT_UM
-        else:
-            col_x = px
-        if abs(col_x - px) > 1e-9:
-            shapes.append((L_MET1, Rect.hwire(px, col_x, py)))
-        add_column(net, col_x, py)
+    escape_y = origin["y"] + block["bbox"]["y1"] + CAP_MET4_ESCAPE_MARGIN_UM
+    _route_pins(
+        shapes,
+        add_column,
+        block,
+        origin,
+        ((f"C{unit_index}_TOP", top_net), (f"C{unit_index}_BOT", bot_net)),
+        met4_escape_y=escape_y,
+    )
 
 
 def main() -> int:
@@ -562,12 +540,12 @@ def main() -> int:
     args = parser.parse_args()
 
     draw_params, compose_request, layout_summary = build(args.reports_dir)
-    (args.reports_dir / "draw.request.json").write_text(json.dumps(draw_params, indent=2) + "\n")
-    (args.reports_dir / "compose.request.json").write_text(json.dumps(compose_request, indent=2) + "\n")
-    (args.reports_dir / "layout.summary.json").write_text(json.dumps(layout_summary, indent=2) + "\n")
-    print(
-        f"build_layout.py: {len(draw_params['shapes'])} shapes, "
-        f"{len(draw_params['labels'])} labels, {len(compose_request['blocks'])} blocks"
+    write_build_artifacts(
+        args.reports_dir,
+        draw_params,
+        compose_request,
+        layout_summary,
+        "layout.summary.json",
     )
     for domain in layout_summary["domains"]:
         well = domain["well_um"]
