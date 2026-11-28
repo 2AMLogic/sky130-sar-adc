@@ -49,6 +49,12 @@ Design decisions this module encodes (each cited where it is enforced):
   on a missing PDK), so this is the one copy every flow calls -- with
   comparator's richer `--check-env` semantics for all three. Each block
   script keeps only its testbenches, analysis and record prose.
+- **One copy of the per-block flow steps and record blocks.** The request
+  shape, the extract -> interface-assert -> one `klt pex` submit sequence
+  with its `.klt/` scratch lifecycle, and the record's `## Provenance` block
+  and extracted net R/C table live here too (issue #1107): the three
+  per-block copies had drifted -- only comparator's record cited the repo
+  commit -- and the scratch subtree was removed on the happy path only.
 """
 
 from __future__ import annotations
@@ -58,6 +64,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -213,8 +220,8 @@ def klt_pex_argv(
     breaks the extracted-side `.include` once `klt sim` runs ngspice from a
     per-corner directory). Only the GDS, the request filename and the scratch
     names vary per call (`extracted_name`/`outdir_name` carry the
-    comparator's per-tag suffixes). The caller owns `work_dir/.klt`'s
-    existence and removes the subtree when the run is done."""
+    comparator's per-tag suffixes). `run_pex_step` owns `work_dir/.klt`'s
+    existence and removes the subtree when its call is done."""
     return [
         "pex",
         str(gds_path),
@@ -502,6 +509,193 @@ def apply_capacity_wait(request: dict) -> dict:
         request = dict(request)
         request["batch"] = {**(request.get("batch") or {}), "capacity_wait_s": float(wait)}
     return request
+
+
+# ---------------------------------------------------------------------------
+# Shared block-flow steps and record blocks (issue #1107): what each of the
+# three run_pex.py scripts ran its own copy of, in the order a flow runs it.
+# ---------------------------------------------------------------------------
+
+
+def build_pex_request(
+    points: Sequence[OatPoint],
+    *,
+    analysis_args: str,
+    measurements: list[dict],
+    timeout_s: int,
+) -> dict:
+    """The `klt pex` request every block flow submits: `testbench.spice` on
+    the pinned sky130A model library, carved to `points`' OAT star. Only the
+    transient window, the `.meas` rows and the per-corner timeout are the
+    block's."""
+    corners, exclude = build_corners_spec(points)
+    return {
+        "netlist": "testbench.spice",
+        "engine": "ngspice",
+        "models": {"pdk": "sky130A", "lib": "libs.tech/combined/sky130.lib.spice"},
+        "corners": corners,
+        "exclude": exclude,
+        "analysis": {"kind": "tran", "args": analysis_args},
+        "measurements": measurements,
+        "options": {"timeout_s": timeout_s, "keep_artifacts": False},
+    }
+
+
+def extract_and_check_interface(
+    gds_path: Path,
+    work_dir: Path,
+    spice_name: str,
+    info: pdk.PdkInfo,
+    expected_subckt: str,
+    expected_pins: Sequence[str],
+    *,
+    drift_hint: str,
+    quiet: bool = False,
+) -> dict:
+    """Steps 1-2 of every block flow: `extract_parasitics()` into
+    `work_dir/spice_name`, archive the envelope as `work_dir/extract.json`,
+    and assert the extraction's top `.SUBCKT` still declares
+    `(expected_subckt, expected_pins)`.
+
+    The committed testbench instantiates the DUT positionally, so a re-draw
+    that renames or reorders a pin fails here, before anything simulates,
+    instead of silently permuting nets on both legs. `drift_hint` is the
+    block's own remediation line; the envelope is archived first either way
+    (the drift is itself evidence). Returns the envelope.
+    """
+    extract_json = extract_parasitics(gds_path, work_dir, spice_name, info, quiet=quiet)
+    (work_dir / "extract.json").write_text(json.dumps(extract_json, indent=2) + "\n")
+    name, pins = extracted_subckt(work_dir / spice_name)
+    expected_pins = list(expected_pins)
+    if name != expected_subckt or pins != expected_pins:
+        raise PexFlowError(
+            "extracted interface drifted from the one the committed testbench "
+            "hardcodes:\n"
+            f"  got .SUBCKT {name} {' '.join(pins)}\n"
+            f"  want .SUBCKT {expected_subckt} {' '.join(expected_pins)}\n"
+            f"{drift_hint}"
+        )
+    return extract_json
+
+
+def run_pex_step(
+    gds_path: str | Path,
+    request: dict,
+    work_dir: Path,
+    info: pdk.PdkInfo,
+    *,
+    backend: str,
+    request_name: str = "pex_request.json",
+    result_name: str = "pex.json",
+    extracted_name: str = "pex-extracted.spice",
+    outdir_name: str = "pex",
+    quiet: bool = False,
+) -> dict:
+    """One `klt pex` call: write the request as run (after
+    `apply_capacity_wait`) to `work_dir/request_name`, submit it on
+    `backend`, archive the JSON response as `work_dir/result_name`, and
+    return it -- the `status != "pass"` report stays with the block, whose
+    stderr line names the call. The tagged names carry comparator's
+    two-call suffixes.
+
+    The `.klt/` scratch subtree under `work_dir` lives exactly as long as
+    the call: created here, removed on every exit, so a failed `--record`
+    leaves no per-corner scratch beside its evidence files.
+    """
+    request = apply_capacity_wait(request)
+    (work_dir / request_name).write_text(json.dumps(request, indent=2) + "\n")
+    (work_dir / ".klt").mkdir(exist_ok=True)
+    try:
+        pex_json = run_klt(
+            klt_pex_argv(
+                gds_path, request_name, info, work_dir,
+                extracted_name=extracted_name, outdir_name=outdir_name, backend=backend,
+            ),
+            cwd=work_dir,
+            backend=backend,
+            quiet=quiet,
+        )
+    finally:
+        shutil.rmtree(work_dir / ".klt", ignore_errors=True)
+    (work_dir / result_name).write_text(json.dumps(pex_json, indent=2) + "\n")
+    return pex_json
+
+
+def render_provenance_lines(
+    extract_json: dict,
+    pex_json: dict,
+    *,
+    block_name: str,
+    gds_name: str,
+    latest_id: str,
+    body_bias_suffix: str = "",
+    vsubs_note: str | None = None,
+) -> list[str]:
+    """The record's `## Provenance` block as a complete list of lines
+    (heading, bullets, trailing blank), ready to extend a record's lines
+    with: the `klt` and KLayout engines, the PDK and deck content hash, the
+    repo commit (`evidence.git_info()`; comparator's was the only record
+    that cited it), the layout source, the `body_bias.status` gate, klt
+    pex's own `extraction.model` scope note and, when given, the floating
+    substrate disclosure.
+
+    `body_bias` and `extraction.model` are read from `pex_json` (comparator
+    passes its zero request's response). `body_bias_suffix` continues the
+    body-bias bullet and `vsubs_note` is the text after that bullet's bold
+    `**Floating substrate net**:` label; None omits the bullet.
+    """
+    prov = extract_json["provenance"]
+    body_bias = pex_json.get("body_bias", {})
+    model = pex_json.get("extraction", {}).get("model", {})
+    git = evidence.git_info()
+    body_bias_line = (
+        f"- `body_bias.status`: **{body_bias.get('status', 'n/a')}** "
+        f"({body_bias.get('unbiased_device_count', 0)} unbiased PMOS body nets) -- "
+        "checked before any number below is read; an anonymous body net would make "
+        "the extracted leg's resimulation physically wrong, not merely imprecise"
+    )
+    if body_bias_suffix:
+        body_bias_line += f". {body_bias_suffix}"
+    lines = [
+        "## Provenance",
+        "",
+        f"- {klt_version_note(prov['klt_version'])}",
+        f"- KLayout engine: {prov['klayout_version']}",
+        f"- PDK: {prov['pdk']['name']} ({prov['pdk']['version']})",
+        f"- Extraction deck content hash: `{prov['deck']['content_hash']}`",
+        f"- repo commit: `{git.commit}` on `{git.branch}`"
+        + (" (dirty)" if git.dirty else " (clean)"),
+        (
+            f"- layout source: `layout/{block_name}/reports/{latest_id}/{gds_name}` "
+            "(this flow only reads `reports/LATEST`, never moves it)"
+        ),
+        body_bias_line,
+        (
+            "- `extraction.model` (klt pex's own scope note): capacitance = "
+            f"{model.get('capacitance', 'n/a')}"
+        ),
+    ]
+    if vsubs_note is not None:
+        lines.append(f"- **Floating substrate net**: {vsubs_note}")
+    lines.append("")
+    return lines
+
+
+def render_net_rc_table(nets: dict[str, dict[str, float]], order: Sequence[str]) -> list[str]:
+    """The record's extracted net R/C table -- header, separator, then one
+    row per net in `order` from `net_table()` rows. A net the extraction did
+    not report renders as a zero row rather than a missing one."""
+    lines = [
+        "| Net | R (ohm) | C to ground (fF) | C coupled, total (fF) | C total (fF) |",
+        "|---|---|---|---|---|",
+    ]
+    for n in order:
+        t = nets.get(n, {})
+        lines.append(
+            f"| {n} | {t.get('r_ohm', 0):.2f} | {t.get('c_ground_ff', 0):.4f} "
+            f"| {t.get('c_coupled_total_ff', 0):.4f} | {t.get('c_total_ff', 0):.4f} |"
+        )
+    return lines
 
 
 # ---------------------------------------------------------------------------

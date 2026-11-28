@@ -151,17 +151,12 @@ def measurements() -> list[dict]:
 
 
 def build_request(points) -> dict:
-    corners, exclude = pex_flow.build_corners_spec(points)
-    return {
-        "netlist": "testbench.spice",
-        "engine": "ngspice",
-        "models": {"pdk": "sky130A", "lib": "libs.tech/combined/sky130.lib.spice"},
-        "corners": corners,
-        "exclude": exclude,
-        "analysis": {"kind": "tran", "args": f"{TRAN_STEP_NS}n {TRAN_STOP_NS}n"},
-        "measurements": measurements(),
-        "options": {"timeout_s": 900, "keep_artifacts": False},
-    }
+    return pex_flow.build_pex_request(
+        points,
+        analysis_args=f"{TRAN_STEP_NS}n {TRAN_STOP_NS}n",
+        measurements=measurements(),
+        timeout_s=900,
+    )
 
 
 def oat_points(pilot: bool):
@@ -178,43 +173,25 @@ def run(work_dir: Path, backend: str, pilot: bool, record: bool, quiet: bool = F
     gds_path, latest_id = pex_flow.latest_layout(BLOCK_DIR, GDS_NAME)
 
     work_dir.mkdir(parents=True, exist_ok=True)
-    gds_rel = str(gds_path.resolve())
+    gds_abs = str(gds_path.resolve())
 
-    # --- Step 1: klt extract --parasitics (per-net R/C table) --------------
-    extract_json = pex_flow.extract_parasitics(
-        Path(gds_rel), work_dir, "sampling_frontend.pex-extract.spice", info, quiet=quiet
+    # --- Steps 1-2: klt extract --parasitics (per-net R/C table), the
+    # extracted interface asserted against testbench.spice's hardcoded one --
+    extract_json = pex_flow.extract_and_check_interface(
+        Path(gds_abs), work_dir, "sampling_frontend.pex-extract.spice", info,
+        EXPECTED_SUBCKT, EXPECTED_PINS,
+        drift_hint="Re-derive testbench.spice's Xdut line against the new pin list.",
+        quiet=quiet,
     )
-    (work_dir / "extract.json").write_text(json.dumps(extract_json, indent=2) + "\n")
-
-    # --- Step 2: schematic DUT, wrapped in the extraction's own interface --
-    name, pins = pex_flow.extracted_subckt(work_dir / "sampling_frontend.pex-extract.spice")
-    if name != EXPECTED_SUBCKT or pins != EXPECTED_PINS:
-        raise pex_flow.PexFlowError(
-            f"extracted interface drifted from testbench.spice's hardcoded one:\n"
-            f"  got .SUBCKT {name} {' '.join(pins)}\n"
-            f"  want .SUBCKT {EXPECTED_SUBCKT} {' '.join(EXPECTED_PINS)}\n"
-            f"Re-derive testbench.spice's Xdut line against the new pin list."
-        )
-    dut = pex_flow.wrap_dut(dut_fragment(), name, pins, "*")
+    dut = pex_flow.wrap_dut(dut_fragment(), EXPECTED_SUBCKT, EXPECTED_PINS, "*")
     (work_dir / "sampling_frontend_pex_reference.spice").write_text(dut)
 
     # --- Step 3: klt pex -- both legs, all corners, one call ---------------
     shutil.copy(PEX_DIR / "testbench.spice", work_dir / "testbench.spice")
-    points = oat_points(pilot)
-    request = pex_flow.apply_capacity_wait(build_request(points))
-    (work_dir / "pex_request.json").write_text(json.dumps(request, indent=2) + "\n")
-
-    (work_dir / ".klt").mkdir(exist_ok=True)
-    pex_json = pex_flow.run_klt(
-        pex_flow.klt_pex_argv(
-            gds_rel, "pex_request.json", info, work_dir,
-            extracted_name="pex-extracted.spice", outdir_name="pex", backend=backend,
-        ),
-        cwd=work_dir,
-        backend=backend,
-        quiet=quiet,
+    pex_json = pex_flow.run_pex_step(
+        gds_abs, build_request(oat_points(pilot)), work_dir, info,
+        backend=backend, quiet=quiet,
     )
-    (work_dir / "pex.json").write_text(json.dumps(pex_json, indent=2) + "\n")
     if pex_json.get("status") != "pass":
         print(f"klt pex did not pass: {json.dumps(pex_json)[:800]}", file=sys.stderr)
         return 1
@@ -225,7 +202,6 @@ def run(work_dir: Path, backend: str, pilot: bool, record: bool, quiet: bool = F
     if record:
         path = write_record(work_dir, latest_id, extract_json, pex_json, analysis)
         print(f"wrote {path}")
-    shutil.rmtree(work_dir / ".klt", ignore_errors=True)
     return 0
 
 
@@ -286,14 +262,19 @@ def write_record(
     out = work_dir
     record_id = out.name
 
-    prov = extract_json["provenance"]
-    body_bias = pex_json.get("body_bias", {})
-    model = pex_json.get("extraction", {}).get("model", {})
     nets = pex_flow.net_table(
         extract_json,
         {"TOP_P", "TOP_N", "BOOST_P", "BOOST_N", "BPREF_P", "BPREF_N"},
     )
-    vsubs_present = ".GLOBAL vsubs" in (out / "sampling_frontend.pex-extract.spice").read_text()
+    vsubs_note = None
+    if ".GLOBAL vsubs" in (out / "sampling_frontend.pex-extract.spice").read_text():
+        vsubs_note = (
+            "same condition as the CDAC record of this "
+            "issue -- the extracted netlist declares `.GLOBAL vsubs` with no DC tie "
+            "(klayout-tools#7066); the extracted leg's absolute node voltages include "
+            "the substrate node's own motion. The sch-vs-ext delta rows below mix "
+            "that artifact with the layout's own parasitics."
+        )
 
     worst_budget = None
     worst_delta_mv = 0.0
@@ -327,46 +308,27 @@ def write_record(
         "reproduce."
     )
     a("")
-    a("## Provenance")
-    a("")
-    a(f"- {pex_flow.klt_version_note(prov['klt_version'])}")
-    a(f"- KLayout engine: {prov['klayout_version']}")
-    a(f"- PDK: {prov['pdk']['name']} ({prov['pdk']['version']})")
-    a(f"- Extraction deck content hash: `{prov['deck']['content_hash']}`")
-    a(
-        f"- layout source: `layout/sampling-frontend/reports/{latest_id}/sampling_frontend.gds` "
-        "(this flow only reads `reports/LATEST`, never moves it)"
-    )
-    a(f"- `body_bias.status`: **{body_bias.get('status', 'n/a')}** "
-      f"({body_bias.get('unbiased_device_count', 0)} unbiased PMOS body nets) -- "
-      "checked before any number below is read; an anonymous body net would make "
-      "the extracted leg's resimulation physically wrong, not merely imprecise. "
-      "This block's PFET bodies deliberately sit on BOOST_P/BOOST_N islands "
-      "(DR-004/DR-007), which the extracted netlist resolves from the drawn wells."
-    )
-    a(
-        "- `extraction.model` (klt pex's own scope note): capacitance = "
-        f"{model.get('capacitance', 'n/a')}"
-    )
-    if vsubs_present:
-        a(
-            "- **Floating substrate net**: same condition as the CDAC record of this "
-            "issue -- the extracted netlist declares `.GLOBAL vsubs` with no DC tie "
-            "(klayout-tools#7066); the extracted leg's absolute node voltages include "
-            "the substrate node's own motion. The sch-vs-ext delta rows below mix "
-            "that artifact with the layout's own parasitics."
+    lines.extend(
+        pex_flow.render_provenance_lines(
+            extract_json,
+            pex_json,
+            block_name=BLOCK_DIR.name,
+            gds_name=GDS_NAME,
+            latest_id=latest_id,
+            body_bias_suffix=(
+                "This block's PFET bodies deliberately sit on BOOST_P/BOOST_N islands "
+                "(DR-004/DR-007), which the extracted netlist resolves from the drawn wells."
+            ),
+            vsubs_note=vsubs_note,
         )
-    a("")
+    )
     a("## Extracted net R/C table (the nets the delta rows read through)")
     a("")
-    a("| Net | R (ohm) | C to ground (fF) | C coupled, total (fF) | C total (fF) |")
-    a("|---|---|---|---|---|")
-    for n in ("TOP_P", "TOP_N", "BOOST_P", "BOOST_N", "BPREF_P", "BPREF_N"):
-        t = nets.get(n, {})
-        a(
-            f"| {n} | {t.get('r_ohm', 0):.2f} | {t.get('c_ground_ff', 0):.4f} "
-            f"| {t.get('c_coupled_total_ff', 0):.4f} | {t.get('c_total_ff', 0):.4f} |"
+    lines.extend(
+        pex_flow.render_net_rc_table(
+            nets, ("TOP_P", "TOP_N", "BOOST_P", "BOOST_N", "BPREF_P", "BPREF_N")
         )
+    )
     a("")
     a("## Schematic-vs-extracted settling delta (per corner)")
     a("")
