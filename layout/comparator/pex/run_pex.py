@@ -53,17 +53,14 @@ sys.path.insert(0, str(PEX_DIR.parents[2] / "sim"))
 
 import pex_flow  # noqa: E402
 
-from harness import evidence  # noqa: E402
-
 BLOCK_DIR = PEX_DIR.parent
 REPORTS_DIR = BLOCK_DIR / "reports"
-OFFSET_RECORD = (
-    PEX_DIR.parents[2] / "sim" / "comparator-decision" / "records" / "20260821-071918-433a294.md"
-)
 # Device-mismatch-only offset this PEX record's routing-driven component is
-# compared against (see OFFSET_RECORD's own N=16/seed=1/tt_mm numbers) --
-# restated here, not re-derived, purely so record.md can cite a fixed
-# number even if a future N-adequate campaign supersedes that record.
+# compared against -- the N=16/seed=1/tt_mm numbers of
+# sim/comparator-decision/records/20260821-071918-433a294.md, the record
+# AC4 below cites inline -- restated here, not re-derived, purely so
+# record.md can cite a fixed number even if a future N-adequate campaign
+# supersedes that record.
 OFFSET_MISMATCH_MEAN_MV = 35.24
 OFFSET_MISMATCH_STDEV_MV = 97.08
 
@@ -106,15 +103,10 @@ def oat_points(pilot: bool):
 
 
 def build_request(points) -> dict:
-    corners, exclude = pex_flow.build_corners_spec(points)
-    return {
-        "netlist": "testbench.spice",
-        "engine": "ngspice",
-        "models": {"pdk": "sky130A", "lib": "libs.tech/combined/sky130.lib.spice"},
-        "corners": corners,
-        "exclude": exclude,
-        "analysis": {"kind": "tran", "args": "0.002n 6.6n"},
-        "measurements": [
+    return pex_flow.build_pex_request(
+        points,
+        analysis_args="0.002n 6.6n",
+        measurements=[
             {
                 "name": "outp_pickoff",
                 "spice": f".meas tran outp_pickoff find v(OUTP) at={PICKOFF_AT_NS}n",
@@ -126,8 +118,8 @@ def build_request(points) -> dict:
                 "unit": "V",
             },
         ],
-        "options": {"timeout_s": 120, "keep_artifacts": False},
-    }
+        timeout_s=120,
+    )
 
 
 def reference_subckt() -> tuple[str, list[str]]:
@@ -143,23 +135,16 @@ def run(work_dir: Path, backend: str, pilot: bool, record: bool, quiet: bool = F
     work_dir.mkdir(parents=True, exist_ok=True)
     gds_abs = str(gds_path.resolve())
 
-    # --- Step 1: `klt extract --parasitics` for the full per-net R/C table --
-    extract_json = pex_flow.extract_parasitics(
-        Path(gds_abs), work_dir, "comparator.pex-extract.spice", info, quiet=quiet
-    )
-    (work_dir / "extract.json").write_text(json.dumps(extract_json, indent=2) + "\n")
-
-    # --- Step 2: assert the extraction still declares the reference wrap's
-    # interface (the committed testbench's Xdut line is positional) --------
-    name, pins = pex_flow.extracted_subckt(work_dir / "comparator.pex-extract.spice")
+    # --- Steps 1-2: `klt extract --parasitics` for the full per-net R/C
+    # table, the extracted interface asserted against the committed schematic
+    # wrap's (the committed testbench's Xdut line is positional) -----------
     ref_name, ref_pins = reference_subckt()
-    if name != ref_name or pins != ref_pins:
-        raise pex_flow.PexFlowError(
-            f"extracted interface drifted from the committed schematic wrap:\n"
-            f"  got .SUBCKT {name} {' '.join(pins)}\n"
-            f"  want .SUBCKT {ref_name} {' '.join(ref_pins)}\n"
-            f"Re-derive comparator_pex_reference.spice/testbench.spice against it."
-        )
+    extract_json = pex_flow.extract_and_check_interface(
+        Path(gds_abs), work_dir, "comparator.pex-extract.spice", info,
+        ref_name, ref_pins,
+        drift_hint="Re-derive comparator_pex_reference.spice/testbench.spice against it.",
+        quiet=quiet,
+    )
 
     for src in ("comparator_pex_reference.spice", "testbench.spice"):
         shutil.copy(PEX_DIR / src, work_dir / src)
@@ -168,20 +153,15 @@ def run(work_dir: Path, backend: str, pilot: bool, record: bool, quiet: bool = F
     zero_pts, cal_pts = oat_points(pilot)
     results = {}
     for tag, pts in (("zero", zero_pts), ("cal", cal_pts)):
-        request = pex_flow.apply_capacity_wait(build_request(pts))
-        (work_dir / f"pex_request_{tag}.json").write_text(json.dumps(request, indent=2) + "\n")
-        (work_dir / ".klt").mkdir(exist_ok=True)
-        pex_json = pex_flow.run_klt(
-            pex_flow.klt_pex_argv(
-                gds_abs, f"pex_request_{tag}.json", info, work_dir,
-                extracted_name=f"pex-extracted-{tag}.spice", outdir_name=f"pex-{tag}",
-                backend=backend,
-            ),
-            cwd=work_dir,
+        pex_json = pex_flow.run_pex_step(
+            gds_abs, build_request(pts), work_dir, info,
             backend=backend,
+            request_name=f"pex_request_{tag}.json",
+            result_name=f"pex_{tag}.json",
+            extracted_name=f"pex-extracted-{tag}.spice",
+            outdir_name=f"pex-{tag}",
             quiet=quiet,
         )
-        (work_dir / f"pex_{tag}.json").write_text(json.dumps(pex_json, indent=2) + "\n")
         if pex_json.get("status") != "pass":
             print(f"klt pex ({tag}) did not pass: {json.dumps(pex_json)[:800]}", file=sys.stderr)
             return 1
@@ -193,7 +173,6 @@ def run(work_dir: Path, backend: str, pilot: bool, record: bool, quiet: bool = F
     if record:
         path = write_record(work_dir, latest_id, extract_json, results, analysis)
         print(f"wrote {path}")
-    shutil.rmtree(work_dir / ".klt", ignore_errors=True)
     return 0
 
 
@@ -255,11 +234,16 @@ def write_record(
     out = work_dir
     record_id = out.name
     net_caps = pex_flow.net_table(extract_json, {"OUTP", "OUTN", "VINP", "VINN"})
-    body_bias = results["zero"].get("body_bias", {})
-    model = results["zero"].get("extraction", {}).get("model", {})
-    prov = extract_json["provenance"]
-    vsubs_present = ".GLOBAL vsubs" in (out / "comparator.pex-extract.spice").read_text()
-    git = evidence.git_info()
+    vsubs_note = None
+    if ".GLOBAL vsubs" in (out / "comparator.pex-extract.spice").read_text():
+        vsubs_note = (
+            "the extracted netlist declares `.GLOBAL "
+            "vsubs` with no DC tie anywhere in the emitted netlist "
+            "(klayout-tools#7066); the extracted leg simulates a substrate node "
+            "whose voltage moves with switching activity. The comparator's OUTP/OUTN "
+            "pick-off at 6.3 ns reads mid-regeneration, so this artifact is part of "
+            "the extracted-side numbers below, disclosed alongside the parasitics."
+        )
 
     worst_offset = max(analysis.values(), key=lambda e: abs(e["parasitic_offset_mv"]))
     tt_key = ("tt", 27.0, 1.8)
@@ -283,35 +267,16 @@ def write_record(
         "stay exactly as minted (append-only)."
     )
     a("")
-    a("## Provenance")
-    a("")
-    a(f"- {pex_flow.klt_version_note(prov['klt_version'])}")
-    a(f"- KLayout engine: {prov['klayout_version']}")
-    a(f"- PDK: {prov['pdk']['name']} ({prov['pdk']['version']})")
-    a(f"- Extraction deck content hash: `{prov['deck']['content_hash']}`")
-    a(f"- repo commit: `{git.commit}` on `{git.branch}`" + (" (dirty)" if git.dirty else " (clean)"))
-    a(
-        f"- layout source: `layout/comparator/reports/{latest_id}/comparator.gds` "
-        "(this flow only reads `reports/LATEST`, never moves it)"
-    )
-    a(f"- `body_bias.status`: **{body_bias.get('status', 'n/a')}** "
-      f"({body_bias.get('unbiased_device_count', 0)} unbiased PMOS body nets) -- "
-      "checked before any number below is read; an anonymous body net would make "
-      "the extracted leg's resimulation physically wrong, not merely imprecise")
-    a(
-        "- `extraction.model` (klt pex's own scope note): capacitance = "
-        f"{model.get('capacitance', 'n/a')}"
-    )
-    if vsubs_present:
-        a(
-            "- **Floating substrate net**: the extracted netlist declares `.GLOBAL "
-            "vsubs` with no DC tie anywhere in the emitted netlist "
-            "(klayout-tools#7066); the extracted leg simulates a substrate node "
-            "whose voltage moves with switching activity. The comparator's OUTP/OUTN "
-            "pick-off at 6.3 ns reads mid-regeneration, so this artifact is part of "
-            "the extracted-side numbers below, disclosed alongside the parasitics."
+    lines.extend(
+        pex_flow.render_provenance_lines(
+            extract_json,
+            results["zero"],
+            block_name=BLOCK_DIR.name,
+            gds_name=GDS_NAME,
+            latest_id=latest_id,
+            vsubs_note=vsubs_note,
         )
-    a("")
+    )
     a("## AC1/AC2: parasitic-annotated extraction, OUTP/OUTN capacitance in farads")
     a("")
     a(
@@ -324,14 +289,7 @@ def write_record(
         "the wire-area record flagged are pulled out below."
     )
     a("")
-    a("| Net | R (ohm) | C to ground (fF) | C coupled, total (fF) | C total (fF) |")
-    a("|---|---|---|---|---|")
-    for net in ("OUTP", "OUTN", "VINP", "VINN"):
-        c = net_caps[net]
-        a(
-            f"| {net} | {c['r_ohm']:.2f} | {c['c_ground_ff']:.4f} | "
-            f"{c['c_coupled_total_ff']:.4f} | {c['c_total_ff']:.4f} |"
-        )
+    lines.extend(pex_flow.render_net_rc_table(net_caps, ("OUTP", "OUTN", "VINP", "VINN")))
     a("")
     outp_c, outn_c = net_caps["OUTP"]["c_total_ff"], net_caps["OUTN"]["c_total_ff"]
     vinp_c, vinn_c = net_caps["VINP"]["c_total_ff"], net_caps["VINN"]["c_total_ff"]
