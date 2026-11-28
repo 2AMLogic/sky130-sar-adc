@@ -1,10 +1,12 @@
 """Shared low-level geometry primitive for the layout sub-block
 `build_layout.py` scripts.
 
-Used by `layout/comparator/bin/build_layout.py`,
-`layout/sampling-frontend-wells/bin/build_layout.py`, and
+Used by all four full-custom sub-block scripts --
+`layout/comparator/bin/build_layout.py`,
+`layout/halflsb-offset/bin/build_layout.py`,
+`layout/sampling-frontend-wells/bin/build_layout.py` and
 `layout/sampling-frontend/bin/build_layout.py`, which import this module via
-a `sys.path` insert (see either script's own header) rather than a package
+a `sys.path` insert (see each script's own header) rather than a package
 install, matching this directory's existing `_record_common.py` /
 `_flow_common.sh` shared-module convention.
 
@@ -70,8 +72,33 @@ equivalence test that held the two copies honest meanwhile
 fold-in a no-op for drawn geometry; what remains there pins THIS emitter's
 own output, layer case by layer case, rather than two copies against each
 other.
+
+Since issue #1109 it also houses the `klt` request/report plumbing all four
+sub-block scripts hand-rolled a copy of: `load_block` (read one `klt gen`
+block report), `draw_request` (the `klt draw` document), `compose_request`
+(the `klt gen-compose` explicit-placement document), `summarize_pfet_domains`
+(the Row-1 n-well domain summary the two sampling-frontend flows report) and
+`write_build_artifacts` (`main()`'s three writes plus its one summary line).
+These draw nothing, but each flow's committed record carries the two request
+documents verbatim as its input to `klt draw` / `klt gen-compose`, so their
+key order is part of the contract exactly as the shape lists above are; what
+pins it is the same test module, which runs each script's `main()` against a
+copy of its committed `reports/LATEST` and requires the same bytes back.
+`layout/comparator/bin/build_layout.py`'s own `load_ports()` is not a fourth
+copy of `load_block` and stays local: it returns `(ports, bbox)` with
+four-field `(x, y, width, direction)` port tuples for that block's
+`pin_from_port()`, not the `{"ports", "bbox"}` dict the three
+report-placing flows read.
+`layout/sar-adc-top/bin/build_layout.py` is not a consumer of any of the
+five: it places prebuilt library cells (`gds_path`/`cell_name` entries, one
+per sub-block copied in from its own committed record) rather than
+`<block>.json` generator reports, and writes four artifacts under its own
+CLI flags.
 """
 from __future__ import annotations
+
+import json
+from pathlib import Path
 
 DBU = 1000  # nm per um
 
@@ -451,3 +478,146 @@ def _assert_column_pitch(columns: dict[float, str], minimum: float) -> None:
                 f"{columns[xb]!r} (x={xb:.3f}) are {xb - xa:.3f} um apart, "
                 f"below the {minimum:.2f} um wire+space pitch"
             )
+
+
+# --- `klt` request / report plumbing, shared by all four sub-blocks ---------
+def load_block(report_path: Path) -> dict:
+    """Read one `klt gen` block report.
+
+    Returns ``{"ports": {name: (x, y, width, direction, layer)}, "bbox"}``.
+    A port's ``width`` is its pad's extent *perpendicular to the direction it
+    faces* (height for an S/D port, width for a gate port) and ``layer`` is
+    the ``(layer, datatype)`` pair its pad is drawn on -- the two fields
+    :func:`step_down_to_met1` and the caller's jog both read, which is why
+    this is the five-field form: `layout/sampling-frontend-wells/bin/
+    build_layout.py` carried a three-field copy that dropped them and still
+    unpacked it positionally.
+    """
+    report = json.loads(report_path.read_text())
+    ports = {}
+    for port in report["ports"]:
+        layer = (port["layer"]["layer"], port["layer"]["datatype"])
+        ports[port["name"]] = (
+            port["x_um"],
+            port["y_um"],
+            port["width_um"],
+            port["direction_deg"],
+            layer,
+        )
+    return {"ports": ports, "bbox": report["bbox_um"]}
+
+
+def draw_request(
+    shapes: list[tuple[tuple[int, int], Rect]],
+    labels: list[tuple[tuple[int, int], str, float, float]],
+) -> dict:
+    """The ``klt draw`` request document for a flow's accumulated shapes and
+    pin labels.
+
+    Key order is part of the document: each flow's ``draw.request.json`` is an
+    append-only record compared as bytes, and ``json.dumps`` writes keys in
+    insertion order.
+    """
+    return {
+        "shapes": [
+            {"layer": list(layer), "rect_um": rect.as_um()} for layer, rect in shapes
+        ],
+        "labels": [
+            {"layer": list(layer), "text": text, "at_um": [x, y]}
+            for layer, text, x, y in labels
+        ],
+    }
+
+
+def compose_request(
+    origins: dict[str, dict[str, float]],
+    block_ids: list[str] | None = None,
+    *,
+    pdk_variant: str = "sky130A",
+) -> dict:
+    """The ``klt.gen_compose.request/1`` document: every generated block plus
+    the routing cell at ``{0.0, 0.0}``, at explicit origins.
+
+    ``block_ids`` is the placement sequence -- the ``blocks`` list and
+    ``placement.order`` -- and defaults to ``origins``' own key order. A flow
+    whose sequence comes from elsewhere passes it explicitly: ``comparator``
+    from ``BLOCK_X``, ``sampling-frontend-wells`` from its device table.
+
+    Deliberately no ``routing`` block: ``klt gen-compose`` is used purely as
+    a placer here (``connectivity`` is empty), because its own routing is
+    advisory and not DRC-clean -- every wire is in the ``route`` block, drawn
+    from :func:`draw_request`'s document. ``origins`` is not modified; the
+    routing cell is added to the request's own copy, so a flow can report the
+    same table as ``block_origins_um``.
+    """
+    order = list(origins) if block_ids is None else list(block_ids)
+    return {
+        "schema": "klt.gen_compose.request/1",
+        "pdk": {"variant": pdk_variant},
+        "blocks": [{"id": bid, "generator_report": f"{bid}.json"} for bid in order]
+        + [{"id": "route", "generator_report": "draw.json"}],
+        "placement": {
+            "strategy": "explicit",
+            "order": order + ["route"],
+            "origins_um": {**origins, "route": {"x": 0.0, "y": 0.0}},
+        },
+        "connectivity": [],
+    }
+
+
+def summarize_pfet_domains(
+    domains: list[dict], devices: list[tuple]
+) -> tuple[list[dict], list[float]]:
+    """The Row-1 summary both sampling-frontend flows write: each n-well
+    island of :func:`floorplan_pfet_well_islands`'s ``domains`` with its
+    rectangle, tap and schematic device names rounded to 3 decimals, plus the
+    drawn gap between each adjacent pair of islands.
+
+    ``devices`` is the device table the plan was given
+    (``_pfet_devices.PFET_DEVICES``); ``schematic_devices`` names a domain's
+    members by their schematic name (column 1) rather than their block id,
+    looked up by domain (column 2), so a domain the table does not know
+    summarises with none.
+    """
+    summary = [
+        {
+            "id": domain["id"],
+            "tap_net": domain["net"],
+            "members": domain["members"],
+            "schematic_devices": [row[1] for row in devices if row[2] == domain["id"]],
+            "well_um": {k: round(v, 3) for k, v in domain["well"].items()},
+            "tap_um": {k: round(v, 3) for k, v in domain["tap"].items()},
+        }
+        for domain in domains
+    ]
+    island_gaps_um = [
+        round(b["well"]["x0"] - a["well"]["x1"], 3)
+        for a, b in zip(domains, domains[1:])
+    ]
+    return summary, island_gaps_um
+
+
+def write_build_artifacts(
+    reports_dir: Path,
+    draw_params: dict,
+    compose_request: dict,
+    summary: dict,
+    summary_filename: str,
+) -> None:
+    """`main()`'s last step: write ``draw.request.json`` and
+    ``compose.request.json`` under their fixed names and the flow's own
+    summary under ``summary_filename``, each ``indent=2`` plus a trailing
+    newline, then print the one line every flow's ``main()`` reports first --
+    before whatever flow-specific lines it adds after.
+    """
+    (reports_dir / "draw.request.json").write_text(
+        json.dumps(draw_params, indent=2) + "\n"
+    )
+    (reports_dir / "compose.request.json").write_text(
+        json.dumps(compose_request, indent=2) + "\n"
+    )
+    (reports_dir / summary_filename).write_text(json.dumps(summary, indent=2) + "\n")
+    print(
+        f"build_layout.py: {len(draw_params['shapes'])} shapes, "
+        f"{len(draw_params['labels'])} labels, {len(compose_request['blocks'])} blocks"
+    )

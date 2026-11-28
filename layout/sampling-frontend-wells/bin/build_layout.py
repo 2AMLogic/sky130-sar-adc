@@ -111,7 +111,6 @@ li1 pad.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -122,8 +121,13 @@ from _geometry_common import BuildError  # noqa: E402
 from _geometry_common import Rect  # noqa: E402
 from _geometry_common import _assert_column_pitch as _assert_column_pitch_shared  # noqa: E402
 from _geometry_common import _assert_well_isolation as _assert_well_isolation_shared  # noqa: E402
+from _geometry_common import compose_request as _compose_request  # noqa: E402
+from _geometry_common import draw_request as _draw_request  # noqa: E402
 from _geometry_common import floorplan_pfet_well_islands  # noqa: E402
+from _geometry_common import load_block  # noqa: E402
+from _geometry_common import summarize_pfet_domains  # noqa: E402
 from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
+from _geometry_common import write_build_artifacts  # noqa: E402
 from gen_blocks import DEVICES, DOMAIN_TAP_NET, PIN_NETS  # noqa: E402
 
 # --- layer table (sky130A GDS numbers, as klt's own curated deck names them) --
@@ -212,18 +216,6 @@ TRACK_ORDER = (
 )
 
 
-def load_block(report_path: Path) -> dict:
-    """Read a `klt gen` report -> ``{"ports": {name: (x, y, extent)}, "bbox"}``."""
-    report = json.loads(report_path.read_text())
-    ports = {}
-    for port in report["ports"]:
-        # A `klt gen` port reports its pad centre plus the pad's extent
-        # *perpendicular to the direction it faces*: an S/D port (facing
-        # +/-x) reports its pad height, a gate port (facing +y) its width.
-        ports[port["name"]] = (port["x_um"], port["y_um"], port["width_um"])
-    return {"ports": ports, "bbox": report["bbox_um"]}
-
-
 def floorplan(blocks: dict[str, dict]) -> tuple[dict, list[dict]]:
     """Place every device block and size the three n-well islands.
 
@@ -306,9 +298,9 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
         block = blocks[block_id]
         ox = origins[block_id]["x"]
         bbox = block["bbox"]
-        sx, sy, _ = block["ports"]["U0_S"]
-        dx, dy, _ = block["ports"]["U0_D"]
-        gx, gy, _ = block["ports"]["U0_G"]
+        sx, sy, *_ = block["ports"]["U0_S"]
+        dx, dy, *_ = block["ports"]["U0_D"]
+        gx, gy, *_ = block["ports"]["U0_G"]
 
         left_col = ox + bbox["x0"] - CHANNEL_LEFT_UM
         right_col = ox + bbox["x1"] + CHANNEL_RIGHT_UM
@@ -362,49 +354,16 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
             "pin_count": len(xs),
         }
 
-    draw_params = {
-        "shapes": [{"layer": list(layer), "rect_um": rect.as_um()} for layer, rect in shapes],
-        "labels": [
-            {"layer": list(layer), "text": text, "at_um": [x, y]}
-            for layer, text, x, y in labels
-        ],
-    }
+    draw_params = _draw_request(shapes, labels)
 
-    order = [row[0] for row in DEVICES] + ["route"]
-    compose_request = {
-        "schema": "klt.gen_compose.request/1",
-        "pdk": {"variant": "sky130A"},
-        "blocks": [{"id": row[0], "generator_report": f"{row[0]}.json"} for row in DEVICES]
-        + [{"id": "route", "generator_report": "draw.json"}],
-        "placement": {
-            "strategy": "explicit",
-            "order": order,
-            "origins_um": {**origins, "route": {"x": 0.0, "y": 0.0}},
-        },
-        # Deliberately no `routing` block: `klt gen-compose` is a placer here.
-        "connectivity": [],
-    }
+    compose_request = _compose_request(origins, [row[0] for row in DEVICES])
 
+    domains_summary, island_gaps_um = summarize_pfet_domains(domains, DEVICES)
     well_summary = {
         "well_gap_drawn_um": WELL_GAP_UM,
         "nwell_2a_rule_um": 1.27,
-        "domains": [
-            {
-                "id": domain["id"],
-                "tap_net": domain["net"],
-                "members": domain["members"],
-                "schematic_devices": [
-                    row[1] for row in DEVICES if row[2] == domain["id"]
-                ],
-                "well_um": {k: round(v, 3) for k, v in domain["well"].items()},
-                "tap_um": {k: round(v, 3) for k, v in domain["tap"].items()},
-            }
-            for domain in domains
-        ],
-        "island_gaps_um": [
-            round(b["well"]["x0"] - a["well"]["x1"], 3)
-            for a, b in zip(domains, domains[1:])
-        ],
+        "domains": domains_summary,
+        "island_gaps_um": island_gaps_um,
         "block_origins_um": origins,
         "nets": summary_nets,
     }
@@ -419,16 +378,12 @@ def main() -> int:
     args = parser.parse_args()
 
     draw_params, compose_request, well_summary = build(args.reports_dir)
-    (args.reports_dir / "draw.request.json").write_text(json.dumps(draw_params, indent=2) + "\n")
-    (args.reports_dir / "compose.request.json").write_text(
-        json.dumps(compose_request, indent=2) + "\n"
-    )
-    (args.reports_dir / "wells.summary.json").write_text(
-        json.dumps(well_summary, indent=2) + "\n"
-    )
-    print(
-        f"build_layout.py: {len(draw_params['shapes'])} shapes, "
-        f"{len(draw_params['labels'])} labels, {len(compose_request['blocks'])} blocks"
+    write_build_artifacts(
+        args.reports_dir,
+        draw_params,
+        compose_request,
+        well_summary,
+        "wells.summary.json",
     )
     for domain in well_summary["domains"]:
         well = domain["well_um"]

@@ -85,7 +85,6 @@ every block, so this module owns both outright.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -107,8 +106,12 @@ from _geometry_common import (  # noqa: E402
 )
 from _geometry_common import _assert_column_pitch as _assert_column_pitch_shared  # noqa: E402
 from _geometry_common import _assert_well_isolation as _assert_well_isolation_shared  # noqa: E402
+from _geometry_common import compose_request as _compose_request  # noqa: E402
+from _geometry_common import draw_request as _draw_request  # noqa: E402
+from _geometry_common import load_block  # noqa: E402
 from _geometry_common import step_down_to_met1  # noqa: E402
 from _geometry_common import tap_shapes as _tap_shapes_core  # noqa: E402
+from _geometry_common import write_build_artifacts  # noqa: E402
 from gen_blocks import (  # noqa: E402
     CAP_BLOCK_ID,
     CAP_LEGS,
@@ -268,23 +271,6 @@ def snap_up(value_um: float, grid_um: float = GRID_UM) -> float:
     """
     grid_nm = nm(grid_um)
     return -(-nm(value_um) // grid_nm) * grid_nm / 1000.0
-
-
-def load_block(report_path: Path) -> dict:
-    """Read a `klt gen` report -> ``{"ports": {name: (x, y, width, dir, layer)},
-    "bbox"}``."""
-    report = json.loads(report_path.read_text())
-    ports = {}
-    for port in report["ports"]:
-        layer = (port["layer"]["layer"], port["layer"]["datatype"])
-        ports[port["name"]] = (
-            port["x_um"],
-            port["y_um"],
-            port["width_um"],
-            port["direction_deg"],
-            layer,
-        )
-    return {"ports": ports, "bbox": report["bbox_um"]}
 
 
 def tap_shapes(spec: dict) -> tuple[list[tuple[tuple[int, int], Rect]], float, float]:
@@ -670,12 +656,7 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
             "pin_count": len(xs),
         }
 
-    draw_params = {
-        "shapes": [{"layer": list(layer), "rect_um": rect.as_um()} for layer, rect in shapes],
-        "labels": [
-            {"layer": list(layer), "text": text, "at_um": [x, y]} for layer, text, x, y in labels
-        ],
-    }
+    draw_params = _draw_request(shapes, labels)
 
     origins = {
         bid: origin
@@ -683,19 +664,7 @@ def build(reports_dir: Path) -> tuple[dict, dict, dict]:
         for bid, origin in plan["sides"][side]["block_origins_um"].items()
     }
     origins[CAP_BLOCK_ID] = plan["cap_origin_um"]
-    order = list(origins) + ["route"]
-    compose_request = {
-        "schema": "klt.gen_compose.request/1",
-        "pdk": {"variant": "sky130A"},
-        "blocks": [{"id": bid, "generator_report": f"{bid}.json"} for bid in origins]
-        + [{"id": "route", "generator_report": "draw.json"}],
-        "placement": {
-            "strategy": "explicit",
-            "order": order,
-            "origins_um": {**origins, "route": {"x": 0.0, "y": 0.0}},
-        },
-        "connectivity": [],
-    }
+    compose_request = _compose_request(origins)
 
     riser_delta = abs(met1_riser_um[SIDES[0]] - met1_riser_um[SIDES[1]])
     layout_summary = {
@@ -741,18 +710,12 @@ def main() -> int:
     args = parser.parse_args()
 
     draw_params, compose_request, layout_summary = build(args.reports_dir)
-    (args.reports_dir / "draw.request.json").write_text(
-        json.dumps(draw_params, indent=2) + "\n"
-    )
-    (args.reports_dir / "compose.request.json").write_text(
-        json.dumps(compose_request, indent=2) + "\n"
-    )
-    (args.reports_dir / "layout.summary.json").write_text(
-        json.dumps(layout_summary, indent=2) + "\n"
-    )
-    print(
-        f"build_layout.py: {len(draw_params['shapes'])} shapes, "
-        f"{len(draw_params['labels'])} labels, {len(compose_request['blocks'])} blocks"
+    write_build_artifacts(
+        args.reports_dir,
+        draw_params,
+        compose_request,
+        layout_summary,
+        "layout.summary.json",
     )
     congruence = layout_summary["side_congruence"]
     print(
